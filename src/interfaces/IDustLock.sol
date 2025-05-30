@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.27;
 
 interface IDustLock {
@@ -61,6 +60,19 @@ interface IDustLock {
 
     /// @notice Global point history at a given index
     function pointHistory(uint256 _loc) external view returns (GlobalPoint memory);
+
+    /// @notice Get the voting power for _tokenId at the current timestamp
+    // TODO: this is removed
+    /// @dev Returns 0 if called in the same block as a transfer.
+    /// @param _tokenId .
+    /// @return Voting power
+    function balanceOfNFT(uint256 _tokenId) external view returns (uint256);
+
+    /// @notice Get the voting power for _tokenId at a given timestamp
+    /// @param _tokenId .
+    /// @param _t Timestamp to query voting power
+    /// @return Voting power
+    function balanceOfNFTAt(uint256 _tokenId, uint256 _t) external view returns (uint256);
 
     /* ========== EXTERNAL MUTATIVE FUNCTIONS ========== */
 

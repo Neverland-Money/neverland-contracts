@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {BalanceLogicLibrary} from "./BalanceLogicLibrary.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
+import {SafeCastLibrary} from "../_utils/SafeCastLibrary.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract DustLock is IDustLock, ERC721, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -72,6 +73,28 @@ contract DustLock is IDustLock, ERC721, Ownable, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function pointHistory(uint256 _loc) external view returns (GlobalPoint memory) {
         return _pointHistory[_loc];
+    }
+
+    /// @inheritdoc IDustLock
+    function balanceOfNFT(uint256 _tokenId) public view returns (uint256) {
+        // TODO: this is removed
+        // if (ownershipChange[_tokenId] == block.number) return 0;
+        return _balanceOfNFTAt(_tokenId, block.timestamp);
+    }
+
+    /// @inheritdoc IDustLock
+    function balanceOfNFTAt(uint256 _tokenId, uint256 _t) external view returns (uint256) {
+        return _balanceOfNFTAt(_tokenId, _t);
+    }
+
+    /* ========== INTERNAL VIEW FUNCTIONS ========== */
+
+    /// @notice Get the voting power for _tokenId at a given timestamp
+    /// @param _tokenId .
+    /// @param _t Timestamp to query voting power
+    /// @return Voting power
+    function _balanceOfNFTAt(uint256 _tokenId, uint256 _t) internal view returns (uint256) {
+        return BalanceLogicLibrary.balanceOfNFTAt(userPointEpoch, _userPointHistory, _tokenId, _t);
     }
 
     /* ========== EXTERNAL MUTATIVE FUNCTIONS ========== */
