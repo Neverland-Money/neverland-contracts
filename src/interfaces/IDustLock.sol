@@ -86,6 +86,11 @@ interface IDustLock {
     /// @param _value Amount of tokens to deposit and add to the lock
     function increaseAmount(uint256 _tokenId, uint256 _value) external;
 
+    /// @notice Extend the unlock time for `_tokenId`
+    ///         Cannot extend lock time of permanent locks
+    /// @param _lockDuration New number of seconds until tokens unlock
+    function increaseUnlockTime(uint256 _tokenId, uint256 _lockDuration) external;
+
     /* ========== ERRORS ========== */
 
     error ZeroAmount();
@@ -93,6 +98,7 @@ interface IDustLock {
     error LockDurationTooLong();
     error NoLockFound();
     error LockExpired();
+    error PermanentLock();
 
     /* ========== EVENTS ========== */
 

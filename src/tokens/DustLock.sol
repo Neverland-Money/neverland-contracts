@@ -109,6 +109,22 @@ contract DustLock is IDustLock, ERC721, Ownable, ReentrancyGuard {
         _increaseAmountFor(_tokenId, _value, DepositType.INCREASE_LOCK_AMOUNT);
     }
 
+    /// @inheritdoc IDustLock
+    function increaseUnlockTime(uint256 _tokenId, uint256 _lockDuration) external isTokenOwner(_tokenId) nonReentrant {
+        LockedBalance memory oldLocked = _locked[_tokenId];
+        if (oldLocked.isPermanent) revert PermanentLock();
+        uint256 unlockTime = ((block.timestamp + _lockDuration) / WEEK) * WEEK; // Locktime is rounded down to weeks
+
+        if (oldLocked.end <= block.timestamp) revert LockExpired();
+        if (oldLocked.amount <= 0) revert NoLockFound();
+        if (unlockTime <= oldLocked.end) revert LockDurationNotInFuture();
+        if (unlockTime > block.timestamp + MAXTIME) revert LockDurationTooLong();
+
+        _depositFor(_tokenId, 0, unlockTime, oldLocked, DepositType.INCREASE_UNLOCK_TIME);
+
+        emit MetadataUpdate(_tokenId);
+    }
+
     /* ========== INTERNAL MUTATIVE FUNCTIONS ========== */
 
     /// @dev Deposit `_value` tokens for `_to` and lock for `_lockDuration`
