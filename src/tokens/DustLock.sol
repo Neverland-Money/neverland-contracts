@@ -153,6 +153,26 @@ contract DustLock is IDustLock, ERC721, Ownable, ReentrancyGuard {
         emit Supply(supplyBefore, supplyBefore - value);
     }
 
+    /// @inheritdoc IDustLock
+    function lockPermanent(uint256 _tokenId) isTokenOwner(_tokenId) external {
+        address sender = _msgSender();
+
+        LockedBalance memory _newLocked = _locked[_tokenId];
+        if (_newLocked.isPermanent) revert PermanentLock();
+        if (_newLocked.end <= block.timestamp) revert LockExpired();
+        if (_newLocked.amount <= 0) revert NoLockFound();
+
+        uint256 _amount = _newLocked.amount.toUint256();
+        permanentLockBalance += _amount;
+        _newLocked.end = 0;
+        _newLocked.isPermanent = true;
+        _checkpoint(_tokenId, _locked[_tokenId], _newLocked);
+        _locked[_tokenId] = _newLocked;
+
+        emit LockPermanent(sender, _tokenId, _amount, block.timestamp);
+        emit MetadataUpdate(_tokenId);
+    }
+
     /* ========== INTERNAL MUTATIVE FUNCTIONS ========== */
 
     /// @dev Deposit `_value` tokens for `_to` and lock for `_lockDuration`

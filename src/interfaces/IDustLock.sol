@@ -97,6 +97,12 @@ interface IDustLock {
     ///      will no longer be claimable. Claim all rebases and rewards prior to calling this.
     function withdraw(uint256 _tokenId) external;
 
+    /// @notice Permanently lock a veNFT. Voting power will be equal to
+    ///         `LockedBalance.amount` with no decay. Required to delegate.
+    /// @dev Only callable by unlocked normal veNFTs.
+    /// @param _tokenId tokenId to lock.
+    function lockPermanent(uint256 _tokenId) external;
+
     /* ========== ERRORS ========== */
 
     error ZeroAmount();
@@ -121,4 +127,5 @@ interface IDustLock {
     event NotTokenOwner(uint256 indexed tokenId, address user);
     event MetadataUpdate(uint256 _tokenId);
     event Withdraw(address indexed provider, uint256 indexed tokenId, uint256 value, uint256 ts);
+    event LockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
 }
