@@ -6,7 +6,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract DustLockTest is BaseTest {
 
-  function testSupportInterfaces() public {
+  function testSupportInterfaces() public view {
     assertTrue(dustLock.supportsInterface(type(IERC721).interfaceId));
   }
 
