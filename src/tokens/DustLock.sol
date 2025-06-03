@@ -104,6 +104,11 @@ contract DustLock is IDustLock, ERC721, Ownable, ReentrancyGuard {
         return _createLock(_value, _lockDuration, _msgSender());
     }
 
+    /// @inheritdoc IDustLock
+    function increaseAmount(uint256 _tokenId, uint256 _value) external isTokenOwner(_tokenId) nonReentrant {
+        _increaseAmountFor(_tokenId, _value, DepositType.INCREASE_LOCK_AMOUNT);
+    }
+
     /* ========== INTERNAL MUTATIVE FUNCTIONS ========== */
 
     /// @dev Deposit `_value` tokens for `_to` and lock for `_lockDuration`
@@ -336,5 +341,27 @@ contract DustLock is IDustLock, ERC721, Ownable, ReentrancyGuard {
                 _userPointHistory[_tokenId][userEpoch] = uNew;
             }
         }
+    }
+
+    function _increaseAmountFor(uint256 _tokenId, uint256 _value, DepositType _depositType) internal {
+        LockedBalance memory oldLocked = _locked[_tokenId];
+
+        if (_value == 0) revert ZeroAmount();
+        if (oldLocked.amount <= 0) revert NoLockFound();
+        if (oldLocked.end <= block.timestamp && !oldLocked.isPermanent) revert LockExpired();
+
+        if (oldLocked.isPermanent) permanentLockBalance += _value;
+        _depositFor(_tokenId, _value, 0, oldLocked, _depositType);
+
+        emit MetadataUpdate(_tokenId);
+    }
+
+    /* ========== MODIFIERS ========== */
+
+    modifier isTokenOwner(uint256 tokenId) {
+        if (_ownerOf(tokenId) != _msgSender()) {
+            revert NotTokenOwner(tokenId, _msgSender());
+        }
+        _;
     }
 }

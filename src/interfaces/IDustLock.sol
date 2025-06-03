@@ -82,11 +82,17 @@ interface IDustLock {
     /// @return TokenId of created veNFT
     function createLock(uint256 _value, uint256 _lockDuration) external returns (uint256);
 
+    /// @notice Deposit `_value` additional tokens for `_tokenId` without modifying the unlock time
+    /// @param _value Amount of tokens to deposit and add to the lock
+    function increaseAmount(uint256 _tokenId, uint256 _value) external;
+
     /* ========== ERRORS ========== */
 
     error ZeroAmount();
     error LockDurationNotInFuture();
     error LockDurationTooLong();
+    error NoLockFound();
+    error LockExpired();
 
     /* ========== EVENTS ========== */
 
@@ -99,4 +105,6 @@ interface IDustLock {
         uint256 ts
     );
     event Supply(uint256 prevSupply, uint256 supply);
+    event NotTokenOwner(uint256 indexed tokenId, address user);
+    event MetadataUpdate(uint256 _tokenId);
 }
