@@ -125,6 +125,34 @@ contract DustLock is IDustLock, ERC721, Ownable, ReentrancyGuard {
         emit MetadataUpdate(_tokenId);
     }
 
+    /// @inheritdoc IDustLock
+    function withdraw(uint256 _tokenId) external isTokenOwner(_tokenId) nonReentrant {
+        address sender = _msgSender();
+        // TODO: evaluate
+        //if (voted[_tokenId]) revert AlreadyVoted();
+
+        LockedBalance memory oldLocked = _locked[_tokenId];
+        if (oldLocked.isPermanent) revert PermanentLock();
+        if (block.timestamp < oldLocked.end) revert LockNotExpired();
+        uint256 value = oldLocked.amount.toUint256();
+
+        // Burn the NFT
+        _burn(_tokenId);
+        _locked[_tokenId] = LockedBalance(0, 0, false);
+        uint256 supplyBefore = supply;
+        supply = supplyBefore - value;
+
+        // oldLocked can have either expired <= timestamp or zero end
+        // oldLocked has only 0 end
+        // Both can have >= 0 amount
+        _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, false));
+
+        IERC20(token).safeTransfer(sender, value);
+
+        emit Withdraw(sender, _tokenId, value, block.timestamp);
+        emit Supply(supplyBefore, supplyBefore - value);
+    }
+
     /* ========== INTERNAL MUTATIVE FUNCTIONS ========== */
 
     /// @dev Deposit `_value` tokens for `_to` and lock for `_lockDuration`

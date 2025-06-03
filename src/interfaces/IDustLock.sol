@@ -91,6 +91,12 @@ interface IDustLock {
     /// @param _lockDuration New number of seconds until tokens unlock
     function increaseUnlockTime(uint256 _tokenId, uint256 _lockDuration) external;
 
+    /// @notice Withdraw all tokens for `_tokenId`
+    /// @dev Only possible if the lock is both expired and not permanent
+    ///      This will burn the veNFT. Any rebases or rewards that are unclaimed
+    ///      will no longer be claimable. Claim all rebases and rewards prior to calling this.
+    function withdraw(uint256 _tokenId) external;
+
     /* ========== ERRORS ========== */
 
     error ZeroAmount();
@@ -99,6 +105,7 @@ interface IDustLock {
     error NoLockFound();
     error LockExpired();
     error PermanentLock();
+    error LockNotExpired();
 
     /* ========== EVENTS ========== */
 
@@ -113,4 +120,5 @@ interface IDustLock {
     event Supply(uint256 prevSupply, uint256 supply);
     event NotTokenOwner(uint256 indexed tokenId, address user);
     event MetadataUpdate(uint256 _tokenId);
+    event Withdraw(address indexed provider, uint256 indexed tokenId, uint256 value, uint256 ts);
 }
