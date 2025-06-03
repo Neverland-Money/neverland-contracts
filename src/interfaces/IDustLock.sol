@@ -112,6 +112,7 @@ interface IDustLock {
     error LockExpired();
     error PermanentLock();
     error LockNotExpired();
+    error NotTokenOwner(uint256 tokenId, address user);
 
     /* ========== EVENTS ========== */
 
@@ -124,7 +125,6 @@ interface IDustLock {
         uint256 ts
     );
     event Supply(uint256 prevSupply, uint256 supply);
-    event NotTokenOwner(uint256 indexed tokenId, address user);
     event MetadataUpdate(uint256 _tokenId);
     event Withdraw(address indexed provider, uint256 indexed tokenId, uint256 value, uint256 ts);
     event LockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
