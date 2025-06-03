@@ -103,6 +103,13 @@ interface IDustLock {
     /// @param _tokenId tokenId to lock.
     function lockPermanent(uint256 _tokenId) external;
 
+    /// @notice Unlock a permanently locked veNFT. Voting power will decay.
+    ///         Will automatically dedelegate if delegated.
+    /// @dev Only callable by permanently locked veNFTs.
+    ///      Cannot unlock if already voted this epoch.
+    /// @param _tokenId tokenId to unlock.
+    function unlockPermanent(uint256 _tokenId) external;
+
     /* ========== ERRORS ========== */
 
     error ZeroAmount();
@@ -113,6 +120,7 @@ interface IDustLock {
     error PermanentLock();
     error LockNotExpired();
     error NotTokenOwner(uint256 tokenId, address user);
+    error NotPermanentLock();
 
     /* ========== EVENTS ========== */
 
@@ -128,4 +136,5 @@ interface IDustLock {
     event MetadataUpdate(uint256 _tokenId);
     event Withdraw(address indexed provider, uint256 indexed tokenId, uint256 value, uint256 ts);
     event LockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
+    event UnlockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
 }
