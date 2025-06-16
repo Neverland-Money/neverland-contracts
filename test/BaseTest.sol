@@ -22,6 +22,7 @@ abstract contract BaseTest is Script, Test {
     uint256 constant TOKEN_10B = 1e28; // 1e10 = 10B tokens with 18 decimals
 
     address internal admin = address(0xad1);
+    address internal user = address(this);
     address internal user1 = address(0x1);
     address internal user2 = address(0x2);
     address internal user3 = address(0x3);
@@ -30,6 +31,7 @@ abstract contract BaseTest is Script, Test {
     address[] users;
 
     uint256 constant MAXTIME = 4 * 365 * 86400;
+    uint256 constant WEEK = 1 weeks;
 
     function setUp() public {
         _testSetup();
