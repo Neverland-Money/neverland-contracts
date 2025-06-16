@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.19;
 
 import {Dust} from "../src/tokens/Dust.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Script} from "forge-std/Script.sol";
 import {Test} from "forge-std/Test.sol";
 import {DustLock} from "../src/tokens/DustLock.sol";
+import {IDustLock} from "../src/interfaces/IDustLock.sol";
 import "forge-std/console2.sol";
 
 abstract contract BaseTest is Script, Test {
@@ -27,6 +28,8 @@ abstract contract BaseTest is Script, Test {
     address internal user4 = address(0x4);
     address internal user5 = address(0x5);
     address[] users;
+
+    uint256 constant MAXTIME = 4 * 365 * 86400;
 
     function setUp() public {
         _testSetup();
@@ -63,7 +66,8 @@ abstract contract BaseTest is Script, Test {
         mintErc20Token18Dec(address(DUST), users, amounts);
 
         // deploy DustLock
-        dustLock = new DustLock(admin, address(DUST));
+        // TODO: added mock factory registry to build
+        dustLock = new DustLock(admin, address(DUST), address(0));
 
         // add log labels
         vm.label(address(admin), "admin");
