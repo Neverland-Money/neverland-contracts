@@ -17,12 +17,11 @@ import {DelegationLogicLibrary} from "../libraries/DelegationLogicLibrary.sol";
 import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 
-/// @title Voting Escrow V2
+/// @title DustLock
 /// @notice veNFT implementation that escrows ERC-20 tokens in the form of an ERC-721 NFT
 /// @notice Votes have a weight depending on time, so that users are committed to the future of (whatever they are voting for)
-/// @author Modified from Solidly (https://github.com/solidlyexchange/solidly/blob/master/contracts/ve.sol)
-/// @author Modified from Curve (https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/VotingEscrow.vy)
-/// @author velodrome.finance, @figs999, @pegahcarter
+/// @author Modified from Velodrome (https://github.com/velodrome-finance/contracts/blob/main/contracts/VotingEscrow.sol)
+/// @author neverland.money
 /// @dev Vote weight decays linearly over time. Lock time cannot be more than `MAXTIME` (4 years).
 contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
