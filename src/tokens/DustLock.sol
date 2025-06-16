@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IVeArtProxy} from "../interfaces/IVeArtProxy.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IVoter} from "../interfaces/IVoter.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -44,8 +43,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     address public team;
     /// @inheritdoc IDustLock
-    address public artProxy;
-    /// @inheritdoc IDustLock
     address public allowedManager;
 
     mapping(uint256 => GlobalPoint) internal _pointHistory; // epoch -> unsigned global point
@@ -58,9 +55,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     /// @dev ERC165 interface ID of ERC721
     bytes4 internal constant ERC721_INTERFACE_ID = 0x80ac58cd;
-
-    /// @dev ERC165 interface ID of ERC721Metadata
-    bytes4 internal constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
 
     /// @dev ERC165 interface ID of ERC4906
     bytes4 internal constant ERC4906_INTERFACE_ID = 0x49064906;
@@ -86,7 +80,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         supportedInterfaces[ERC165_INTERFACE_ID] = true;
         supportedInterfaces[ERC721_INTERFACE_ID] = true;
-        supportedInterfaces[ERC721_METADATA_INTERFACE_ID] = true;
         supportedInterfaces[ERC4906_INTERFACE_ID] = true;
         supportedInterfaces[ERC6372_INTERFACE_ID] = true;
 
@@ -255,18 +248,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (_msgSender() != team) revert NotTeam();
         if (_team == address(0)) revert ZeroAddress();
         team = _team;
-    }
-
-    function setArtProxy(address _proxy) external {
-        if (_msgSender() != team) revert NotTeam();
-        artProxy = _proxy;
-        emit BatchMetadataUpdate(0, type(uint256).max);
-    }
-
-    /// @inheritdoc IDustLock
-    function tokenURI(uint256 _tokenId) external view returns (string memory) {
-        if (_ownerOf(_tokenId) == address(0)) revert NonExistentToken();
-        return IVeArtProxy(artProxy).tokenURI(_tokenId);
     }
 
     /*//////////////////////////////////////////////////////////////

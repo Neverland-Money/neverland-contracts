@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IERC165, IERC721, IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {IVotes} from "./IVotes.sol";
 
-interface IDustLock is IVotes, IERC4906, IERC6372, IERC721Metadata {
+interface IDustLock is IVotes, IERC4906, IERC6372 {
     struct LockedBalance {
         int128 amount;
         uint256 end;
@@ -168,9 +168,6 @@ interface IDustLock is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @notice Address of Velodrome Team multisig
     function team() external view returns (address);
 
-    /// @notice Address of art proxy used for on-chain art generation
-    function artProxy() external view returns (address);
-
     /// @dev address which can create managed NFTs
     function allowedManager() external view returns (address);
 
@@ -254,11 +251,6 @@ interface IDustLock is IVotes, IERC4906, IERC6372, IERC721Metadata {
     function decimals() external view returns (uint8);
 
     function setTeam(address _team) external;
-
-    function setArtProxy(address _proxy) external;
-
-    /// @inheritdoc IERC721Metadata
-    function tokenURI(uint256 tokenId) external view returns (string memory);
 
     /*//////////////////////////////////////////////////////////////
                       ERC721 BALANCE/OWNER STORAGE
