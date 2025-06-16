@@ -47,12 +47,13 @@ abstract contract BaseTest is Script, Test {
         amounts[3] = TOKEN_10M;
         amounts[4] = TOKEN_10M;
 
-        users = new address[](5);
-        users[0] = address(admin);
-        users[1] = address(user1);
-        users[2] = address(user2);
-        users[3] = address(user3);
-        users[4] = address(user4);
+        users = new address[](6);
+        users[0] = payable(address(this));
+        users[1] = address(admin);
+        users[2] = address(user1);
+        users[3] = address(user2);
+        users[4] = address(user3);
+        users[5] = address(user4);
 
         // deploy DUST
         Dust dustImpl = new Dust();
