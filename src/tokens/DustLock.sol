@@ -8,8 +8,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IReward} from "../interfaces/IReward.sol";
-import {IFactoryRegistry} from "../interfaces/factories/IFactoryRegistry.sol";
-import {IManagedRewardsFactory} from "../interfaces/factories/IManagedRewardsFactory.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {DelegationLogicLibrary} from "../libraries/DelegationLogicLibrary.sol";
@@ -33,8 +31,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     address public immutable forwarder;
     /// @inheritdoc IDustLock
-    address public immutable factoryRegistry;
-    /// @inheritdoc IDustLock
     address public immutable token;
     /// @inheritdoc IDustLock
     address public distributor;
@@ -42,8 +38,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     address public voter;
     /// @inheritdoc IDustLock
     address public team;
-    /// @inheritdoc IDustLock
-    address public allowedManager;
 
     mapping(uint256 => GlobalPoint) internal _pointHistory; // epoch -> unsigned global point
 
@@ -67,11 +61,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     /// @param _forwarder address of trusted forwarder
     /// @param _token `VELO` token address
-    /// @param _factoryRegistry Factory Registry address
-    constructor(address _forwarder, address _token, address _factoryRegistry) ERC2771Context(_forwarder) {
+    constructor(address _forwarder, address _token) ERC2771Context(_forwarder) {
         forwarder = _forwarder;
         token = _token;
-        factoryRegistry = _factoryRegistry;
         team = _msgSender();
         voter = _msgSender();
 
@@ -87,152 +79,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         emit Transfer(address(0), address(this), tokenId);
         // burn-ish
         emit Transfer(address(this), address(0), tokenId);
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                            MANAGED NFT STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IDustLock
-    mapping(uint256 => EscrowType) public escrowType;
-
-    /// @inheritdoc IDustLock
-    mapping(uint256 => uint256) public idToManaged;
-    /// @inheritdoc IDustLock
-    mapping(uint256 => mapping(uint256 => uint256)) public weights;
-    /// @inheritdoc IDustLock
-    mapping(uint256 => bool) public deactivated;
-
-    /// @inheritdoc IDustLock
-    mapping(uint256 => address) public managedToLocked;
-    /// @inheritdoc IDustLock
-    mapping(uint256 => address) public managedToFree;
-
-    /*///////////////////////////////////////////////////////////////
-                            MANAGED NFT LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IDustLock
-    function createManagedLockFor(address _to) external nonReentrant returns (uint256 _mTokenId) {
-        address sender = _msgSender();
-        if (sender != allowedManager && sender != IVoter(voter).governor()) revert NotGovernorOrManager();
-
-        _mTokenId = ++tokenId;
-        _mint(_to, _mTokenId);
-        _depositFor(_mTokenId, 0, 0, LockedBalance(0, 0, true), DepositType.CREATE_LOCK_TYPE);
-
-        escrowType[_mTokenId] = EscrowType.MANAGED;
-
-        (address _lockedManagedReward, address _freeManagedReward) = IManagedRewardsFactory(
-            IFactoryRegistry(factoryRegistry).managedRewardsFactory()
-        ).createRewards(forwarder, voter);
-        managedToLocked[_mTokenId] = _lockedManagedReward;
-        managedToFree[_mTokenId] = _freeManagedReward;
-
-        emit CreateManaged(_to, _mTokenId, sender, _lockedManagedReward, _freeManagedReward);
-    }
-
-    /// @inheritdoc IDustLock
-    function depositManaged(uint256 _tokenId, uint256 _mTokenId) external nonReentrant {
-        if (_msgSender() != voter) revert NotVoter();
-        if (escrowType[_mTokenId] != EscrowType.MANAGED) revert NotManagedNFT();
-        if (escrowType[_tokenId] != EscrowType.NORMAL) revert NotNormalNFT();
-        if (_balanceOfNFTAt(_tokenId, block.timestamp) == 0) revert ZeroBalance();
-
-        // adjust user nft
-        int128 _amount = _locked[_tokenId].amount;
-        if (_locked[_tokenId].isPermanent) {
-            permanentLockBalance -= _amount.toUint256();
-            _delegate(_tokenId, 0);
-        }
-        _checkpoint(_tokenId, _locked[_tokenId], LockedBalance(0, 0, false));
-        _locked[_tokenId] = LockedBalance(0, 0, false);
-
-        // adjust managed nft
-        uint256 _weight = _amount.toUint256();
-        permanentLockBalance += _weight;
-        LockedBalance memory newLocked = _locked[_mTokenId];
-        newLocked.amount += _amount;
-        _checkpointDelegatee(_delegates[_mTokenId], _weight, true);
-        _checkpoint(_mTokenId, _locked[_mTokenId], newLocked);
-        _locked[_mTokenId] = newLocked;
-
-        weights[_tokenId][_mTokenId] = _weight;
-        idToManaged[_tokenId] = _mTokenId;
-        escrowType[_tokenId] = EscrowType.LOCKED;
-
-        address _lockedManagedReward = managedToLocked[_mTokenId];
-        IReward(_lockedManagedReward)._deposit(_weight, _tokenId);
-        address _freeManagedReward = managedToFree[_mTokenId];
-        IReward(_freeManagedReward)._deposit(_weight, _tokenId);
-
-        emit DepositManaged(_ownerOf(_tokenId), _tokenId, _mTokenId, _weight, block.timestamp);
-        emit MetadataUpdate(_tokenId);
-    }
-
-    /// @inheritdoc IDustLock
-    function withdrawManaged(uint256 _tokenId) external nonReentrant {
-        uint256 _mTokenId = idToManaged[_tokenId];
-        if (_msgSender() != voter) revert NotVoter();
-        if (_mTokenId == 0) revert InvalidManagedNFTId();
-        if (escrowType[_tokenId] != EscrowType.LOCKED) revert NotLockedNFT();
-
-        // update accrued rewards
-        address _lockedManagedReward = managedToLocked[_mTokenId];
-        address _freeManagedReward = managedToFree[_mTokenId];
-        uint256 _weight = weights[_tokenId][_mTokenId];
-        uint256 _reward = IReward(_lockedManagedReward).earned(address(token), _tokenId);
-        uint256 _total = _weight + _reward;
-        uint256 _unlockTime = ((block.timestamp + MAXTIME) / WEEK) * WEEK;
-
-        // claim locked rewards (rebases + compounded reward)
-        address[] memory rewards = new address[](1);
-        rewards[0] = address(token);
-        IReward(_lockedManagedReward).getReward(_tokenId, rewards);
-
-        // adjust user nft
-        LockedBalance memory newLockedNormal = LockedBalance(_total.toInt128(), _unlockTime, false);
-        _checkpoint(_tokenId, _locked[_tokenId], newLockedNormal);
-        _locked[_tokenId] = newLockedNormal;
-
-        // adjust managed nft
-        LockedBalance memory newLockedManaged = _locked[_mTokenId];
-        // do not expect _total > locked.amount / permanentLockBalance but just in case
-        newLockedManaged.amount -= (
-            _total.toInt128() < newLockedManaged.amount ? _total.toInt128() : newLockedManaged.amount
-        );
-        permanentLockBalance -= (_total < permanentLockBalance ? _total : permanentLockBalance);
-        _checkpointDelegatee(_delegates[_mTokenId], _total, false);
-        _checkpoint(_mTokenId, _locked[_mTokenId], newLockedManaged);
-        _locked[_mTokenId] = newLockedManaged;
-
-        IReward(_lockedManagedReward)._withdraw(_weight, _tokenId);
-        IReward(_freeManagedReward)._withdraw(_weight, _tokenId);
-
-        delete idToManaged[_tokenId];
-        delete weights[_tokenId][_mTokenId];
-        delete escrowType[_tokenId];
-
-        emit WithdrawManaged(_ownerOf(_tokenId), _tokenId, _mTokenId, _total, block.timestamp);
-        emit MetadataUpdate(_tokenId);
-    }
-
-    /// @inheritdoc IDustLock
-    function setAllowedManager(address _allowedManager) external {
-        if (_msgSender() != IVoter(voter).governor()) revert NotGovernor();
-        if (_allowedManager == allowedManager) revert SameAddress();
-        if (_allowedManager == address(0)) revert ZeroAddress();
-        allowedManager = _allowedManager;
-        emit SetAllowedManager(_allowedManager);
-    }
-
-    /// @inheritdoc IDustLock
-    function setManagedState(uint256 _mTokenId, bool _state) external {
-        if (_msgSender() != IVoter(voter).emergencyCouncil() && _msgSender() != IVoter(voter).governor())
-            revert NotEmergencyCouncilOrGovernor();
-        if (escrowType[_mTokenId] != EscrowType.MANAGED) revert NotManagedNFT();
-        if (deactivated[_mTokenId] == _state) revert SameState();
-        deactivated[_mTokenId] = _state;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -342,7 +188,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /* TRANSFER FUNCTIONS */
 
     function _transferFrom(address _from, address _to, uint256 _tokenId, address _sender) internal {
-        if (escrowType[_tokenId] == EscrowType.LOCKED) revert NotManagedOrNormalNFT();
         // Check requirements
         if (!_isApprovedOrOwner(_sender, _tokenId)) revert NotApprovedOrOwner();
         // Clear approval. Throws if `_from` is not the current owner
@@ -785,7 +630,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IDustLock
     function depositFor(uint256 _tokenId, uint256 _value) external nonReentrant {
-        if (escrowType[_tokenId] == EscrowType.MANAGED && _msgSender() != distributor) revert NotDistributor();
+        if (_msgSender() != distributor) revert NotDistributor();
         _increaseAmountFor(_tokenId, _value, DepositType.DEPOSIT_FOR_TYPE);
     }
 
@@ -818,9 +663,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     function _increaseAmountFor(uint256 _tokenId, uint256 _value, DepositType _depositType) internal {
-        EscrowType _escrowType = escrowType[_tokenId];
-        if (_escrowType == EscrowType.LOCKED) revert NotManagedOrNormalNFT();
-
         LockedBalance memory oldLocked = _locked[_tokenId];
 
         if (_value == 0) revert ZeroAmount();
@@ -830,15 +672,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (oldLocked.isPermanent) permanentLockBalance += _value;
         _checkpointDelegatee(_delegates[_tokenId], _value, true);
         _depositFor(_tokenId, _value, 0, oldLocked, _depositType);
-
-        if (_escrowType == EscrowType.MANAGED) {
-            // increaseAmount called on managed tokens are treated as locked rewards
-            address _lockedManagedReward = managedToLocked[_tokenId];
-            address _token = token;
-            IERC20(_token).safeApprove(_lockedManagedReward, _value);
-            IReward(_lockedManagedReward).notifyRewardAmount(_token, _value);
-            IERC20(_token).safeApprove(_lockedManagedReward, 0);
-        }
 
         emit MetadataUpdate(_tokenId);
     }
@@ -852,7 +685,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function increaseUnlockTime(uint256 _tokenId, uint256 _lockDuration) external nonReentrant {
         if (!_isApprovedOrOwner(_msgSender(), _tokenId)) revert NotApprovedOrOwner();
-        if (escrowType[_tokenId] != EscrowType.NORMAL) revert NotNormalNFT();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
         if (oldLocked.isPermanent) revert PermanentLock();
@@ -873,7 +705,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
         if (voted[_tokenId]) revert AlreadyVoted();
-        if (escrowType[_tokenId] != EscrowType.NORMAL) revert NotNormalNFT();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
         if (oldLocked.isPermanent) revert PermanentLock();
@@ -901,8 +732,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function merge(uint256 _from, uint256 _to) external nonReentrant {
         address sender = _msgSender();
         if (voted[_from]) revert AlreadyVoted();
-        if (escrowType[_from] != EscrowType.NORMAL) revert NotNormalNFT();
-        if (escrowType[_to] != EscrowType.NORMAL) revert NotNormalNFT();
         if (_from == _to) revert SameNFT();
         if (!_isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
         if (!_isApprovedOrOwner(sender, _to)) revert NotApprovedOrOwner();
@@ -951,7 +780,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         address owner = _ownerOf(_from);
         if (owner == address(0)) revert SplitNoOwner();
         if (!canSplit[owner] && !canSplit[address(0)]) revert SplitNotAllowed();
-        if (escrowType[_from] != EscrowType.NORMAL) revert NotNormalNFT();
         if (voted[_from]) revert AlreadyVoted();
         if (!_isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
         LockedBalance memory newLocked = _locked[_from];
@@ -1002,7 +830,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function lockPermanent(uint256 _tokenId) external {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
-        if (escrowType[_tokenId] != EscrowType.NORMAL) revert NotNormalNFT();
         LockedBalance memory _newLocked = _locked[_tokenId];
         if (_newLocked.isPermanent) revert PermanentLock();
         if (_newLocked.end <= block.timestamp) revert LockExpired();
@@ -1023,7 +850,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function unlockPermanent(uint256 _tokenId) external {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
-        if (escrowType[_tokenId] != EscrowType.NORMAL) revert NotNormalNFT();
         if (voted[_tokenId]) revert AlreadyVoted();
         LockedBalance memory _newLocked = _locked[_tokenId];
         if (!_newLocked.isPermanent) revert NotPermanentLock();

@@ -66,8 +66,7 @@ abstract contract BaseTest is Script, Test {
         mintErc20Token18Dec(address(DUST), users, amounts);
 
         // deploy DustLock
-        // TODO: added mock factory registry to build
-        dustLock = new DustLock(admin, address(DUST), address(0));
+        dustLock = new DustLock(admin, address(DUST));
 
         // add log labels
         vm.label(address(admin), "admin");

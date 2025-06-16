@@ -44,16 +44,6 @@ interface IDustLock is IVotes, IERC4906, IERC6372 {
         INCREASE_UNLOCK_TIME
     }
 
-    /// @dev Different types of veNFTs:
-    /// NORMAL  - typical veNFT
-    /// LOCKED  - veNFT which is locked into a MANAGED veNFT
-    /// MANAGED - veNFT which can accept the deposit of NORMAL veNFTs
-    enum EscrowType {
-        NORMAL,
-        LOCKED,
-        MANAGED
-    }
-
     error AlreadyVoted();
     error AmountTooBig();
     error ERC721ReceiverRejectedTokens();
@@ -61,7 +51,6 @@ interface IDustLock is IVotes, IERC4906, IERC6372 {
     error InvalidNonce();
     error InvalidSignature();
     error InvalidSignatureS();
-    error InvalidManagedNFTId();
     error LockDurationNotInFuture();
     error LockDurationTooLong();
     error LockExpired();
@@ -72,9 +61,6 @@ interface IDustLock is IVotes, IERC4906, IERC6372 {
     error NotDistributor();
     error NotEmergencyCouncilOrGovernor();
     error NotGovernor();
-    error NotGovernorOrManager();
-    error NotManagedNFT();
-    error NotManagedOrNormalNFT();
     error NotLockedNFT();
     error NotNormalNFT();
     error NotPermanentLock();
@@ -126,35 +112,10 @@ interface IDustLock is IVotes, IERC4906, IERC6372 {
         uint256 _locktime,
         uint256 _ts
     );
-    event CreateManaged(
-        address indexed _to,
-        uint256 indexed _mTokenId,
-        address indexed _from,
-        address _lockedManagedReward,
-        address _freeManagedReward
-    );
-    event DepositManaged(
-        address indexed _owner,
-        uint256 indexed _tokenId,
-        uint256 indexed _mTokenId,
-        uint256 _weight,
-        uint256 _ts
-    );
-    event WithdrawManaged(
-        address indexed _owner,
-        uint256 indexed _tokenId,
-        uint256 indexed _mTokenId,
-        uint256 _weight,
-        uint256 _ts
-    );
-    event SetAllowedManager(address indexed _allowedManager);
 
     // State variables
     /// @notice Address of Meta-tx Forwarder
     function forwarder() external view returns (address);
-
-    /// @notice Address of FactoryRegistry.sol
-    function factoryRegistry() external view returns (address);
 
     /// @notice Address of token (VELO) used to create a veNFT
     function token() external view returns (address);
@@ -168,75 +129,8 @@ interface IDustLock is IVotes, IERC4906, IERC6372 {
     /// @notice Address of Velodrome Team multisig
     function team() external view returns (address);
 
-    /// @dev address which can create managed NFTs
-    function allowedManager() external view returns (address);
-
     /// @dev Current count of token
     function tokenId() external view returns (uint256);
-
-    /*///////////////////////////////////////////////////////////////
-                            MANAGED NFT STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    /// @dev Mapping of token id to escrow type
-    ///      Takes advantage of the fact default value is EscrowType.NORMAL
-    function escrowType(uint256 tokenId) external view returns (EscrowType);
-
-    /// @dev Mapping of token id to managed id
-    function idToManaged(uint256 tokenId) external view returns (uint256 managedTokenId);
-
-    /// @dev Mapping of user token id to managed token id to weight of token id
-    function weights(uint256 tokenId, uint256 managedTokenId) external view returns (uint256 weight);
-
-    /// @dev Mapping of managed id to deactivated state
-    function deactivated(uint256 tokenId) external view returns (bool inactive);
-
-    /// @dev Mapping from managed nft id to locked managed rewards
-    ///      `token` denominated rewards (rebases/rewards) stored in locked managed rewards contract
-    ///      to prevent co-mingling of assets
-    function managedToLocked(uint256 tokenId) external view returns (address);
-
-    /// @dev Mapping from managed nft id to free managed rewards contract
-    ///      these rewards can be freely withdrawn by users
-    function managedToFree(uint256 tokenId) external view returns (address);
-
-    /*///////////////////////////////////////////////////////////////
-                            MANAGED NFT LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Create managed NFT (a permanent lock) for use within ecosystem.
-    /// @dev Throws if address already owns a managed NFT.
-    /// @return _mTokenId managed token id.
-    function createManagedLockFor(address _to) external returns (uint256 _mTokenId);
-
-    /// @notice Delegates balance to managed nft
-    ///         Note that NFTs deposited into a managed NFT will be re-locked
-    ///         to the maximum lock time on withdrawal.
-    ///         Permanent locks that are deposited will automatically unlock.
-    /// @dev Managed nft will remain max-locked as long as there is at least one
-    ///      deposit or withdrawal per week.
-    ///      Throws if deposit nft is managed.
-    ///      Throws if recipient nft is not managed.
-    ///      Throws if deposit nft is already locked.
-    ///      Throws if not called by voter.
-    /// @param _tokenId tokenId of NFT being deposited
-    /// @param _mTokenId tokenId of managed NFT that will receive the deposit
-    function depositManaged(uint256 _tokenId, uint256 _mTokenId) external;
-
-    /// @notice Retrieves locked rewards and withdraws balance from managed nft.
-    ///         Note that the NFT withdrawn is re-locked to the maximum lock time.
-    /// @dev Throws if NFT not locked.
-    ///      Throws if not called by voter.
-    /// @param _tokenId tokenId of NFT being deposited.
-    function withdrawManaged(uint256 _tokenId) external;
-
-    /// @notice Permit one address to call createManagedLockFor() that is not Voter.governor()
-    function setAllowedManager(address _allowedManager) external;
-
-    /// @notice Set Managed NFT state. Inactive NFTs cannot be deposited into.
-    /// @param _mTokenId managed nft state to set
-    /// @param _state true => inactive, false => active
-    function setManagedState(uint256 _mTokenId, bool _state) external;
 
     /*///////////////////////////////////////////////////////////////
                              METADATA STORAGE
