@@ -4,9 +4,8 @@ pragma solidity ^0.8.0;
 import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
-import {IVotes} from "./IVotes.sol";
 
-interface IDustLock is IVotes, IERC4906, IERC6372 {
+interface IDustLock is IERC4906, IERC6372 {
     struct LockedBalance {
         int128 amount;
         uint256 end;
@@ -359,49 +358,6 @@ interface IDustLock is IVotes, IERC4906, IERC6372 {
     /// @param _tokenId .
     /// @param _voted .
     function voting(uint256 _tokenId, bool _voted) external;
-
-    /*///////////////////////////////////////////////////////////////
-                            DAO VOTING STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice The number of checkpoints for each tokenId
-    function numCheckpoints(uint256 tokenId) external view returns (uint48);
-
-    /// @notice A record of states for signing / validating signatures
-    function nonces(address account) external view returns (uint256);
-
-    /// @inheritdoc IVotes
-    function delegates(uint256 delegator) external view returns (uint256);
-
-    /// @notice A record of delegated token checkpoints for each account, by index
-    /// @param tokenId .
-    /// @param index .
-    /// @return Checkpoint
-    function checkpoints(uint256 tokenId, uint48 index) external view returns (Checkpoint memory);
-
-    /// @inheritdoc IVotes
-    function getPastVotes(address account, uint256 tokenId, uint256 timestamp) external view returns (uint256);
-
-    /// @inheritdoc IVotes
-    function getPastTotalSupply(uint256 timestamp) external view returns (uint256);
-
-    /*///////////////////////////////////////////////////////////////
-                             DAO VOTING LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IVotes
-    function delegate(uint256 delegator, uint256 delegatee) external;
-
-    /// @inheritdoc IVotes
-    function delegateBySig(
-        uint256 delegator,
-        uint256 delegatee,
-        uint256 nonce,
-        uint256 expiry,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
 
     /*//////////////////////////////////////////////////////////////
                               ERC6372 LOGIC

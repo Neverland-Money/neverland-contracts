@@ -9,7 +9,6 @@ import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {DelegationLogicLibrary} from "../libraries/DelegationLogicLibrary.sol";
 import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 
@@ -194,8 +193,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         delete idToApprovals[_tokenId];
         // Remove NFT. Throws if `_tokenId` is not a valid NFT
         _removeTokenFrom(_from, _tokenId);
-        // Update voting checkpoints
-        _checkpointDelegator(_tokenId, 0, _to);
         // Add NFT
         _addTokenTo(_to, _tokenId);
         // Set the block of ownership transfer (for Flash NFT protection)
@@ -301,8 +298,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         assert(_to != address(0));
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
-        // Update voting checkpoints
-        _checkpointDelegator(_tokenId, 0, _to);
         emit Transfer(address(0), _to, _tokenId);
         return true;
     }
@@ -358,8 +353,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         // Clear approval
         delete idToApprovals[_tokenId];
-        // Update voting checkpoints
-        _checkpointDelegator(_tokenId, 0, address(0));
         // Remove token
         _removeTokenFrom(owner, _tokenId);
         emit Transfer(owner, address(0), _tokenId);
@@ -669,7 +662,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (oldLocked.end <= block.timestamp && !oldLocked.isPermanent) revert LockExpired();
 
         if (oldLocked.isPermanent) permanentLockBalance += _value;
-        _checkpointDelegatee(_delegates[_tokenId], _value, true);
         _depositFor(_tokenId, _value, 0, oldLocked, _depositType);
 
         emit MetadataUpdate(_tokenId);
@@ -753,7 +745,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         } else {
             newLockedTo.end = end;
         }
-        _checkpointDelegatee(_delegates[_to], oldLockedFrom.amount.toUint256(), true);
         _checkpoint(_to, oldLockedTo, newLockedTo);
         _locked[_to] = newLockedTo;
 
@@ -857,7 +848,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         permanentLockBalance -= _amount;
         _newLocked.end = ((block.timestamp + MAXTIME) / WEEK) * WEEK;
         _newLocked.isPermanent = false;
-        _delegate(_tokenId, 0);
         _checkpoint(_tokenId, _locked[_tokenId], _newLocked);
         _locked[_tokenId] = _newLocked;
 
@@ -916,127 +906,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function voting(uint256 _tokenId, bool _voted) external {
         if (_msgSender() != voter) revert NotVoter();
         voted[_tokenId] = _voted;
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                            DAO VOTING STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice The EIP-712 typehash for the contract's domain
-    bytes32 public constant DOMAIN_TYPEHASH =
-    keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
-
-    /// @notice The EIP-712 typehash for the delegation struct used by the contract
-    bytes32 public constant DELEGATION_TYPEHASH =
-    keccak256("Delegation(uint256 delegator,uint256 delegatee,uint256 nonce,uint256 expiry)");
-
-    /// @notice A record of each accounts delegate
-    mapping(uint256 => uint256) private _delegates;
-
-    /// @notice A record of delegated token checkpoints for each tokenId, by index
-    mapping(uint256 => mapping(uint48 => Checkpoint)) private _checkpoints;
-
-    /// @inheritdoc IDustLock
-    mapping(uint256 => uint48) public numCheckpoints;
-
-    /// @inheritdoc IDustLock
-    mapping(address => uint256) public nonces;
-
-    /// @inheritdoc IDustLock
-    function delegates(uint256 delegator) external view returns (uint256) {
-        return _delegates[delegator];
-    }
-
-    /// @inheritdoc IDustLock
-    function checkpoints(uint256 _tokenId, uint48 _index) external view returns (Checkpoint memory) {
-        return _checkpoints[_tokenId][_index];
-    }
-
-    /// @inheritdoc IDustLock
-    function getPastVotes(address _account, uint256 _tokenId, uint256 _timestamp) external view returns (uint256) {
-        return DelegationLogicLibrary.getPastVotes(numCheckpoints, _checkpoints, _account, _tokenId, _timestamp);
-    }
-
-    /// @inheritdoc IDustLock
-    function getPastTotalSupply(uint256 _timestamp) external view returns (uint256) {
-        return _supplyAt(_timestamp);
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                             DAO VOTING LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    function _checkpointDelegator(uint256 _delegator, uint256 _delegatee, address _owner) internal {
-        DelegationLogicLibrary.checkpointDelegator(
-            _locked,
-            numCheckpoints,
-            _checkpoints,
-            _delegates,
-            _delegator,
-            _delegatee,
-            _owner
-        );
-    }
-
-    function _checkpointDelegatee(uint256 _delegatee, uint256 balance_, bool _increase) internal {
-        DelegationLogicLibrary.checkpointDelegatee(numCheckpoints, _checkpoints, _delegatee, balance_, _increase);
-    }
-
-    /// @notice Record user delegation checkpoints. Used by voting system.
-    /// @dev Skips delegation if already delegated to `delegatee`.
-    function _delegate(uint256 _delegator, uint256 _delegatee) internal {
-        LockedBalance memory delegateLocked = _locked[_delegator];
-        if (!delegateLocked.isPermanent) revert NotPermanentLock();
-        if (_delegatee != 0 && _ownerOf(_delegatee) == address(0)) revert NonExistentToken();
-        if (ownershipChange[_delegator] == block.number) revert OwnershipChange();
-        if (_delegatee == _delegator) _delegatee = 0;
-        uint256 currentDelegate = _delegates[_delegator];
-        if (currentDelegate == _delegatee) return;
-
-        uint256 delegatedBalance = delegateLocked.amount.toUint256();
-        _checkpointDelegator(_delegator, _delegatee, _ownerOf(_delegator));
-        _checkpointDelegatee(_delegatee, delegatedBalance, true);
-
-        emit DelegateChanged(_msgSender(), currentDelegate, _delegatee);
-    }
-
-    /// @inheritdoc IDustLock
-    function delegate(uint256 delegator, uint256 delegatee) external {
-        if (!_isApprovedOrOwner(_msgSender(), delegator)) revert NotApprovedOrOwner();
-        return _delegate(delegator, delegatee);
-    }
-
-    /// @inheritdoc IDustLock
-    function delegateBySig(
-        uint256 delegator,
-        uint256 delegatee,
-        uint256 nonce,
-        uint256 expiry,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
-        // EIP-2 still allows signature malleability for ecrecover(). Remove this possibility and make the signature
-        // unique. Appendix F in the Ethereum Yellow paper (https://ethereum.github.io/yellowpaper/paper.pdf), defines
-        // the valid range for s in (301): 0 < s < secp256k1n ÷ 2 + 1, and for v in (302): v ∈ {27, 28}. Most
-        // signatures from current libraries generate a unique signature with an s-value in the lower half order.
-        //
-        // If your library generates malleable signatures, such as s-values in the upper range, calculate a new s-value
-        // with 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141 - s1 and flip v from 27 to 28 or
-        // vice versa. If your library also generates signatures with 0/1 for v instead 27/28, add 27 to v to accept
-        // these malleable signatures as well.
-        if (uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) revert InvalidSignatureS();
-        bytes32 domainSeparator = keccak256(
-            abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), keccak256(bytes(version)), block.chainid, address(this))
-        );
-        bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegator, delegatee, nonce, expiry));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        address signatory = ecrecover(digest, v, r, s);
-        if (!_isApprovedOrOwner(signatory, delegator)) revert NotApprovedOrOwner();
-        if (signatory == address(0)) revert InvalidSignature();
-        if (nonce != nonces[signatory]++) revert InvalidNonce();
-        if (block.timestamp > expiry) revert SignatureExpired();
-        return _delegate(delegator, delegatee);
     }
 
     /*//////////////////////////////////////////////////////////////
