@@ -28,14 +28,6 @@ interface IDustLock is IERC4906, IERC6372 {
         uint256 permanentLockBalance;
     }
 
-    /// @notice A checkpoint for recorded delegated voting weights at a certain timestamp
-    struct Checkpoint {
-        uint256 fromTimestamp;
-        address owner;
-        uint256 delegatedBalance;
-        uint256 delegatee;
-    }
-
     enum DepositType {
         DEPOSIT_FOR_TYPE,
         CREATE_LOCK_TYPE,
@@ -118,12 +110,6 @@ interface IDustLock is IERC4906, IERC6372 {
 
     /// @notice Address of token (VELO) used to create a veNFT
     function token() external view returns (address);
-
-    /// @notice Address of RewardsDistributor.sol
-    function distributor() external view returns (address);
-
-    /// @notice Address of Voter.sol
-    function voter() external view returns (address);
 
     /// @notice Address of Velodrome Team multisig
     function team() external view returns (address);
@@ -339,25 +325,6 @@ interface IDustLock is IERC4906, IERC6372 {
     /// @param _t Timestamp to query total voting power
     /// @return Total voting power at given timestamp
     function totalSupplyAt(uint256 _t) external view returns (uint256);
-
-    /*///////////////////////////////////////////////////////////////
-                            GAUGE VOTING LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice See if a queried _tokenId has actively voted
-    /// @param _tokenId .
-    /// @return True if voted, else false
-    function voted(uint256 _tokenId) external view returns (bool);
-
-    /// @notice Set the global state voter and distributor
-    /// @dev This is only called once, at setup
-    function setVoterAndDistributor(address _voter, address _distributor) external;
-
-    /// @notice Set `voted` for _tokenId to true or false
-    /// @dev Only callable by voter
-    /// @param _tokenId .
-    /// @param _voted .
-    function voting(uint256 _tokenId, bool _voted) external;
 
     /*//////////////////////////////////////////////////////////////
                               ERC6372 LOGIC

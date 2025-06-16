@@ -31,10 +31,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     address public immutable token;
     /// @inheritdoc IDustLock
-    address public distributor;
-    /// @inheritdoc IDustLock
-    address public voter;
-    /// @inheritdoc IDustLock
     address public team;
 
     mapping(uint256 => GlobalPoint) internal _pointHistory; // epoch -> unsigned global point
@@ -63,7 +59,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         forwarder = _forwarder;
         token = _token;
         team = _msgSender();
-        voter = _msgSender();
 
         _pointHistory[0].blk = block.number;
         _pointHistory[0].ts = block.timestamp;
@@ -622,7 +617,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IDustLock
     function depositFor(uint256 _tokenId, uint256 _value) external nonReentrant {
-        if (_msgSender() != distributor) revert NotDistributor();
         _increaseAmountFor(_tokenId, _value, DepositType.DEPOSIT_FOR_TYPE);
     }
 
@@ -695,7 +689,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function withdraw(uint256 _tokenId) external nonReentrant {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
-        if (voted[_tokenId]) revert AlreadyVoted();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
         if (oldLocked.isPermanent) revert PermanentLock();
@@ -722,7 +715,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function merge(uint256 _from, uint256 _to) external nonReentrant {
         address sender = _msgSender();
-        if (voted[_from]) revert AlreadyVoted();
         if (_from == _to) revert SameNFT();
         if (!_isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
         if (!_isApprovedOrOwner(sender, _to)) revert NotApprovedOrOwner();
@@ -770,7 +762,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         address owner = _ownerOf(_from);
         if (owner == address(0)) revert SplitNoOwner();
         if (!canSplit[owner] && !canSplit[address(0)]) revert SplitNotAllowed();
-        if (voted[_from]) revert AlreadyVoted();
         if (!_isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
         LockedBalance memory newLocked = _locked[_from];
         if (newLocked.end <= block.timestamp && !newLocked.isPermanent) revert LockExpired();
@@ -840,7 +831,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function unlockPermanent(uint256 _tokenId) external {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
-        if (voted[_tokenId]) revert AlreadyVoted();
         LockedBalance memory _newLocked = _locked[_tokenId];
         if (!_newLocked.isPermanent) revert NotPermanentLock();
 
@@ -886,26 +876,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function totalSupplyAt(uint256 _timestamp) external view returns (uint256) {
         return _supplyAt(_timestamp);
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                            GAUGE VOTING LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IDustLock
-    mapping(uint256 => bool) public voted;
-
-    /// @inheritdoc IDustLock
-    function setVoterAndDistributor(address _voter, address _distributor) external {
-        if (_msgSender() != voter) revert NotVoter();
-        voter = _voter;
-        distributor = _distributor;
-    }
-
-    /// @inheritdoc IDustLock
-    function voting(uint256 _tokenId, bool _voted) external {
-        if (_msgSender() != voter) revert NotVoter();
-        voted[_tokenId] = _voted;
     }
 
     /*//////////////////////////////////////////////////////////////
