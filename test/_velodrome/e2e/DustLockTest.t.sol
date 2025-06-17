@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.19;
 
-import "../BaseTest.sol";
+import "../../BaseTest.sol";
 
 
-contract VotingEscrowTest is BaseTest {
+contract DustLockVelodromeTest is BaseTest {
+
     function testVotingEscrowFlow() public {
         // starting timestamp: 604801
         IDustLock.LockedBalance memory locked;

@@ -35,7 +35,11 @@ abstract contract BaseTest is Script, Test {
 
     function setUp() public {
         _testSetup();
+        _setUp();
     }
+
+    /// @dev Implement this if you want a custom configured deployment
+    function _setUp() public virtual {}
 
     function _testSetup() public {
         // seed set up with initial time
