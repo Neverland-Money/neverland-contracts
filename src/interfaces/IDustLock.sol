@@ -80,6 +80,9 @@ interface IDustLock is IERC4906, IERC6372 {
         uint256 locktime,
         uint256 ts
     );
+    event EarlyWithdraw(
+        address indexed provider, uint256 indexed tokenId, uint256 value, uint256 amountReturned, uint256 ts
+    );
     event Withdraw(address indexed provider, uint256 indexed tokenId, uint256 value, uint256 ts);
     event LockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
     event UnlockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);

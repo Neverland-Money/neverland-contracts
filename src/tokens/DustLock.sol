@@ -688,7 +688,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function withdraw(uint256 _tokenId) external nonReentrant {
+    function withdraw(uint256 _tokenId) public nonReentrant {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
@@ -711,6 +711,36 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         IERC20(token).safeTransfer(sender, value);
 
         emit Withdraw(sender, _tokenId, value, block.timestamp);
+        emit Supply(supplyBefore, supplyBefore - value);
+    }
+
+    function earlyWithdraw(uint256 _tokenId) external nonReentrant {
+        address sender = _msgSender();
+        if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
+
+        LockedBalance memory oldLocked = _locked[_tokenId];
+        if (oldLocked.isPermanent) revert PermanentLock();
+        if (block.timestamp < oldLocked.end) revert LockNotExpired();
+        uint256 value = oldLocked.amount.toUint256();
+
+        // Burn the NFT
+        _burn(_tokenId);
+        _locked[_tokenId] = LockedBalance(0, 0, false);
+        uint256 supplyBefore = supply;
+        supply = supplyBefore - value;
+
+        // oldLocked can have either expired <= timestamp or zero end
+        // oldLocked has only 0 end
+        // Both can have >= 0 amount
+        _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, false));
+
+        uint256 returnValue = value / 2;
+        uint256 burnedValue = value - returnValue;
+
+        IERC20(token).safeTransfer(sender, returnValue);
+        IERC20(token).safeTransfer('0x000000000000000000000000000000000000dEaD', burnedValue);
+
+        emit EarlyWithdraw(sender, _tokenId, value, returnValue, block.timestamp);
         emit Supply(supplyBefore, supplyBefore - value);
     }
 
