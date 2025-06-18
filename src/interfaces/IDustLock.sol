@@ -44,6 +44,7 @@ interface IDustLock is IERC4906, IERC6372 {
     error InvalidSignatureS();
     error LockDurationNotInFuture();
     error LockDurationTooLong();
+    error LockDurationTooSort();
     error LockExpired();
     error LockNotExpired();
     error NoLockFound();

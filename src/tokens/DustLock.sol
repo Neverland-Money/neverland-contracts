@@ -358,6 +358,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     uint256 internal constant WEEK = 1 weeks;
+    uint256 internal constant MINTIME = 28 * 24 * 3600;
     uint256 internal constant MAXTIME = 4 * 365 * 86400;
     int128 internal constant iMAXTIME = 4 * 365 * 86400;
     uint256 internal constant MULTIPLIER = 1 ether;
@@ -629,6 +630,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         if (_value == 0) revert ZeroAmount();
         if (unlockTime <= block.timestamp) revert LockDurationNotInFuture();
+        if (unlockTime < block.timestamp + MINTIME) revert LockDurationTooSort();
         if (unlockTime > block.timestamp + MAXTIME) revert LockDurationTooLong();
 
         uint256 _tokenId = ++tokenId;
