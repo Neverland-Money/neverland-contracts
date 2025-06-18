@@ -12,6 +12,28 @@ contract VotingEscrowTest is BaseTest {
         assertEq(block.timestamp, 1 weeks + 1);
     }
 
+    /* ========== TEST NFT ========== */
+
+    function testTransferOfNft() public {
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        skipAndRoll(1);
+
+        dustLock.transferFrom(address(user), address(user2), tokenId);
+
+        assertEq(dustLock.balanceOf(address(user)), 0);
+        assertEq(dustLock.ownerOf(tokenId), address(user2));
+        assertEq(dustLock.balanceOf(address(user2)), 1);
+
+        // flash protection
+        assertEq(dustLock.balanceOfNFT(1), 0);
+    }
+
+    /* ========== TEST DECAY ========== */
+
+
+    /* ========== TEST MIN LOCK TIME ========== */
+
     function testCreateLockMinLockTimeStartOfWeek() public {
         // arrange
         uint256 startOfCurrentWeek = block.timestamp / WEEK * WEEK;
