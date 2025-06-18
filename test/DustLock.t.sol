@@ -45,12 +45,12 @@ contract VotingEscrowTest is BaseTest {
 
         // act/assert
         uint256 tokenId1 = dustLock.createLock(TOKEN_1, MINTIME + WEEK);
-        IDustLock.LockedBalance memory lockedTokenId3 = dustLock.locked(tokenId1);
-        assertEq(lockedTokenId3.end, startOfCurrentWeek + 5 weeks);
+        IDustLock.LockedBalance memory lockedTokenId1 = dustLock.locked(tokenId1);
+        assertEq(lockedTokenId1.end, startOfCurrentWeek + 5 weeks);
 
         uint256 tokenId2 = dustLock.createLockFor(TOKEN_1, MINTIME + WEEK, user2);
-        IDustLock.LockedBalance memory lockedTokenId4 = dustLock.locked(tokenId2);
-        assertEq(lockedTokenId4.end, startOfCurrentWeek + 5 weeks);
+        IDustLock.LockedBalance memory lockedTokenId2 = dustLock.locked(tokenId2);
+        assertEq(lockedTokenId2.end, startOfCurrentWeek + 5 weeks);
 
         vm.expectRevert(IDustLock.LockDurationTooSort.selector);
         dustLock.createLock(TOKEN_1, MINTIME);
@@ -72,12 +72,12 @@ contract VotingEscrowTest is BaseTest {
 
         // act/assert
         uint256 tokenId1 = dustLock.createLock(TOKEN_1, MINTIME);
-        IDustLock.LockedBalance memory lockedTokenId3 = dustLock.locked(tokenId1);
-        assertEq(lockedTokenId3.end, startOfCurrentWeek + 4 weeks);
+        IDustLock.LockedBalance memory lockedTokenId1 = dustLock.locked(tokenId1);
+        assertEq(lockedTokenId1.end, startOfCurrentWeek + 4 weeks);
 
         uint256 tokenId2 = dustLock.createLockFor(TOKEN_1, MINTIME , user2);
-        IDustLock.LockedBalance memory lockedTokenId4 = dustLock.locked(tokenId2);
-        assertEq(lockedTokenId4.end, startOfCurrentWeek + 4 weeks);
+        IDustLock.LockedBalance memory lockedTokenId2 = dustLock.locked(tokenId2);
+        assertEq(lockedTokenId2.end, startOfCurrentWeek + 4 weeks);
 
         vm.expectRevert(IDustLock.LockDurationTooSort.selector);
         dustLock.createLock(TOKEN_1, MINTIME - 1);
