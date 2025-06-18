@@ -7,7 +7,7 @@ contract VotingEscrowTest is BaseTest {
 
     /* ========== TEST MIN LOCK TIME ========== */
 
-    function testCreateLockMinLockTimeRejectionStartOfWeek() public {
+    function testCreateLockMinLockTimeStartOfWeek() public {
         // arrange
         DUST.approve(address(dustLock), TOKEN_1 * 2);
 
@@ -24,9 +24,15 @@ contract VotingEscrowTest is BaseTest {
         uint256 tokenId2 = dustLock.createLockFor(TOKEN_1, MINTIME + WEEK, user2);
         IDustLock.LockedBalance memory lockedTokenId2 = dustLock.locked(tokenId2);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 5 weeks);
+
+        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        dustLock.createLock(TOKEN_1, MINTIME);
+
+        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        dustLock.createLockFor(TOKEN_1, MINTIME, user2);
     }
 
-    function testCreateLockMinLockTimeRejectionEndOfWeek() public {
+    function testCreateLockMinLockTimeEndOfWeek() public {
         // arrange
         DUST.approve(address(dustLock), TOKEN_1 * 2);
 
@@ -45,9 +51,15 @@ contract VotingEscrowTest is BaseTest {
         uint256 tokenId2 = dustLock.createLockFor(TOKEN_1, MINTIME + WEEK, user2);
         IDustLock.LockedBalance memory lockedTokenId4 = dustLock.locked(tokenId2);
         assertEq(lockedTokenId4.end, startOfCurrentWeek + 5 weeks);
+
+        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        dustLock.createLock(TOKEN_1, MINTIME);
+
+        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        dustLock.createLockFor(TOKEN_1, MINTIME, user2);
     }
 
-    function testCreateLockMinLockTimeRejectionExactlyAtWeek() public {
+    function testCreateLockMinLockTimeExactlyAtWeek() public {
         // arrange
         DUST.approve(address(dustLock), TOKEN_1 * 2);
 
@@ -59,13 +71,19 @@ contract VotingEscrowTest is BaseTest {
         assertEq(startOfCurrentWeek, 2 weeks);
 
         // act/assert
-        uint256 tokenId1 = dustLock.createLock(TOKEN_1, MINTIME + WEEK);
+        uint256 tokenId1 = dustLock.createLock(TOKEN_1, MINTIME);
         IDustLock.LockedBalance memory lockedTokenId3 = dustLock.locked(tokenId1);
-        assertEq(lockedTokenId3.end, startOfCurrentWeek + 5 weeks);
+        assertEq(lockedTokenId3.end, startOfCurrentWeek + 4 weeks);
 
-        uint256 tokenId2 = dustLock.createLockFor(TOKEN_1, MINTIME + WEEK, user2);
+        uint256 tokenId2 = dustLock.createLockFor(TOKEN_1, MINTIME , user2);
         IDustLock.LockedBalance memory lockedTokenId4 = dustLock.locked(tokenId2);
-        assertEq(lockedTokenId4.end, startOfCurrentWeek + 5 weeks);
+        assertEq(lockedTokenId4.end, startOfCurrentWeek + 4 weeks);
+
+        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        dustLock.createLock(TOKEN_1, MINTIME - 1);
+
+        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        dustLock.createLockFor(TOKEN_1, MINTIME - 1, user2);
     }
 
     /* ========== TEST MAX LOCK TIME ========== */
