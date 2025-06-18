@@ -29,7 +29,88 @@ contract VotingEscrowTest is BaseTest {
         assertEq(dustLock.balanceOfNFT(1), 0);
     }
 
-    /* ========== TEST DECAY ========== */
+    /* ========== TEST PERMANENT LOCK BALANCE ========== */
+
+    /// invariant checks
+    /// bound timestamp between 1600000000 and 100 years from then
+    /// current optimism timestamp >= 1600000000
+    function testBalanceOfNFTWithPermanentLocks(uint256 timestamp) public {
+        vm.warp(1600000000);
+        timestamp = bound(timestamp, 1600000000, 1600000000 + (52 weeks) * 100);
+
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        dustLock.lockPermanent(tokenId);
+        vm.warp(timestamp);
+
+        assertEq(dustLock.balanceOfNFT(tokenId), TOKEN_1);
+    }
+
+    function testBalanceOfNFTAtWithPermanentLocks(uint256 timestamp) public {
+        vm.warp(1600000000);
+        timestamp = bound(timestamp, 1600000000, 1600000000 + (52 weeks) * 100);
+
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        dustLock.lockPermanent(tokenId);
+        vm.warp(timestamp);
+
+        assertEq(dustLock.balanceOfNFTAt(tokenId, timestamp), TOKEN_1);
+    }
+
+    /* ========== TEST LOCK BALANCE DECAY ========== */
+
+    function testBalanceOfNFTDecayFromStartToEndOfLockTime() public {
+        DUST.approve(address(dustLock), TOKEN_1 * 2);
+
+        // balance at lock time
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+
+        IDustLock.LockedBalance memory lockedTokenId = dustLock.locked(tokenId);
+
+        uint256 decayPerSecond1 = TOKEN_1 / MAXTIME;
+        uint256 timeUntilUnlock1 = lockedTokenId.end - block.timestamp;
+        assertEq(
+            dustLock.balanceOfNFTAt(tokenId, block.timestamp),
+            decayPerSecond1 * timeUntilUnlock1
+        );
+
+        // balance 3 week before lock end
+        skipAndRoll(lockedTokenId.end - block.timestamp - 3 weeks);
+        assertEq(block.timestamp, lockedTokenId.end - 3 weeks);
+
+        uint256 timeUntilUnlock2 = lockedTokenId.end - block.timestamp;
+        assertEq(
+            dustLock.balanceOfNFTAt(tokenId, block.timestamp),
+            decayPerSecond1 * timeUntilUnlock2
+        );
+
+        // increase amount
+        dustLock.increaseAmount(tokenId, TOKEN_1);
+
+        // balance 2 week before lock end
+        skipAndRoll(lockedTokenId.end - block.timestamp - 2 weeks);
+        assertEq(block.timestamp, lockedTokenId.end - 2 weeks);
+
+        uint256 decayPerSecond2 = 2 * TOKEN_1 / MAXTIME;
+        // TODO: check this behavior
+        assertEq(
+            dustLock.balanceOfNFTAt(tokenId, block.timestamp),
+            decayPerSecond2 * 2 weeks
+        );
+
+        // balance exactly at the end of lock
+        skipAndRoll(2 weeks);
+        assertEq(block.timestamp, lockedTokenId.end);
+
+        assertEq(dustLock.balanceOfNFTAt(tokenId, block.timestamp), 0);
+
+        // balance 1 week after lock
+        skipAndRoll(1 weeks);
+        assertEq(block.timestamp, lockedTokenId.end + 1 weeks);
+
+        assertEq(dustLock.balanceOfNFTAt(tokenId, block.timestamp), 0);
+    }
 
 
     /* ========== TEST MIN LOCK TIME ========== */
@@ -123,6 +204,25 @@ contract VotingEscrowTest is BaseTest {
     }
 
     /* ========== EARLY UNLOCK ========== */
+
+    function testWithdraw() public {
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 lockDuration = 29 * WEEK;
+        dustLock.createLock(TOKEN_1, lockDuration);
+        uint256 preBalance = DUST.balanceOf(address(user));
+
+        skipAndRoll(lockDuration);
+        dustLock.withdraw(1);
+
+        uint256 postBalance = DUST.balanceOf(address(user));
+        assertEq(postBalance - preBalance, TOKEN_1);
+        assertEq(dustLock.ownerOf(1), address(0));
+        assertEq(dustLock.balanceOf(address(user)), 0);
+        // assertEq(dustLock.ownerToNFTokenIdList(address(owner), 0), 0);
+
+        // check voting checkpoint created on burn updating owner
+        assertEq(dustLock.balanceOfNFT(1), 0);
+    }
 
     function testEarlyUnlock() public {}
 
