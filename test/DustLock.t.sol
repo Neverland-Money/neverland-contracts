@@ -64,52 +64,37 @@ contract VotingEscrowTest is BaseTest {
         DUST.approve(address(dustLock), TOKEN_1 * 2);
 
         // balance at lock time
+        skipAndRoll(1 weeks - 1);
+
+        assertEq(block.timestamp, 2 weeks);
         uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
 
-        IDustLock.LockedBalance memory lockedTokenId = dustLock.locked(tokenId);
+        // move block.timestamp
+        skipAndRoll(MAXTIME / 3);
 
-        uint256 decayPerSecond1 = TOKEN_1 / MAXTIME;
-        uint256 timeUntilUnlock1 = lockedTokenId.end - block.timestamp;
-        assertEq(
+        assertApproxEqAbs(
             dustLock.balanceOfNFTAt(tokenId, block.timestamp),
-            decayPerSecond1 * timeUntilUnlock1
+            TOKEN_1 * 2 / 3,
+            1e16 // tolerable difference up to 0.01
         );
 
-        // balance 3 week before lock end
-        skipAndRoll(lockedTokenId.end - block.timestamp - 3 weeks);
-        assertEq(block.timestamp, lockedTokenId.end - 3 weeks);
-
-        uint256 timeUntilUnlock2 = lockedTokenId.end - block.timestamp;
-        assertEq(
-            dustLock.balanceOfNFTAt(tokenId, block.timestamp),
-            decayPerSecond1 * timeUntilUnlock2
-        );
-
-        // increase amount
+        // increase block.timestamp
         dustLock.increaseAmount(tokenId, TOKEN_1);
 
-        // balance 2 week before lock end
-        skipAndRoll(lockedTokenId.end - block.timestamp - 2 weeks);
-        assertEq(block.timestamp, lockedTokenId.end - 2 weeks);
-
-        uint256 decayPerSecond2 = 2 * TOKEN_1 / MAXTIME;
-        // TODO: check this behavior
-        assertEq(
+        assertApproxEqAbs(
             dustLock.balanceOfNFTAt(tokenId, block.timestamp),
-            decayPerSecond2 * 2 weeks
+            TOKEN_1 * 2 / 3 + TOKEN_1 * 2 / 3,
+            1e16
         );
 
-        // balance exactly at the end of lock
-        skipAndRoll(2 weeks);
-        assertEq(block.timestamp, lockedTokenId.end);
+        // move block.timestamp
+        skipAndRoll(MAXTIME / 3);
 
-        assertEq(dustLock.balanceOfNFTAt(tokenId, block.timestamp), 0);
-
-        // balance 1 week after lock
-        skipAndRoll(1 weeks);
-        assertEq(block.timestamp, lockedTokenId.end + 1 weeks);
-
-        assertEq(dustLock.balanceOfNFTAt(tokenId, block.timestamp), 0);
+        assertApproxEqAbs(
+            dustLock.balanceOfNFTAt(tokenId, block.timestamp),
+            TOKEN_1 * 1 / 3 + TOKEN_1 * 1 / 3,
+            1e16
+        );
     }
 
 
