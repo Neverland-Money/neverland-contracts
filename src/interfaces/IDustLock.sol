@@ -42,6 +42,8 @@ interface IDustLock is IERC4906, IERC6372 {
     error InvalidNonce();
     error InvalidSignature();
     error InvalidSignatureS();
+    error InvalidWithdrawPenalty();
+    error InvalidAddress();
     error LockDurationNotInFuture();
     error LockDurationTooLong();
     error LockDurationTooSort();
@@ -202,6 +204,12 @@ interface IDustLock is IERC4906, IERC6372 {
     /// @notice Aggregate permanent locked balances
     function permanentLockBalance() external view returns (uint256);
 
+    /// @notice Percentage of penalty to early withdraw, set by team
+    function earlyWithdrawPenalty() external view returns (uint256);
+
+    /// @notice Percentage of penalty to early withdraw, set by team
+    function earlyWithdrawTreasury() external view returns (address);
+
     function userPointEpoch(uint256 _tokenId) external view returns (uint256 _epoch);
 
     /// @notice time -> signed slope change
@@ -262,6 +270,15 @@ interface IDustLock is IERC4906, IERC6372 {
     ///      This will burn the veNFT. Any rebases or rewards that are unclaimed
     ///      will no longer be claimable. Claim all rebases and rewards prior to calling this.
     function withdraw(uint256 _tokenId) external;
+
+    /// @notice Withdraw tokens for `_tokenId` before the lock.
+    function earlyWithdraw(uint256 _tokenId) external;
+
+    /// @notice Sets the early withdraw penalty percentage.
+    function setEarlyWithdrawPenalty(uint256 _earlyWithdrawPenalty) external;
+
+    /// @notice Sets the wallet the penalised tokens will go to. Called by team.
+    function setEarlyWithdrawTreasury(address _account) external;
 
     /// @notice Merges `_from` into `_to`.
     /// @dev Cannot merge `_from` locks that are permanent or have already voted this epoch.

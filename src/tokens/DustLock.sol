@@ -60,6 +60,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         token = _token;
         team = _msgSender();
 
+        earlyWithdrawTreasury = _msgSender();
+        earlyWithdrawPenalty = 5_000;
+
         _pointHistory[0].blk = block.number;
         _pointHistory[0].ts = block.timestamp;
 
@@ -377,6 +380,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     mapping(address => bool) public canSplit;
     /// @inheritdoc IDustLock
     uint256 public permanentLockBalance;
+    /// @inheritdoc IDustLock
+    uint256 public earlyWithdrawPenalty;
+    /// @inheritdoc IDustLock
+    address public earlyWithdrawTreasury;
 
     /// @inheritdoc IDustLock
     function locked(uint256 _tokenId) external view returns (LockedBalance memory) {
@@ -714,13 +721,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         emit Supply(supplyBefore, supplyBefore - value);
     }
 
+    /// @inheritdoc IDustLock
     function earlyWithdraw(uint256 _tokenId) external nonReentrant {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
         if (oldLocked.isPermanent) revert PermanentLock();
-        if (block.timestamp < oldLocked.end) revert LockNotExpired();
         uint256 value = oldLocked.amount.toUint256();
 
         // Burn the NFT
@@ -729,20 +736,36 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         uint256 supplyBefore = supply;
         supply = supplyBefore - value;
 
+        uint256 userValue = earlyWithdrawPenalty * balanceOfNFT(_tokenId) / 10_000 / oldLocked.amount.toUint256();
+        uint256 treasuryValue = value - userValue;
+
         // oldLocked can have either expired <= timestamp or zero end
         // oldLocked has only 0 end
         // Both can have >= 0 amount
         _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, false));
 
-        uint256 returnValue = value / 2;
-        uint256 burnedValue = value - returnValue;
+        IERC20(token).safeTransfer(sender, userValue);
+        IERC20(token).safeTransfer(earlyWithdrawTreasury, treasuryValue);
 
-        IERC20(token).safeTransfer(sender, returnValue);
-        IERC20(token).safeTransfer('0x000000000000000000000000000000000000dEaD', burnedValue);
-
-        emit EarlyWithdraw(sender, _tokenId, value, returnValue, block.timestamp);
+        emit EarlyWithdraw(sender, _tokenId, value, userValue, block.timestamp);
         emit Supply(supplyBefore, supplyBefore - value);
     }
+
+    /// @inheritdoc IDustLock
+    function setEarlyWithdrawPenalty(uint256 _earlyWithdrawPenalty) external nonReentrant {
+        if (_msgSender() != team) revert NotTeam();
+        if (_earlyWithdrawPenalty >= 10_000) revert InvalidWithdrawPenalty();
+
+        earlyWithdrawPenalty = _earlyWithdrawPenalty;
+    }
+
+    /// @inheritdoc IDustLock
+    function setEarlyWithdrawTreasury(address _account) external nonReentrant {
+        if (_msgSender() != team) revert NotTeam();
+        if (_account == address(0)) revert InvalidAddress();
+        earlyWithdrawTreasury = _account;
+    }
+
 
     /// @inheritdoc IDustLock
     function merge(uint256 _from, uint256 _to) external nonReentrant {
