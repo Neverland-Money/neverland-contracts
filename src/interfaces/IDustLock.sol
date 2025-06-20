@@ -271,7 +271,8 @@ interface IDustLock is IERC4906, IERC6372 {
     ///      will no longer be claimable. Claim all rebases and rewards prior to calling this.
     function withdraw(uint256 _tokenId) external;
 
-    /// @notice Withdraw tokens for `_tokenId` before the lock.
+    /// @notice Withdraw tokens for `_tokenId` before the lock. User get a penalty proportional to
+    ///         earlyWithdrawPenalty and time left until unlock time.
     function earlyWithdraw(uint256 _tokenId) external;
 
     /// @notice Sets the early withdraw penalty percentage.
@@ -282,9 +283,7 @@ interface IDustLock is IERC4906, IERC6372 {
 
     /// @notice Merges `_from` into `_to`.
     /// @dev Cannot merge `_from` locks that are permanent or have already voted this epoch.
-    ///      Cannot merge `_to` locks that have already expired.
-    ///      This will burn the veNFT. Any rebases or rewards that are unclaimed
-    ///      will no longer be claimable. Claim all rebases and rewards prior to calling this.
+    ///      Cannot merge `_to` locks that have already expired. This will burn the veNFT.
     /// @param _from VeNFT to merge from.
     /// @param _to VeNFT to merge into.
     function merge(uint256 _from, uint256 _to) external;
@@ -293,10 +292,7 @@ interface IDustLock is IERC4906, IERC6372 {
     /// @dev    This burns the tokenId of the target veNFT
     ///         Callable by approved or owner
     ///         If this is called by approved, approved will not have permissions to manipulate the newly created veNFTs
-    ///         Returns the two new split veNFTs to owner
-    ///         If `from` is permanent, will automatically dedelegate.
-    ///         This will burn the veNFT. Any rebases or rewards that are unclaimed
-    ///         will no longer be claimable. Claim all rebases and rewards prior to calling this.
+    ///         Returns the two new split veNFTs to owner. This will burn the veNFT.
     /// @param _from VeNFT to split.
     /// @param _amount Amount to split from veNFT.
     /// @return _tokenId1 Return tokenId of veNFT with oldLocked.amount - `_amount`.
@@ -310,15 +306,14 @@ interface IDustLock is IERC4906, IERC6372 {
     function toggleSplit(address _account, bool _bool) external;
 
     /// @notice Permanently lock a veNFT. Voting power will be equal to
-    ///         `LockedBalance.amount` with no decay. Required to delegate.
+    ///         `LockedBalance.amount` with no decay.
     /// @dev Only callable by unlocked normal veNFTs.
     /// @param _tokenId tokenId to lock.
     function lockPermanent(uint256 _tokenId) external;
 
     /// @notice Unlock a permanently locked veNFT. Voting power will decay.
-    ///         Will automatically dedelegate if delegated.
     /// @dev Only callable by permanently locked veNFTs.
-    ///      Cannot unlock if already voted this epoch.
+    ///      Cannot unlock if already voted this epoch. // TODO: check with rewards
     /// @param _tokenId tokenId to unlock.
     function unlockPermanent(uint256 _tokenId) external;
 
