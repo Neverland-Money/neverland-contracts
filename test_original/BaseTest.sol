@@ -30,8 +30,7 @@ abstract contract BaseTest is Script, Test {
     address internal user5 = address(0x5);
     address[] users;
 
-    uint256 constant MINTIME = 4 weeks;
-    uint256 constant MAXTIME = 1 * 365 * 86400;
+    uint256 constant MAXTIME = 4 * 365 * 86400;
     uint256 constant WEEK = 1 weeks;
 
     function setUp() public {

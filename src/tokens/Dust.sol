@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity 0.8.19;
 
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
@@ -16,8 +16,9 @@ contract Dust is Initializable, ERC20Upgradeable, ERC20PausableUpgradeable, Owna
     function initialize(address initialOwner) public initializer {
         __ERC20_init("Dust", "DUST");
         __ERC20Pausable_init();
-        __Ownable_init(initialOwner);
         __ERC20Permit_init("Dust");
+        __Ownable_init();
+        _transferOwnership(initialOwner);
     }
 
     function pause() public onlyOwner {
@@ -28,12 +29,10 @@ contract Dust is Initializable, ERC20Upgradeable, ERC20PausableUpgradeable, Owna
         _unpause();
     }
 
-    // The following functions are overrides required by Solidity.
-
-    function _update(address from, address to, uint256 value)
+    function _beforeTokenTransfer(address from, address to, uint256 value)
         internal
         override(ERC20Upgradeable, ERC20PausableUpgradeable)
     {
-        super._update(from, to, value);
+        super._beforeTokenTransfer(from, to, value);
     }
 }
