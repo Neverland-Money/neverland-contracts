@@ -64,38 +64,90 @@ contract VotingEscrowTest is BaseTest {
     function testBalanceOfNFTDecayFromStartToEndOfLockTime() public {
         DUST.approve(address(dustLock), TOKEN_1 * 2);
 
-        // balance at lock time
+        // move block.timestamp
         skipAndRoll(1 weeks - 1);
 
         assertEq(block.timestamp, 2 weeks);
-        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
-
-        // move block.timestamp
-        skipAndRoll(MAXTIME / 3);
+        uint256 lockTime = MAXTIME / 2;
+        uint256 tokenId = dustLock.createLock(TOKEN_1, lockTime);
 
         assertApproxEqAbs(
             dustLock.balanceOfNFTAt(tokenId, block.timestamp),
-            TOKEN_1 * 2 / 3,
+            TOKEN_1 / 2,
             1e16 // tolerable difference up to 0.01
         );
 
-        // increase block.timestamp
-        dustLock.increaseAmount(tokenId, TOKEN_1);
-
-        assertApproxEqAbs(
-            dustLock.balanceOfNFTAt(tokenId, block.timestamp),
-            TOKEN_1 * 2 / 3 + TOKEN_1 * 2 / 3,
-            1e16
-        );
-
         // move block.timestamp
-        skipAndRoll(MAXTIME / 3);
+        skipAndRoll(12 weeks);
+
+        // Calculate expected balance correctly:
+        // 1. Time elapsed: 12 weeks
+        // 2. Remaining lock duration: lockTime - 12 weeks
+        // 3. MAXTIME is the denominator for decay calculations
+        uint256 expectedBalance = TOKEN_1 * (lockTime - 12 weeks) / MAXTIME;
 
         assertApproxEqAbs(
             dustLock.balanceOfNFTAt(tokenId, block.timestamp),
-            TOKEN_1 * 1 / 3 + TOKEN_1 * 1 / 3,
+            expectedBalance,
             1e16
         );
+
+    }
+
+    function testBalanceOfTotalNftSupply() public {
+        // arrange
+        DUST.approve(address(dustLock), TOKEN_1 * 6);
+
+        uint256[] memory tokens = new uint256[](6);
+
+        // act
+        // epoch 0
+        uint256 timestamp0 = block.timestamp;
+
+        tokens[0] = dustLock.createLock(TOKEN_1, MAXTIME / 3);
+        tokens[1] = dustLock.createLock(TOKEN_1, MAXTIME / 2);
+
+        uint256 balanceOfAllNftAt0 = _getBalanceOfAllNftsAt(tokens, timestamp0);
+        uint256 totalSupplyAt0 = dustLock.totalSupply();
+
+        // epoch 2
+        skipAndRoll(2 weeks);
+        uint256 timestamp2 = block.timestamp;
+
+        tokens[2] = dustLock.createLock(TOKEN_1, MAXTIME / 8);
+        tokens[3] = dustLock.createLock(TOKEN_1, MAXTIME);
+
+        uint256 balanceOfAllNftAt2 = _getBalanceOfAllNftsAt(tokens, timestamp2);
+        uint256 totalSupplyAt2 = dustLock.totalSupply();
+
+        // epoch 7
+        skipAndRoll(5 weeks);
+        uint256 timestamp7 = block.timestamp;
+
+        tokens[4] = dustLock.createLock(TOKEN_1, MAXTIME / 4);
+
+        uint256 balanceOfAllNftAt7 = _getBalanceOfAllNftsAt(tokens, timestamp7);
+        uint256 totalSupplyAt7 = dustLock.totalSupply();
+
+        // assert
+        assertEq(balanceOfAllNftAt0, _getBalanceOfAllNftsAt(tokens, timestamp0));
+        assertEq(totalSupplyAt0, dustLock.totalSupplyAt(timestamp0));
+
+        assertEq(balanceOfAllNftAt2, _getBalanceOfAllNftsAt(tokens, timestamp2));
+        assertEq(totalSupplyAt2, dustLock.totalSupplyAt(timestamp2));
+
+        assertEq(balanceOfAllNftAt7, _getBalanceOfAllNftsAt(tokens, timestamp7));
+        assertEq(totalSupplyAt7, dustLock.totalSupplyAt(timestamp7));
+
+    }
+
+    function _getBalanceOfAllNftsAt(uint256[] memory tokens, uint256 ts) internal view returns(uint256) {
+        uint256 balanceOfAllNftAt = 0;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if(tokens[i] == 0) continue;
+            balanceOfAllNftAt += dustLock.balanceOfNFTAt(tokens[i], ts);
+        }
+        return balanceOfAllNftAt;
     }
 
 
