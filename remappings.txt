@@ -3,4 +3,6 @@ forge-std/=lib/forge-std/src/
 @openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 contracts/=./contracts/
+@aave/core-v3/contracts/=lib/aave-v3-core/contracts/
+@aave-v3-periphery/contracts/=lib/aave-v3-periphery/contracts/
 
