@@ -12,10 +12,10 @@ import "forge-std/console2.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
 
 abstract contract BaseTest is Script, Test {
-    Dust public DUST;
-    DustLock public dustLock;
-    RevenueReward public revenueReward;
-    MockERC20 public mockUSDC;
+    Dust internal DUST;
+    DustLock internal dustLock;
+    RevenueReward internal revenueReward;
+    MockERC20 internal mockUSDC;
 
     uint256 constant USDC_1 = 1e6;
     uint256 constant USDC_10K = 1e10; // 1e4 = 10K tokens with 6 decimals
@@ -36,7 +36,6 @@ abstract contract BaseTest is Script, Test {
     address internal user3 = address(0x3);
     address internal user4 = address(0x4);
     address internal user5 = address(0x5);
-    address[] allUsers;
 
     uint256 constant MINTIME = 4 weeks;
     uint256 constant MAXTIME = 1 * 365 * 86400;
@@ -48,9 +47,9 @@ abstract contract BaseTest is Script, Test {
     }
 
     /// @dev Implement this if you want a custom configured deployment
-    function _setUp() public virtual {}
+    function _setUp() internal virtual {}
 
-    function _testSetup() public {
+    function _testSetup() internal {
         // seed set up with initial time
         skip(1 weeks);
 

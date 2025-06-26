@@ -8,7 +8,7 @@ contract VotingEscrowTest is BaseTest {
 
     /* ========== TEST MIN LOCK TIME ========== */
 
-    function _setUp() public override {
+    function _setUp() internal override {
         // Initial time => 1 sec after the start of week1
         assertEq(block.timestamp, 1 weeks + 1);
         mintErc20Token(address(DUST), user, TOKEN_100K);
