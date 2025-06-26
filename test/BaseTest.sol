@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {DustLock} from "../src/tokens/DustLock.sol";
 import {Dust} from "../src/tokens/Dust.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IDustLock} from "../src/interfaces/IDustLock.sol";
 import {Script} from "forge-std/Script.sol";
 import {Test} from "forge-std/Test.sol";
-import {DustLock} from "../src/tokens/DustLock.sol";
-import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {MockERC20} from "./utils/MockERC20.sol";
 import "forge-std/console2.sol";
+import {RevenueReward} from "../src/rewards/RevenueReward.sol";
 
 abstract contract BaseTest is Script, Test {
     Dust public DUST;
     DustLock public dustLock;
+    RevenueReward public revenueReward;
+    MockERC20 public mockUSDC;
+
+    uint256 constant USDC_1 = 1e6;
+    uint256 constant USDC_10K = 1e10; // 1e4 = 10K tokens with 6 decimals
+    uint256 constant USDC_100K = 1e11; // 1e5 = 100K tokens with 6 decimals
 
     uint256 constant TOKEN_1 = 1e18;
     uint256 constant TOKEN_10K = 1e22; // 1e4 = 10K tokens with 18 decimals
@@ -28,7 +36,7 @@ abstract contract BaseTest is Script, Test {
     address internal user3 = address(0x3);
     address internal user4 = address(0x4);
     address internal user5 = address(0x5);
-    address[] users;
+    address[] allUsers;
 
     uint256 constant MINTIME = 4 weeks;
     uint256 constant MAXTIME = 1 * 365 * 86400;
@@ -46,22 +54,6 @@ abstract contract BaseTest is Script, Test {
         // seed set up with initial time
         skip(1 weeks);
 
-        // mint DUST to users
-        uint256[] memory amounts = new uint256[](5);
-        amounts[0] = TOKEN_10M;
-        amounts[1] = TOKEN_10M;
-        amounts[2] = TOKEN_10M;
-        amounts[3] = TOKEN_10M;
-        amounts[4] = TOKEN_10M;
-
-        users = new address[](6);
-        users[0] = payable(address(this));
-        users[1] = address(admin);
-        users[2] = address(user1);
-        users[3] = address(user2);
-        users[4] = address(user3);
-        users[5] = address(user4);
-
         // deploy DUST
         Dust dustImpl = new Dust();
         TransparentUpgradeableProxy dustProxy =
@@ -69,12 +61,21 @@ abstract contract BaseTest is Script, Test {
         DUST = Dust(address(dustProxy));
         DUST.initialize(admin);
 
+        // deploy USDC
+        mockUSDC = new MockERC20("USDC", "USDC", 6);
 
-        // mint
-        mintErc20Token18Dec(address(DUST), users, amounts);
+        // mint mockUSDC
+        address[] memory usdcUsers = new address[](1);
+        usdcUsers[0] = user;
+        uint256[] memory usdcAmounts = new uint256[](1);
+        usdcAmounts[0] = USDC_100K;
+        mintErc20Tokens(address(mockUSDC), usdcUsers, usdcAmounts);
 
         // deploy DustLock
         dustLock = new DustLock(admin, address(DUST));
+
+        // deploy RevenueReward
+        revenueReward = new RevenueReward(admin, address(dustLock));
 
         // add log labels
         vm.label(address(admin), "admin");
@@ -89,10 +90,16 @@ abstract contract BaseTest is Script, Test {
 
     /* ========== HELPER FUNCTIONS ========== */
 
-    function mintErc20Token18Dec(address _token, address[] memory _accounts, uint256[] memory _amounts) internal {
+
+
+    function mintErc20Tokens(address _token, address[] memory _accounts, uint256[] memory _amounts) internal {
         for (uint256 i = 0; i < _amounts.length; i++) {
-            deal(address(_token), _accounts[i], _amounts[i], true);
+            mintErc20Token(address(_token), _accounts[i], _amounts[i]);
         }
+    }
+
+    function mintErc20Token(address _token, address _account, uint256 _amount) internal {
+        deal(address(_token), _account, _amount, true);
     }
 
     function mintETH(address[] memory _accounts, uint256[] memory _amounts) internal {

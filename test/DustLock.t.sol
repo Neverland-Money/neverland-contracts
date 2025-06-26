@@ -8,9 +8,10 @@ contract VotingEscrowTest is BaseTest {
 
     /* ========== TEST MIN LOCK TIME ========== */
 
-    function _setUp() public override view {
+    function _setUp() public override {
         // Initial time => 1 sec after the start of week1
         assertEq(block.timestamp, 1 weeks + 1);
+        mintErc20Token(address(DUST), user, TOKEN_100K);
     }
 
     /* ========== TEST NFT ========== */
@@ -264,10 +265,8 @@ contract VotingEscrowTest is BaseTest {
 
     function testEarlyUnlock() public {
         // arrange
-        vm.prank(user2);
         DUST.approve(address(dustLock), TOKEN_1);
 
-        vm.prank(user2);
         uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
 
         dustLock.setEarlyWithdrawTreasury(user3);
@@ -279,7 +278,6 @@ contract VotingEscrowTest is BaseTest {
         skipAndRoll(MAXTIME / 2);
 
         // act
-        vm.prank(user2);
         dustLock.earlyWithdraw(tokenId);
 
         // assert
