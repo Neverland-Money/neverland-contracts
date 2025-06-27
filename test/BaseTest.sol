@@ -29,6 +29,7 @@ abstract contract BaseTest is Script, Test {
     uint256 constant TOKEN_100M = 1e26; // 1e8 = 100M tokens with 18 decimals
     uint256 constant TOKEN_10B = 1e28; // 1e10 = 10B tokens with 18 decimals
 
+    address internal ZERO_ADDRESS = address(0);
     address internal admin = address(0xad1);
     address internal user = address(this);
     address internal user1 = address(0x1);
@@ -63,18 +64,11 @@ abstract contract BaseTest is Script, Test {
         // deploy USDC
         mockUSDC = new MockERC20("USDC", "USDC", 6);
 
-        // mint mockUSDC
-        address[] memory usdcUsers = new address[](1);
-        usdcUsers[0] = user;
-        uint256[] memory usdcAmounts = new uint256[](1);
-        usdcAmounts[0] = USDC_100K;
-        mintErc20Tokens(address(mockUSDC), usdcUsers, usdcAmounts);
-
         // deploy DustLock
-        dustLock = new DustLock(admin, address(DUST));
+        dustLock = new DustLock(ZERO_ADDRESS, address(DUST));
 
         // deploy RevenueReward
-        revenueReward = new RevenueReward(admin, address(dustLock));
+        revenueReward = new RevenueReward(ZERO_ADDRESS, address(dustLock));
 
         // add log labels
         vm.label(address(admin), "admin");
