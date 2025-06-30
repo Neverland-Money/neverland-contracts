@@ -71,16 +71,11 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /// @notice Calculates token's reward from last claimed start epoch until current start epoch
     function earned(address token, uint256 tokenId) internal view returns (uint256) {
-
         // take start epoch of last claimed, as starting point
         uint256 _startTs = EpochTimeLibrary.epochNext(lastEarnTime[token][tokenId]);
         uint256 _endTs = EpochTimeLibrary.epochStart(block.timestamp);
 
         if(_startTs > _endTs) return 0;
-
-        //console2.log('current timestamp', block.timestamp);
-        //console2.log('lastEarnTime', lastEarnTime[token][tokenId]);
-        //console2.log('_startTs', _startTs, '_endTs', _endTs);
 
         // get epochs between last claimed staring epoch and current stating epoch
         uint256 _numEpochs = (_endTs - _startTs) / DURATION;
@@ -89,19 +84,13 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 _currTs = _startTs;
         if (_numEpochs > 0) {
             for (uint256 i = 0; i <= _numEpochs; i++) {
-                //console2.log("_currTs", _currTs);
                 uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(_currTs);
                 if (tokenSupplyBalanceCurrTs == 0) {
                     _currTs += DURATION;
                     continue;
                 }
-
-                uint256 totalRewardPerEpoch = tokenRewardsPerEpoch[token][_currTs];
-                uint256 tokenBalanceCurrTs = dustLock.balanceOfNFTAt(tokenId, _currTs);
-                //console2.log(totalRewardPerEpoch, tokenBalanceCurrTs, tokenSupplyBalanceCurrTs);
-
-                reward += (totalRewardPerEpoch * tokenBalanceCurrTs / tokenSupplyBalanceCurrTs);
-                //console2.log("reward", reward);
+                // totalRewardPerEpoch * tokenBalanceCurrTs / tokenSupplyBalanceCurrTs
+                reward += (tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs) / tokenSupplyBalanceCurrTs);
                 _currTs += DURATION;
             }
         }
