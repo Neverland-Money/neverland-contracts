@@ -22,9 +22,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public lastEarnTime;
     /// @inheritdoc IRevenueReward
-    mapping(address => bool) public isReward;
+    mapping(address => bool) public isRewardToken;
     /// @inheritdoc IRevenueReward
-    address[] public rewards;
+    address[] public rewardTokens;
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
 
@@ -54,9 +54,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function notifyRewardAmount(address token, uint256 amount) external nonReentrant {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
         if (amount == 0) revert ZeroAmount();
-        if (!isReward[token]) {
-            isReward[token] = true;
-            rewards.push(token);
+        if (!isRewardToken[token]) {
+            isRewardToken[token] = true;
+            rewardTokens.push(token);
         }
 
         address sender = _msgSender();

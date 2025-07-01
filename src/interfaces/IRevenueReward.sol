@@ -23,10 +23,10 @@ interface IRevenueReward {
     function rewardDistributor() external view returns (address);
 
     /// @notice Checks if a token is a registered reward token.
-    function isReward(address token) external view returns (bool);
+    function isRewardToken(address token) external view returns (bool);
 
     /// @notice Returns the reward token at a specific index in the list of rewards.
-    function rewards(uint256 index) external view returns (address);
+    function rewardTokens(uint256 index) external view returns (address);
 
     /// @notice Returns the amount of rewards for a token in a specific epoch.
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);
