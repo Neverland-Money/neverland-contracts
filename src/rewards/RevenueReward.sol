@@ -14,16 +14,13 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IDustLock public dustLock;
-
+    /// @inheritdoc IRevenueReward
+    address public rewardDistributor;
     /// @inheritdoc IRevenueReward
     uint256 public constant DURATION = 7 days;
 
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public lastEarnTime;
-
-    /// @inheritdoc IRevenueReward
-    mapping(uint256 => mapping(uint256 => uint256)) public claimed;
-
     /// @inheritdoc IRevenueReward
     mapping(address => bool) public isReward;
     /// @inheritdoc IRevenueReward
@@ -31,8 +28,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
 
-    constructor(address _forwarder, address _dustLock) ERC2771Context(_forwarder) {
+    constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
         dustLock = IDustLock(_dustLock);
+        rewardDistributor = _rewardDistributor;
     }
 
     /// @inheritdoc IRevenueReward
@@ -54,6 +52,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     /// @notice Reward amounts added during the epoch are added to be claimable at the end of the epoch
     function notifyRewardAmount(address token, uint256 amount) external nonReentrant {
+        if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
         if (amount == 0) revert ZeroAmount();
         if (!isReward[token]) {
             isReward[token] = true;
@@ -98,4 +97,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         return reward;
     }
 
+    function setRewardDistributor(address newRewardDistributor) external {
+        if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
+        rewardDistributor = newRewardDistributor;
+    }
 }

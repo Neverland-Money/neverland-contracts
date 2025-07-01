@@ -2,13 +2,10 @@
 pragma solidity ^0.8.19;
 
 import "./BaseTest.sol";
-import "forge-std/console2.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {EpochTimeLibrary} from "../src/libraries/EpochTimeLibrary.sol";
-import {console2} from "forge-std/console2.sol";
-import {console2} from "forge-std/console2.sol";
-import {console2} from "forge-std/console2.sol";
-import {console2} from "forge-std/console2.sol";
+import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
+import "forge-std/console2.sol";
 
 contract RevenueRewardsTest is BaseTest {
 
@@ -24,10 +21,39 @@ contract RevenueRewardsTest is BaseTest {
 
     function testNotifyRewardAmount() public {
         // arrange & act
-        _addReward(admin, USDC_10K);
+        _addReward(admin, mockUSDC, USDC_10K);
         // assert
         assertEq(mockUSDC.balanceOf(address(revenueReward)), USDC_10K);
     }
+
+    function testNotifyRewardAmountFromNonRewardDistributor() public {
+        mintErc20Token(address(mockUSDC), user1, USDC_10K);
+
+        vm.startPrank(user1);
+        mockUSDC.approve(address(revenueReward), USDC_10K);
+        vm.expectRevert(
+            abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector)
+        );
+        revenueReward.notifyRewardAmount(address(mockUSDC), USDC_10K);
+        vm.stopPrank();
+    }
+
+    function testSettingNewRewardDistributorFromAnyUser() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector)
+        );
+        revenueReward.setRewardDistributor(user1);
+    }
+
+    function testSettingNewRewardDistributor() public {
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        vm.prank(admin);
+        revenueReward.setRewardDistributor(user1);
+
+        _addReward(user1, mockUSDC, USDC_10K);
+    }
+
 
     /* ========== TEST GET REWARD ========== */
 
@@ -35,7 +61,7 @@ contract RevenueRewardsTest is BaseTest {
         // arrange
         assertEq(block.timestamp, 1 weeks + 1);
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
-        _addReward(admin, USDC_10K); // adds reward at the start of next epoch
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipToNextEpoch(1);
         assertEq(block.timestamp, 2 weeks + 1);
@@ -64,7 +90,7 @@ contract RevenueRewardsTest is BaseTest {
     function testSingleUserMultiEpochClaim() public {
         // epoch 1
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
-        _addReward(admin, USDC_10K); // adds reward at the start of next epoch
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipToNextEpoch(1);
         address[] memory tokens = new address[](1);
@@ -73,7 +99,7 @@ contract RevenueRewardsTest is BaseTest {
 
         // epoch2
         skipToNextEpoch(1);
-        _addReward(admin, USDC_10K); // adds reward at the start of next epoch
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipToNextEpoch(1);
         revenueReward.getReward(tokenId, tokens);
@@ -93,7 +119,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 user1TokenId = _createLock(user1, TOKEN_1 * 2, MAXTIME);
         uint256 user2TokenId = _createLock(user2, TOKEN_1, MAXTIME);
 
-        _addReward(admin, USDC_10K);
+        _addReward(admin, mockUSDC, USDC_10K);
 
         skipToNextEpoch(1);
         // Record state before claims
@@ -126,7 +152,7 @@ contract RevenueRewardsTest is BaseTest {
     function testSingleUserForMultipleUnclaimedPastEpochs() public {
         // epoch 1
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
-        _addReward(admin, USDC_10K); // adds reward at the start of next epoch
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipToNextEpoch(1);
         address[] memory tokens = new address[](1);
@@ -135,7 +161,7 @@ contract RevenueRewardsTest is BaseTest {
 
         // epoch2
         skipToNextEpoch(1);
-        _addReward(admin, USDC_10K); // adds reward at the start of next epoch
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipToNextEpoch(1);
         revenueReward.getReward(tokenId, tokens);
@@ -155,7 +181,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 user1TokenId = _createLock(user1, TOKEN_1 * 2, MAXTIME);
         uint256 user2TokenId = _createLock(user2, TOKEN_1, MAXTIME);
 
-        _addReward(admin, USDC_10K);
+        _addReward(admin, mockUSDC, USDC_10K);
 
         skipToNextEpoch(1);
         // Record state before claims
@@ -163,7 +189,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 user2BalanceBefore = mockUSDC.balanceOf(user2);
 
         skipToNextEpoch(1);
-        _addReward(admin, USDC_10K);
+        _addReward(admin, mockUSDC, USDC_10K);
 
         skipToNextEpoch(1);
 
@@ -193,16 +219,12 @@ contract RevenueRewardsTest is BaseTest {
     function testClaimingForSubsetOfTokens() public {
         uint256 tokenId = _createLock(user1, TOKEN_1, MAXTIME);
 
-        // Create two reward tokens
+        // Create reward tokens
         MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
-        mintErc20Token(address(mockUSDC), user, USDC_10K);
-        mintErc20Token(address(mockDAI), user, TOKEN_10K);
 
         // Add rewards for both tokens
-        _addReward(user, USDC_10K);
-
-        mockDAI.approve(address(revenueReward), TOKEN_10K);
-        revenueReward.notifyRewardAmount(address(mockDAI), TOKEN_10K);
+        _addReward(admin, mockDAI, TOKEN_10K);
+        _addReward(admin, mockUSDC, USDC_10K);
 
         // Skip to next epoch
         skipToNextEpoch(1);
@@ -219,23 +241,16 @@ contract RevenueRewardsTest is BaseTest {
         revenueReward.getReward(tokenId, tokens);
         vm.stopPrank();
 
-        // Assertions
-        // USDC balance should increase
+        // assert
         assertEq(mockUSDC.balanceOf(user1), USDC_10K);
-
-        // DAI balance should remain unchanged
         assertEq(mockDAI.balanceOf(user1), daiBalanceBefore);
-
-        // USDC lastEarnTime should be updated
         assertGt(revenueReward.lastEarnTime(address(mockUSDC), tokenId), usdcLastEarnTimeBefore);
-
-        // DAI lastEarnTime should remain unchanged
         assertEq(revenueReward.lastEarnTime(address(mockDAI), tokenId), daiLastEarnTimeBefore);
     }
 
     function testAttemptingToClaimTwice() public {
         uint256 tokenId = _createLock(user1, TOKEN_1, MAXTIME);
-        _addReward(user, USDC_10K);
+        _addReward(admin, mockUSDC, USDC_10K);
 
         skipToNextEpoch(1);
 
@@ -266,12 +281,12 @@ contract RevenueRewardsTest is BaseTest {
         vm.stopPrank();
     }
 
-    function _addReward(address _user, uint256 _amount) private {
-        mintErc20Token(address(mockUSDC), _user, _amount);
+    function _addReward(address _user, IERC20 _token, uint256 _amount) private {
+        mintErc20Token(address(_token), _user, _amount);
 
         vm.startPrank(_user);
-        mockUSDC.approve(address(revenueReward), _amount);
-        revenueReward.notifyRewardAmount(address(mockUSDC), _amount);
+        _token.approve(address(revenueReward), _amount);
+        revenueReward.notifyRewardAmount(address(_token), _amount);
         vm.stopPrank();
     }
 }
