@@ -47,4 +47,7 @@ interface IRevenueReward {
 
     /// @notice Sets the address allowed to add rewards to contract.
     function setRewardDistributor(address newRewardDistributor) external;
+
+    /// @notice Returns tokens that were transferred and not notified back the current rewards distributor.
+    function recoverTokens() external;
 }
