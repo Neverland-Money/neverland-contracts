@@ -6,6 +6,7 @@ import {IDustLock} from "../interfaces/IDustLock.sol";
 interface IRevenueReward {
     event ClaimRewards(address indexed user, address indexed token, uint256 amount);
     event NotifyReward(address indexed from, address indexed token, uint256 epoch, uint256 amount);
+    event RecoverTokens(address indexed token, uint256 amount);
 
     error ZeroAmount();
     error NotRewardDistributor();
@@ -27,6 +28,9 @@ interface IRevenueReward {
 
     /// @notice Returns the reward token at a specific index in the list of rewards.
     function rewardTokens(uint256 index) external view returns (address);
+
+    /// @notice Returns the sum of all rewards per token
+    function totalRewardsPerToken(address token) external view returns (uint256);
 
     /// @notice Returns the amount of rewards for a token in a specific epoch.
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);

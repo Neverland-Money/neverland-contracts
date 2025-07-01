@@ -9,6 +9,8 @@ import "forge-std/console2.sol";
 
 contract RevenueRewardsTest is BaseTest {
 
+    MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
+
     // Declare the event locally
     event ClaimRewards(address indexed user, address indexed token, uint256 amount);
 
@@ -219,9 +221,6 @@ contract RevenueRewardsTest is BaseTest {
     function testClaimingForSubsetOfTokens() public {
         uint256 tokenId = _createLock(user1, TOKEN_1, MAXTIME);
 
-        // Create reward tokens
-        MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
-
         // Add rewards for both tokens
         _addReward(admin, mockDAI, TOKEN_10K);
         _addReward(admin, mockUSDC, USDC_10K);
@@ -268,6 +267,43 @@ contract RevenueRewardsTest is BaseTest {
         vm.stopPrank();
 
         assertEq(mockUSDC.balanceOf(user1), balanceAfterFirstClaim);
+    }
+
+    /* ========== TEST RECOVER TOKENS ========== */
+
+    function testRecoverMultipleTokens() public {
+        _addReward(admin, mockDAI, TOKEN_10K);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // transfer without notify
+        mintErc20Token(address(mockDAI), admin, 2 * TOKEN_10K);
+        vm.prank(admin);
+        mockDAI.transfer(address(revenueReward), 2 * TOKEN_10K);
+
+        mintErc20Token(address(mockUSDC), admin, 4 * USDC_10K);
+        vm.prank(admin);
+        mockUSDC.transfer(address(revenueReward), 4 * USDC_10K);
+
+        assertEq(mockUSDC.balanceOf(admin), 0);
+        assertEq(mockDAI.balanceOf(admin), 0);
+
+        vm.prank(admin);
+        revenueReward.recoverTokens();
+
+        assertEq(mockUSDC.balanceOf(admin), 4 * USDC_10K);
+        assertEq(mockDAI.balanceOf(admin), 2 * TOKEN_10K);
+    }
+
+    function testRecoverNonDistributor() public {
+        mintErc20Token(address(mockDAI), admin, 2 * TOKEN_10K);
+        vm.prank(admin);
+        mockDAI.transfer(address(revenueReward), 2 * TOKEN_10K);
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector)
+        );
+        revenueReward.recoverTokens();
     }
 
     /* ========== HELPER FUNCTIONS ========== */

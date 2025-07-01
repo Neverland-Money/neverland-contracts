@@ -26,6 +26,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     address[] public rewardTokens;
     /// @inheritdoc IRevenueReward
+    mapping(address => uint256) public totalRewardsPerToken;
+    /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
 
     constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
@@ -60,6 +62,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         }
 
         address sender = _msgSender();
+        
+        totalRewardsPerToken[token] += amount;
         IERC20(token).safeTransferFrom(sender, address(this), amount);
 
         uint256 epochNext = EpochTimeLibrary.epochNext(block.timestamp);
@@ -100,5 +104,19 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function setRewardDistributor(address newRewardDistributor) external {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
         rewardDistributor = newRewardDistributor;
+    }
+
+    function recoverTokens() external {
+        if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
+
+        for (uint256 i = 0; i < rewardTokens.length; i++) {
+            address token = rewardTokens[i];
+            uint256 balance = IERC20(token).balanceOf(address(this));
+            uint256 unnotifiedTokenAmount = balance - totalRewardsPerToken[token];
+            if (unnotifiedTokenAmount > 0) {
+                IERC20(token).safeTransfer(rewardDistributor, unnotifiedTokenAmount);
+                emit RecoverTokens(token, balance);
+            }
+        }
     }
 }
