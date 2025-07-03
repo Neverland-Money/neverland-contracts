@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "./BaseTest.sol";
+import "forge-std/console2.sol";
+import {console2} from "forge-std/console2.sol";
 import {console2} from "forge-std/console2.sol";
 
 contract VotingEscrowTest is BaseTest {
@@ -263,33 +265,41 @@ contract VotingEscrowTest is BaseTest {
         assertEq(dustLock.balanceOfNFT(1), 0);
     }
 
-    function testEarlyUnlock() public {
+    function testEarlyWithdraw() public {
         // arrange
-        DUST.approve(address(dustLock), TOKEN_1);
+        mintErc20Token(address(DUST), user2, TOKEN_10K);
 
-        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        vm.startPrank(user2);
+        DUST.approve(address(dustLock), TOKEN_10K);
+        uint256 tokenId = dustLock.createLock(TOKEN_10K, MAXTIME);
+        vm.stopPrank();
 
         dustLock.setEarlyWithdrawTreasury(user3);
         dustLock.setEarlyWithdrawPenalty(3_000);
 
-        uint256 preBalanceUser2 = DUST.balanceOf(address(user2));
-        uint256 preBalanceUser3 = DUST.balanceOf(address(user3));
-
         skipAndRoll(MAXTIME / 2);
 
         // act
+        vm.prank(user2);
         dustLock.earlyWithdraw(tokenId);
 
         // assert
         assertEq(dustLock.balanceOfNFT(tokenId), 0);
 
-        uint256 expectedReturns = (3_000 * (TOKEN_1 / 2) / TOKEN_1 / 10_000);
-        assertApproxEqAbs(DUST.balanceOf(address(user2)), preBalanceUser2 + expectedReturns, 1e15);
+        uint256 expectedUserPenalty = 0.3 * 5_000 * 1e18;
+
+        assertApproxEqAbs(
+            DUST.balanceOf(address(user2)),
+            TOKEN_10K - expectedUserPenalty,
+            10 * 1e18, // up to 10 DUST diff allowed
+            "wrong amount on user"
+        );
 
         assertApproxEqAbs(
             DUST.balanceOf(address(dustLock.earlyWithdrawTreasury())),
-            preBalanceUser3 + TOKEN_1 - expectedReturns,
-            1e15
+            expectedUserPenalty,
+            10 * 1e18, // up to 10 DUST diff allowed
+            "wrong amount on treasury"
         );
     }
 
