@@ -12,10 +12,7 @@ import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 
 /// @title DustLock
-/// @notice veNFT implementation that stakes ERC-20 tokens in the form of an ERC-721 NFT
-/// @author Modified from Velodrome (https://github.com/velodrome-finance/contracts/blob/main/contracts/VotingEscrow.sol)
-/// @author neverland.money
-/// @dev veDust value decays linearly over time. Lock time cannot be more than `MAXTIME` (1 year) and less than 'MINTIME` (28 days).
+/// @notice Stores ERC20 token rewards and provides them to veDUST owners
 contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeCastLibrary for uint256;
