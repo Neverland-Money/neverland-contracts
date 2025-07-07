@@ -4,9 +4,8 @@ pragma solidity ^0.8.19;
 import "./BaseTest.sol";
 import "forge-std/console2.sol";
 import {console2} from "forge-std/console2.sol";
-import {console2} from "forge-std/console2.sol";
 
-contract VotingEscrowTest is BaseTest {
+contract DustLockTests is BaseTest {
 
     /* ========== TEST MIN LOCK TIME ========== */
 
