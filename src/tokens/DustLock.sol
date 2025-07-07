@@ -727,7 +727,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
-        if (oldLocked.isPermanent) revert PermanentLock();
+        if (oldLocked.isPermanent) unlockPermanent(_tokenId);
+
         uint256 userLockedAmount = oldLocked.amount.toUint256();
 
         // Burn the NFT
