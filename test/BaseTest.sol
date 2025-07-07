@@ -9,7 +9,6 @@ import {Test} from "forge-std/Test.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
-import "forge-std/console2.sol";
 
 abstract contract BaseTest is Script, Test {
     Dust internal DUST;
@@ -72,6 +71,7 @@ abstract contract BaseTest is Script, Test {
 
         // add log labels
         vm.label(address(admin), "admin");
+        vm.label(address(this), "user");
         vm.label(address(user1), "user1");
         vm.label(address(user2), "user2");
         vm.label(address(user3), "user3");

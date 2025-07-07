@@ -727,28 +727,31 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
-        if (oldLocked.isPermanent) revert PermanentLock();
-        uint256 value = oldLocked.amount.toUint256();
+        if (oldLocked.isPermanent) unlockPermanent(_tokenId);
+
+        uint256 userLockedAmount = oldLocked.amount.toUint256();
 
         // Burn the NFT
         _burn(_tokenId);
         _locked[_tokenId] = LockedBalance(0, 0, false);
         uint256 supplyBefore = supply;
-        supply = supplyBefore - value;
+        supply = supplyBefore - userLockedAmount;
 
-        uint256 userValue = earlyWithdrawPenalty * balanceOfNFT(_tokenId) / 10_000 / oldLocked.amount.toUint256();
-        uint256 treasuryValue = value - userValue;
+        // penaltyAmount = earlyWithdrawPenalty * balanceOfNFT(_tokenId) / userLockedAmount * userLockedAmount / 10_000
+        uint256 userPenaltyAmount = earlyWithdrawPenalty * balanceOfNFT(_tokenId) / 10_000;
+        uint256 userTransferAmount = userLockedAmount - userPenaltyAmount;
+        uint256 treasuryTransferAmount = userPenaltyAmount;
 
         // oldLocked can have either expired <= timestamp or zero end
         // oldLocked has only 0 end
         // Both can have >= 0 amount
         _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, false));
 
-        IERC20(token).safeTransfer(sender, userValue);
-        IERC20(token).safeTransfer(earlyWithdrawTreasury, treasuryValue);
+        IERC20(token).safeTransfer(sender, userTransferAmount);
+        IERC20(token).safeTransfer(earlyWithdrawTreasury, treasuryTransferAmount);
 
-        emit EarlyWithdraw(sender, _tokenId, value, userValue, block.timestamp);
-        emit Supply(supplyBefore, supplyBefore - value);
+        emit EarlyWithdraw(sender, _tokenId, userLockedAmount, userTransferAmount, block.timestamp);
+        emit Supply(supplyBefore, supplyBefore - userLockedAmount);
     }
 
     /// @inheritdoc IDustLock
