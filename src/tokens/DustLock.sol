@@ -886,7 +886,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function unlockPermanent(uint256 _tokenId) external {
+    function unlockPermanent(uint256 _tokenId) public {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
         LockedBalance memory _newLocked = _locked[_tokenId];
