@@ -1,66 +1,27 @@
-## Foundry
+# Neverland
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Smart contracts for Neverland, a lending protocol built on AAVE and Aerodrome.
 
-Foundry consists of:
+## Setup
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+This repository uses Foundry for testing
 
-## Documentation
+Foundry Setup
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+```
+forge install
+forge build
+forge test
 ```
 
-### Test
+## Deployment
 
-```shell
-$ forge test
-```
+// TODO
 
-### Format
+## Protocol Overview
 
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+| contract      | Description                                                                                              |
+|---------------|----------------------------------------------------------------------------------------------------------|
+| Dust          | Protocol ERC20 token                                                                                     |
+| DustLock      | ERC-721 veDUST, stakes DUST for a max time of 1y for with decaying its value linearly decaying over time |
+| RevenueReward | Stores ERC20 token rewards and provides them to veDUST owners                                            |

@@ -6,22 +6,18 @@ import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
-import {IReward} from "../interfaces/IReward.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 
 /// @title DustLock
-/// @notice veNFT implementation that escrows ERC-20 tokens in the form of an ERC-721 NFT
-/// @notice Votes have a weight depending on time, so that users are committed to the future of (whatever they are voting for)
-/// @author Modified from Velodrome (https://github.com/velodrome-finance/contracts/blob/main/contracts/VotingEscrow.sol)
-/// @author neverland.money
-/// @dev Vote weight decays linearly over time. Lock time cannot be more than `MAXTIME` (4 years).
+/// @notice Stores ERC20 token rewards and provides them to veDUST owners
 contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeCastLibrary for uint256;
     using SafeCastLibrary for int128;
+
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -54,7 +50,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     uint256 public tokenId;
 
     /// @param _forwarder address of trusted forwarder
-    /// @param _token `VELO` token address
+    /// @param _token `DUST` token address
     constructor(address _forwarder, address _token) ERC2771Context(_forwarder) {
         forwarder = _forwarder;
         token = _token;

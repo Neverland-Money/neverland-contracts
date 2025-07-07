@@ -10,6 +10,8 @@ import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {console2} from "forge-std/console2.sol";
 
+/// @title RevenueReward
+/// @notice Stores ERC20 token rewards and provides them to veDUST owners
 contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
