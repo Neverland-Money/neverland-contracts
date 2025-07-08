@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {DustLockTransferStrategy, IDustLockTransferStrategy, IDustLock} from "../src/emissions/DustLockTransferStrategy.sol";
 import "./BaseTest.sol";
-import {console2} from "forge-std/console2.sol";
 
 contract DustLockTransferStrategyTest is BaseTest {
 
