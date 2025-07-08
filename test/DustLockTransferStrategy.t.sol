@@ -79,12 +79,37 @@ contract DustLockTransferStrategyTest is BaseTest {
         );
     }
 
+    function testPerformTransferWithAmountZero() public {
+        uint balanceBefore = DUST.balanceOf(dustVault);
+
+        vm.prank(incentivesController);
+        transferStrategy.performTransfer(
+            user,         // to
+            address(DUST),      // reward
+            0,            // amount
+            0,                  // lockTime
+            0                   // tokenId
+        );
+
+        assertEq(DUST.balanceOf(dustVault), balanceBefore);
+    }
+
     function testPerformTransferWithDifferentDustAddress() public {
         vm.prank(incentivesController);
         vm.expectRevert(IDustLockTransferStrategy.InvalidRewardAddress.selector);
         transferStrategy.performTransfer(
             user,               // to
             address(0),         // reward
+            TOKEN_1,            // amount
+            0,                  // lockTime
+            0                   // tokenId
+        );
+
+        vm.prank(incentivesController);
+        vm.expectRevert(IDustLockTransferStrategy.InvalidRewardAddress.selector);
+        transferStrategy.performTransfer(
+            user,               // to
+            user2,         // reward
             TOKEN_1,            // amount
             0,                  // lockTime
             0                   // tokenId

@@ -45,6 +45,8 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
     onlyIncentivesController
     returns (bool)
   {
+    // Gracefully handle zero amount transfers
+    if (amount == 0) return true;
     if (to == address(0)) revert AddressZero();
     if (reward != DUST) revert InvalidRewardAddress();
     IERC20(reward).safeTransferFrom(DUST_VAULT, address(this), amount);
