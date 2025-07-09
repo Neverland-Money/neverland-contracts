@@ -64,7 +64,8 @@ abstract contract BaseTest is Script, Test {
         mockUSDC = new MockERC20("USDC", "USDC", 6);
 
         // deploy DustLock
-        dustLock = new DustLock(ZERO_ADDRESS, address(DUST));
+        string memory baseUrl = "https://neverland.money/nfts/";
+        dustLock = new DustLock(ZERO_ADDRESS, address(DUST), baseUrl);
 
         // deploy RevenueReward
         revenueReward = new RevenueReward(ZERO_ADDRESS, address(dustLock), admin);

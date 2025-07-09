@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
+import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title DustLock
 /// @notice Stores ERC20 token rewards and provides them to veDUST owners
@@ -17,6 +18,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeCastLibrary for uint256;
     using SafeCastLibrary for int128;
+    using Strings for uint256;
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -36,25 +38,25 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     /// @dev ERC165 interface ID of ERC165
     bytes4 internal constant ERC165_INTERFACE_ID = 0x01ffc9a7;
-
     /// @dev ERC165 interface ID of ERC721
     bytes4 internal constant ERC721_INTERFACE_ID = 0x80ac58cd;
-
     /// @dev ERC165 interface ID of ERC4906
     bytes4 internal constant ERC4906_INTERFACE_ID = 0x49064906;
-
     /// @dev ERC165 interface ID of ERC6372
     bytes4 internal constant ERC6372_INTERFACE_ID = 0xda287a1d;
+    /// @dev ERC165 interface ID of ERC721Metadata
+    bytes4 internal constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
 
     /// @inheritdoc IDustLock
     uint256 public tokenId;
 
     /// @param _forwarder address of trusted forwarder
     /// @param _token `DUST` token address
-    constructor(address _forwarder, address _token) ERC2771Context(_forwarder) {
+    constructor(address _forwarder, address _token, string memory _baseURI) ERC2771Context(_forwarder) {
         forwarder = _forwarder;
         token = _token;
         team = _msgSender();
+        baseURI = _baseURI;
 
         earlyWithdrawTreasury = _msgSender();
         earlyWithdrawPenalty = 5_000;
@@ -66,11 +68,18 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         supportedInterfaces[ERC721_INTERFACE_ID] = true;
         supportedInterfaces[ERC4906_INTERFACE_ID] = true;
         supportedInterfaces[ERC6372_INTERFACE_ID] = true;
+        supportedInterfaces[ERC721_METADATA_INTERFACE_ID] = true;
 
         // mint-ish
         emit Transfer(address(0), address(this), tokenId);
         // burn-ish
         emit Transfer(address(this), address(0), tokenId);
+    }
+
+    function setTeam(address _team) external {
+        if (_msgSender() != team) revert NotTeam();
+        if (_team == address(0)) revert ZeroAddress();
+        team = _team;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -82,10 +91,18 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     string public constant version = "2.0.0";
     uint8 public constant decimals = 18;
 
-    function setTeam(address _team) external {
+    string internal baseURI;
+
+    function tokenURI(uint256 _tokenId) public view returns (string memory) {
+        require(_ownerOf(_tokenId) != address(0), "ERC721: invalid token ID");
+
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId.toString())) : "";
+    }
+
+    /// @inheritdoc IDustLock
+    function setBaseURI(string memory newBaseURI) external {
         if (_msgSender() != team) revert NotTeam();
-        if (_team == address(0)) revert ZeroAddress();
-        team = _team;
+        baseURI = newBaseURI;
     }
 
     /*//////////////////////////////////////////////////////////////
