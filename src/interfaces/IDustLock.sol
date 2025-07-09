@@ -2,10 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 
-interface IDustLock is IERC4906, IERC6372 {
+interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     struct LockedBalance {
         int128 amount;
         uint256 end;
@@ -123,6 +124,8 @@ interface IDustLock is IERC4906, IERC6372 {
     /// @dev Current count of token
     function tokenId() external view returns (uint256);
 
+    function setTeam(address _team) external;
+
     /*///////////////////////////////////////////////////////////////
                              METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -135,7 +138,8 @@ interface IDustLock is IERC4906, IERC6372 {
 
     function decimals() external view returns (uint8);
 
-    function setTeam(address _team) external;
+    /// @notice Updated baseURI for tokenURI
+    function setBaseURI(string memory newBaseURI) external;
 
     /*//////////////////////////////////////////////////////////////
                       ERC721 BALANCE/OWNER STORAGE

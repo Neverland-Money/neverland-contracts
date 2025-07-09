@@ -32,6 +32,29 @@ contract DustLockTests is BaseTest {
         assertEq(dustLock.balanceOfNFT(1), 0);
     }
 
+    function testTokenUri() public {
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+
+        assertEq(dustLock.tokenURI(tokenId), "https://neverland.money/nfts/1");
+    }
+
+    function testBaseUriOnlySetByTeam() public {
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+
+        string memory newBaseURI = "https://google.com/search?q=";
+
+        vm.startPrank(admin);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.setBaseURI(newBaseURI);
+        vm.stopPrank();
+
+        dustLock.setBaseURI(newBaseURI);
+
+        assertEq(dustLock.tokenURI(tokenId), "https://google.com/search?q=1");
+    }
+
     /* ========== TEST PERMANENT LOCK BALANCE ========== */
 
     /// invariant checks
