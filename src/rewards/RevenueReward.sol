@@ -32,24 +32,42 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
 
+    /// tokenId => rewardReceiver address
+    mapping(uint256 => address) public tokenRewardReceiver;
+
     constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
         dustLock = IDustLock(_dustLock);
         rewardDistributor = _rewardDistributor;
     }
 
+    function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual nonReentrant {
+        if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
+        tokenRewardReceiver[tokenId] = rewardReceiver;
+        emit SelfRepayingLoanUpdate(tokenId, rewardReceiver, true);
+    }
+
+    function disableSelfRepayLoan(uint256 tokenId) external virtual nonReentrant {
+        if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
+        tokenRewardReceiver[tokenId] = address(0);
+        emit SelfRepayingLoanUpdate(tokenId, address(0), false);
+    }
+
     /// @inheritdoc IRevenueReward
     function getReward(uint256 tokenId, address[] memory tokens) external virtual nonReentrant {
-        uint256 _length = tokens.length;
-        address _owner = dustLock.ownerOf(tokenId);
+        address rewardsReceiver = tokenRewardReceiver[tokenId];
+        if(rewardsReceiver == address(0)) {
+            rewardsReceiver = dustLock.ownerOf(tokenId);
+        }
 
+        uint256 _length = tokens.length;
         for (uint256 i = 0; i < _length; i++) {
             uint256 _reward = earned(tokens[i], tokenId);
 
             lastEarnTime[tokens[i]][tokenId] = block.timestamp;
 
-            if (_reward > 0) IERC20(tokens[i]).safeTransfer(_owner, _reward);
+            if (_reward > 0) IERC20(tokens[i]).safeTransfer(rewardsReceiver, _reward);
 
-            emit ClaimRewards(_owner, tokens[i], _reward);
+            emit ClaimRewards(rewardsReceiver, tokens[i], _reward);
         }
     }
 

@@ -7,9 +7,11 @@ interface IRevenueReward {
     event ClaimRewards(address indexed user, address indexed token, uint256 amount);
     event NotifyReward(address indexed from, address indexed token, uint256 epoch, uint256 amount);
     event RecoverTokens(address indexed token, uint256 amount);
+    event SelfRepayingLoanUpdate(uint256 indexed token, address rewardReceiver, bool isEnabled);
 
     error ZeroAmount();
     error NotRewardDistributor();
+    error NotOwner();
 
     /// @notice The address of the DustLock contract.
     function dustLock() external view returns (IDustLock);
