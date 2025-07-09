@@ -611,7 +611,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         }
 
         emit Deposit(from, _tokenId, _depositType, _value, newLocked.end, block.timestamp);
-        emit Supply(supplyBefore, supplyBefore + _value);
+        emit Supply(supplyBefore, supply);
     }
 
     /// @inheritdoc IDustLock
@@ -714,7 +714,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         IERC20(token).safeTransfer(sender, value);
 
         emit Withdraw(sender, _tokenId, value, block.timestamp);
-        emit Supply(supplyBefore, supplyBefore - value);
+        emit Supply(supplyBefore, supply);
     }
 
     /// @inheritdoc IDustLock
@@ -747,7 +747,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         IERC20(token).safeTransfer(earlyWithdrawTreasury, treasuryTransferAmount);
 
         emit EarlyWithdraw(sender, _tokenId, userLockedAmount, userTransferAmount, block.timestamp);
-        emit Supply(supplyBefore, supplyBefore - userLockedAmount);
+        emit Supply(supplyBefore, supply);
     }
 
     /// @inheritdoc IDustLock
