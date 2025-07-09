@@ -37,10 +37,26 @@ interface IRevenueReward {
     /// @notice Returns the amount of rewards for a token in a specific epoch.
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);
 
-    /// @notice Claims the accumulated rewards for a specific veNFT.
+    /// @notice Returns the reward receiver for the token or zero if it's the owner.
+    function tokenRewardReceiver(uint256 tokenId) external view returns (address);
+
+    /// @notice Claims the accumulated rewards for a specific veNFT to the token's rewardReceiver.
+    ///         If rewardReceiver is not set, it's the token owner.
     /// @param tokenId The ID of the veNFT.
     /// @param tokens The list of reward token addresses to claim.
     function getReward(uint256 tokenId, address[] memory tokens) external;
+
+    /// @notice Sets the reward receiver for the token to be a contract. That contract uses the
+    ///         token's reward to repay the token's owner loans.
+    /// @dev You still need to call getReward. Called only by token owner.
+    /// @param tokenId The ID of the veNFT.
+    /// @param rewardReceiver The contract responsible to use rewards to repay the token's owner debt.
+    function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external;
+
+    /// @notice Sets the reward receiver to be the owner of the token.
+    /// @dev Called only by token owner.
+    /// @param tokenId The ID of the veNFT.
+    function disableSelfRepayLoan(uint256 tokenId) external;
 
     /// @notice Called by a reward distributor to notify the contract of new rewards.
     /// @param token The address of the reward token.

@@ -31,8 +31,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => uint256) public totalRewardsPerToken;
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
-
-    /// tokenId => rewardReceiver address
+    /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
 
     constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
@@ -40,12 +39,14 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         rewardDistributor = _rewardDistributor;
     }
 
+    /// @inheritdoc IRevenueReward
     function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual nonReentrant {
         if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
         tokenRewardReceiver[tokenId] = rewardReceiver;
         emit SelfRepayingLoanUpdate(tokenId, rewardReceiver, true);
     }
 
+    /// @inheritdoc IRevenueReward
     function disableSelfRepayLoan(uint256 tokenId) external virtual nonReentrant {
         if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
         tokenRewardReceiver[tokenId] = address(0);
