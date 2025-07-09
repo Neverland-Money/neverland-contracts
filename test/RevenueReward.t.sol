@@ -13,6 +13,7 @@ contract RevenueRewardsTest is BaseTest {
 
     // Declare the event locally
     event ClaimRewards(address indexed user, address indexed token, uint256 amount);
+    event SelfRepayingLoanUpdate(uint256 indexed token, address rewardReceiver, bool isEnabled);
 
     function _setUp() internal override view {
         // Initial time => 1 sec after the start of week1
@@ -268,6 +269,96 @@ contract RevenueRewardsTest is BaseTest {
 
         assertEq(mockUSDC.balanceOf(user1), balanceAfterFirstClaim);
     }
+
+    /* ========== TEST GET REWARD ========== */
+
+    function testEnableSelfRepayLoanCantBeSetByNonTokenOwner() public {
+        // arrange
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        // act/assert
+        vm.startPrank(user2);
+        vm.expectRevert(
+            abi.encodeWithSelector(IRevenueReward.NotOwner.selector)
+        );
+        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        vm.stopPrank();
+    }
+
+    function testDisableSelfRepayLoanCantBeSetByNonTokenOwner() public {
+        // arrange
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        revenueReward.enableSelfRepayLoan(tokenId, user2);
+
+        // act/assert
+        vm.startPrank(user2);
+        vm.expectRevert(
+            abi.encodeWithSelector(IRevenueReward.NotOwner.selector)
+        );
+        revenueReward.disableSelfRepayLoan(tokenId);
+        vm.stopPrank();
+    }
+
+    function testEnableSelfRepayLoan() public {
+        // arrange
+        assertEq(block.timestamp, 1 weeks + 1);
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        skipToNextEpoch(1);
+        assertEq(block.timestamp, 2 weeks + 1);
+
+        // act
+        vm.expectEmit(true, true, true, false, address(revenueReward));
+        emit SelfRepayingLoanUpdate(tokenId, user2, true);
+        revenueReward.enableSelfRepayLoan(tokenId, user2);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        revenueReward.getReward(tokenId, tokens);
+
+        // assert
+        assertEq(mockUSDC.balanceOf(user), 0);
+
+        uint256 balanceAfter = mockUSDC.balanceOf(user2);
+        uint256 rewardAmount = balanceAfter;
+
+        assertEq(rewardAmount, USDC_10K);
+    }
+
+    function testDisableSelfRepayLoan() public {
+        // epoch 1
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        skipToNextEpoch(1);
+
+        revenueReward.enableSelfRepayLoan(tokenId, user2);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        revenueReward.getReward(tokenId, tokens);
+
+        assertEq(mockUSDC.balanceOf(user2), USDC_10K, "user2");
+
+        // epoch2
+        skipToNextEpoch(1);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        skipToNextEpoch(1);
+
+        vm.expectEmit(true, true, true, false, address(revenueReward));
+        emit SelfRepayingLoanUpdate(tokenId, ZERO_ADDRESS, false);
+        revenueReward.disableSelfRepayLoan(tokenId);
+
+        revenueReward.getReward(tokenId, tokens);
+
+        assertEq(mockUSDC.balanceOf(user), USDC_10K, "user");
+    }
+
 
     /* ========== TEST RECOVER TOKENS ========== */
 
