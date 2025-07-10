@@ -372,9 +372,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Burns the veNFT token, removing ownership and permissions
+     * @dev Burns the veNFT token, removing ownership and permissions. Only callable by approved users or the owner of the token
      * @notice Must be called prior to updating `LockedBalance`
-     * @dev Only callable by approved users or the owner of the token
      * @param _tokenId The ID of the veNFT token to burn
      */
     function _burn(uint256 _tokenId) internal {
