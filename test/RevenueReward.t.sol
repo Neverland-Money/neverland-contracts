@@ -8,14 +8,13 @@ import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
 import "forge-std/console2.sol";
 
 contract RevenueRewardsTest is BaseTest {
-
     MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
 
     // Declare the event locally
     event ClaimRewards(address indexed user, address indexed token, uint256 amount);
     event SelfRepayingLoanUpdate(uint256 indexed token, address rewardReceiver, bool isEnabled);
 
-    function _setUp() internal override view {
+    function _setUp() internal view override {
         // Initial time => 1 sec after the start of week1
         assertEq(block.timestamp, 1 weeks + 1);
     }
@@ -34,17 +33,13 @@ contract RevenueRewardsTest is BaseTest {
 
         vm.startPrank(user1);
         mockUSDC.approve(address(revenueReward), USDC_10K);
-        vm.expectRevert(
-            abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector));
         revenueReward.notifyRewardAmount(address(mockUSDC), USDC_10K);
         vm.stopPrank();
     }
 
     function testSettingNewRewardDistributorFromAnyUser() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector));
         revenueReward.setRewardDistributor(user1);
     }
 
@@ -57,7 +52,6 @@ contract RevenueRewardsTest is BaseTest {
         _addReward(user1, mockUSDC, USDC_10K);
     }
 
-
     /* ========== TEST GET REWARD ========== */
 
     function testSingleUserSingleEpochClaim() public {
@@ -69,8 +63,8 @@ contract RevenueRewardsTest is BaseTest {
         skipToNextEpoch(1);
         assertEq(block.timestamp, 2 weeks + 1);
 
-        assertEq(mockUSDC.balanceOf(user) , 0);
-        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId) , 0);
+        assertEq(mockUSDC.balanceOf(user), 0);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 0);
 
         // act
         vm.expectEmit(true, true, false, false, address(revenueReward));
@@ -216,7 +210,7 @@ contract RevenueRewardsTest is BaseTest {
         assertApproxEqRel(user1Reward, user2Reward * 2, 0.01e18);
 
         // The sum of rewards should not exceed the total rewards
-        assertLe(user1Reward + user2Reward, 2*USDC_10K);
+        assertLe(user1Reward + user2Reward, 2 * USDC_10K);
     }
 
     function testClaimingForSubsetOfTokens() public {
@@ -279,9 +273,7 @@ contract RevenueRewardsTest is BaseTest {
 
         // act/assert
         vm.startPrank(user2);
-        vm.expectRevert(
-            abi.encodeWithSelector(IRevenueReward.NotOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
         revenueReward.enableSelfRepayLoan(tokenId, user2);
         vm.stopPrank();
     }
@@ -295,9 +287,7 @@ contract RevenueRewardsTest is BaseTest {
 
         // act/assert
         vm.startPrank(user2);
-        vm.expectRevert(
-            abi.encodeWithSelector(IRevenueReward.NotOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
         revenueReward.disableSelfRepayLoan(tokenId);
         vm.stopPrank();
     }
@@ -359,7 +349,6 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(mockUSDC.balanceOf(user), USDC_10K, "user");
     }
 
-
     /* ========== TEST RECOVER TOKENS ========== */
 
     function testRecoverMultipleTokens() public {
@@ -391,9 +380,7 @@ contract RevenueRewardsTest is BaseTest {
         mockDAI.transfer(address(revenueReward), 2 * TOKEN_10K);
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector));
         revenueReward.recoverTokens();
     }
 

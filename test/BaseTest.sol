@@ -55,8 +55,7 @@ abstract contract BaseTest is Script, Test {
 
         // deploy DUST
         Dust dustImpl = new Dust();
-        TransparentUpgradeableProxy dustProxy =
-                    new TransparentUpgradeableProxy(address(dustImpl), address(admin), "");
+        TransparentUpgradeableProxy dustProxy = new TransparentUpgradeableProxy(address(dustImpl), address(admin), "");
         DUST = Dust(address(dustProxy));
         DUST.initialize(admin);
 

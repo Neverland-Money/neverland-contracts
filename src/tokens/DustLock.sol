@@ -480,13 +480,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
             }
         }
 
-        GlobalPoint memory lastPoint = GlobalPoint({
-            bias: 0,
-            slope: 0,
-            ts: block.timestamp,
-            blk: block.number,
-            permanentLockBalance: 0
-        });
+        GlobalPoint memory lastPoint =
+            GlobalPoint({bias: 0, slope: 0, ts: block.timestamp, blk: block.number, permanentLockBalance: 0});
         if (_epoch > 0) {
             lastPoint = _pointHistory[_epoch];
         }
@@ -636,11 +631,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         // Set newLocked to _oldLocked without mangling memory
         LockedBalance memory newLocked;
-        (newLocked.amount, newLocked.end, newLocked.isPermanent) = (
-            _oldLocked.amount,
-            _oldLocked.end,
-            _oldLocked.isPermanent
-        );
+        (newLocked.amount, newLocked.end, newLocked.isPermanent) =
+            (_oldLocked.amount, _oldLocked.end, _oldLocked.isPermanent);
 
         // Adding to existing lock, or if a lock is expired - creating a new one
         newLocked.amount += _value.toInt128();
@@ -704,7 +696,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function createLockFor(uint256 _value, uint256 _lockDuration, address _to) external nonReentrant returns (uint256) {
+    function createLockFor(uint256 _value, uint256 _lockDuration, address _to)
+        external
+        nonReentrant
+        returns (uint256)
+    {
         return _createLock(_value, _lockDuration, _to);
     }
 
@@ -820,7 +816,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         earlyWithdrawTreasury = _account;
     }
 
-
     /// @inheritdoc IDustLock
     function merge(uint256 _from, uint256 _to) external nonReentrant {
         address sender = _msgSender();
@@ -863,10 +858,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function split(
-        uint256 _from,
-        uint256 _amount
-    ) external nonReentrant returns (uint256 _tokenId1, uint256 _tokenId2) {
+    function split(uint256 _from, uint256 _amount)
+        external
+        nonReentrant
+        returns (uint256 _tokenId1, uint256 _tokenId2)
+    {
         address sender = _msgSender();
         address owner = _ownerOf(_from);
         if (owner == address(0)) revert SplitNoOwner();

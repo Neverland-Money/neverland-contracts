@@ -66,7 +66,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     function getReward(uint256 tokenId, address[] memory tokens) external virtual nonReentrant {
         address rewardsReceiver = tokenRewardReceiver[tokenId];
-        if(rewardsReceiver == address(0)) {
+        if (rewardsReceiver == address(0)) {
             rewardsReceiver = dustLock.ownerOf(tokenId);
         }
 
@@ -92,7 +92,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         }
 
         address sender = _msgSender();
-        
+
         totalRewardsPerToken[token] += amount;
         IERC20(token).safeTransferFrom(sender, address(this), amount);
 
@@ -117,7 +117,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 _startTs = EpochTimeLibrary.epochNext(lastEarnTime[token][tokenId]);
         uint256 _endTs = EpochTimeLibrary.epochStart(block.timestamp);
 
-        if(_startTs > _endTs) return 0;
+        if (_startTs > _endTs) return 0;
 
         // get epochs between last claimed staring epoch and current stating epoch
         uint256 _numEpochs = (_endTs - _startTs) / DURATION;
@@ -132,7 +132,10 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                     continue;
                 }
                 // totalRewardPerEpoch * tokenBalanceCurrTs / tokenSupplyBalanceCurrTs
-                reward += (tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs) / tokenSupplyBalanceCurrTs);
+                reward += (
+                    tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs)
+                        / tokenSupplyBalanceCurrTs
+                );
                 _currTs += DURATION;
             }
         }
