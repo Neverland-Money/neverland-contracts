@@ -688,7 +688,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         if (_value == 0) revert ZeroAmount();
         if (unlockTime <= block.timestamp) revert LockDurationNotInFuture();
-        if (unlockTime < block.timestamp + MINTIME) revert LockDurationTooSort();
+        if (unlockTime < block.timestamp + MINTIME) revert LockDurationTooShort();
         if (unlockTime > block.timestamp + MAXTIME) revert LockDurationTooLong();
 
         uint256 _tokenId = ++tokenId;

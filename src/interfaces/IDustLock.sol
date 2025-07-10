@@ -96,7 +96,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when the lock duration exceeds the maximum allowed time
     error LockDurationTooLong();
     /// @notice Error thrown when the lock duration is less than the minimum required time
-    error LockDurationTooSort();
+    error LockDurationTooShort();
     /// @notice Error thrown when trying to perform an operation on an expired lock
     error LockExpired();
     /// @notice Error thrown when trying to withdraw from a lock that hasn't expired yet
