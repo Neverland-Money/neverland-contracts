@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {SafeCastLibrary} from "./SafeCastLibrary.sol";
 
-
 library BalanceLogicLibrary {
     using SafeCastLibrary for uint256;
     using SafeCastLibrary for int128;

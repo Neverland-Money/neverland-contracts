@@ -16,7 +16,7 @@ interface IRevenueReward {
      * @param amount Amount of rewards claimed
      */
     event ClaimRewards(address indexed user, address indexed token, uint256 amount);
-    
+
     /**
      * @notice Emitted when new rewards are notified to the contract
      * @param from Address that notified the rewards (typically the reward distributor)
@@ -25,14 +25,14 @@ interface IRevenueReward {
      * @param amount Amount of rewards added
      */
     event NotifyReward(address indexed from, address indexed token, uint256 epoch, uint256 amount);
-    
+
     /**
      * @notice Emitted when tokens are recovered from the contract
      * @param token Address of the token being recovered
      * @param amount Amount of tokens recovered
      */
     event RecoverTokens(address indexed token, uint256 amount);
-    
+
     /**
      * @notice Emitted when self-repaying loan status is updated for a token
      * @param token ID of the veNFT whose reward redirection is being configured

@@ -6,7 +6,6 @@ import "forge-std/console2.sol";
 import {console2} from "forge-std/console2.sol";
 
 contract DustLockTests is BaseTest {
-
     /* ========== TEST MIN LOCK TIME ========== */
 
     function _setUp() internal override {
@@ -111,12 +110,7 @@ contract DustLockTests is BaseTest {
         // 3. MAXTIME is the denominator for decay calculations
         uint256 expectedBalance = TOKEN_1 * (lockTime - 12 weeks) / MAXTIME;
 
-        assertApproxEqAbs(
-            dustLock.balanceOfNFTAt(tokenId, block.timestamp),
-            expectedBalance,
-            1e16
-        );
-
+        assertApproxEqAbs(dustLock.balanceOfNFTAt(tokenId, block.timestamp), expectedBalance, 1e16);
     }
 
     function testBalanceOfTotalNftSupply() public {
@@ -163,18 +157,16 @@ contract DustLockTests is BaseTest {
 
         assertEq(balanceOfAllNftAt7, _getBalanceOfAllNftsAt(tokens, timestamp7));
         assertEq(totalSupplyAt7, dustLock.totalSupplyAt(timestamp7));
-
     }
 
-    function _getBalanceOfAllNftsAt(uint256[] memory tokens, uint256 ts) internal view returns(uint256) {
+    function _getBalanceOfAllNftsAt(uint256[] memory tokens, uint256 ts) internal view returns (uint256) {
         uint256 balanceOfAllNftAt = 0;
         for (uint256 i = 0; i < tokens.length; i++) {
-            if(tokens[i] == 0) continue;
+            if (tokens[i] == 0) continue;
             balanceOfAllNftAt += dustLock.balanceOfNFTAt(tokens[i], ts);
         }
         return balanceOfAllNftAt;
     }
-
 
     /* ========== TEST MIN LOCK TIME ========== */
 
@@ -184,10 +176,8 @@ contract DustLockTests is BaseTest {
         assertEq(startOfCurrentWeek, 1 weeks);
 
         // act/assert
-        (
-            DustLock.LockedBalance memory lockedTokenId1,
-            DustLock.LockedBalance memory lockedTokenId2
-        ) = _createLocks(TOKEN_1, MINTIME + WEEK);
+        (DustLock.LockedBalance memory lockedTokenId1, DustLock.LockedBalance memory lockedTokenId2) =
+            _createLocks(TOKEN_1, MINTIME + WEEK);
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 5 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 5 weeks);
 
@@ -207,10 +197,8 @@ contract DustLockTests is BaseTest {
         assertEq(startOfCurrentWeek, 1 weeks);
 
         // act/assert
-        (
-            DustLock.LockedBalance memory lockedTokenId1,
-            DustLock.LockedBalance memory lockedTokenId2
-        ) = _createLocks(TOKEN_1, MINTIME + WEEK);
+        (DustLock.LockedBalance memory lockedTokenId1, DustLock.LockedBalance memory lockedTokenId2) =
+            _createLocks(TOKEN_1, MINTIME + WEEK);
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 5 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 5 weeks);
 
@@ -230,10 +218,8 @@ contract DustLockTests is BaseTest {
         assertEq(startOfCurrentWeek, 2 weeks);
 
         // act/assert
-        (
-            DustLock.LockedBalance memory lockedTokenId1,
-            DustLock.LockedBalance memory lockedTokenId2
-        ) = _createLocks(TOKEN_1, MINTIME);
+        (DustLock.LockedBalance memory lockedTokenId1, DustLock.LockedBalance memory lockedTokenId2) =
+            _createLocks(TOKEN_1, MINTIME);
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 4 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 4 weeks);
 
@@ -252,10 +238,8 @@ contract DustLockTests is BaseTest {
         assertEq(startOfCurrentWeek, 1 weeks);
 
         // act/assert
-        (
-            DustLock.LockedBalance memory lockedTokenId1,
-            DustLock.LockedBalance memory lockedTokenId2
-        ) = _createLocks(TOKEN_1, MAXTIME);
+        (DustLock.LockedBalance memory lockedTokenId1, DustLock.LockedBalance memory lockedTokenId2) =
+            _createLocks(TOKEN_1, MAXTIME);
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 52 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 52 weeks);
 
@@ -325,7 +309,6 @@ contract DustLockTests is BaseTest {
         );
     }
 
-
     /* ========== HELPER FUNCTIONS ========== */
 
     function _createLocks(uint256 amount, uint256 duration)
@@ -340,5 +323,4 @@ contract DustLockTests is BaseTest {
         uint256 tokenId2 = dustLock.createLock(amount, duration);
         lockedTokenId2 = dustLock.locked(tokenId2);
     }
-
 }

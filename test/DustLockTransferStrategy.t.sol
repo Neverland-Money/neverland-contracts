@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {DustLockTransferStrategy, IDustLockTransferStrategy, IDustLock} from "../src/emissions/DustLockTransferStrategy.sol";
+import {
+    DustLockTransferStrategy,
+    IDustLockTransferStrategy,
+    IDustLock
+} from "../src/emissions/DustLockTransferStrategy.sol";
 import "./BaseTest.sol";
 
 contract DustLockTransferStrategyTest is BaseTest {
-
     DustLockTransferStrategy public transferStrategy;
     address internal dustVault;
     address internal incentivesController;
@@ -29,10 +32,10 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         // Deploy DustLockTransferStrategy
         transferStrategy = new DustLockTransferStrategy(
-            incentivesController,   // incentivesController
-            admin,                  // rewardsAdmin
-            dustVault,              // dustVault
-            address(dustLock)       // dustLock
+            incentivesController, // incentivesController
+            admin, // rewardsAdmin
+            dustVault, // dustVault
+            address(dustLock) // dustLock
         );
 
         // Give 1M token allowance to mint veDUST
@@ -58,11 +61,11 @@ contract DustLockTransferStrategyTest is BaseTest {
         vm.prank(user);
         vm.expectRevert("CALLER_NOT_INCENTIVES_CONTROLLER");
         transferStrategy.performTransfer(
-            address(0),         // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            0,                  // lockTime
-            0                   // tokenId
+            address(0), // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            0 // tokenId
         );
     }
 
@@ -70,24 +73,24 @@ contract DustLockTransferStrategyTest is BaseTest {
         vm.prank(incentivesController);
         vm.expectRevert(IDustLockTransferStrategy.AddressZero.selector);
         transferStrategy.performTransfer(
-            address(0),         // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            0,                  // lockTime
-            0                   // tokenId
+            address(0), // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            0 // tokenId
         );
     }
 
     function testPerformTransferWithAmountZero() public {
-        uint balanceBefore = DUST.balanceOf(dustVault);
+        uint256 balanceBefore = DUST.balanceOf(dustVault);
 
         vm.prank(incentivesController);
         transferStrategy.performTransfer(
-            user,         // to
-            address(DUST),      // reward
-            0,            // amount
-            0,                  // lockTime
-            0                   // tokenId
+            user, // to
+            address(DUST), // reward
+            0, // amount
+            0, // lockTime
+            0 // tokenId
         );
 
         assertEq(DUST.balanceOf(dustVault), balanceBefore);
@@ -97,21 +100,21 @@ contract DustLockTransferStrategyTest is BaseTest {
         vm.prank(incentivesController);
         vm.expectRevert(IDustLockTransferStrategy.InvalidRewardAddress.selector);
         transferStrategy.performTransfer(
-            user,               // to
-            address(0),         // reward
-            TOKEN_1,            // amount
-            0,                  // lockTime
-            0                   // tokenId
+            user, // to
+            address(0), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            0 // tokenId
         );
 
         vm.prank(incentivesController);
         vm.expectRevert(IDustLockTransferStrategy.InvalidRewardAddress.selector);
         transferStrategy.performTransfer(
-            user,               // to
-            user2,         // reward
-            TOKEN_1,            // amount
-            0,                  // lockTime
-            0                   // tokenId
+            user, // to
+            user2, // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            0 // tokenId
         );
     }
 
@@ -122,11 +125,11 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         vm.prank(incentivesController);
         transferStrategy.performTransfer(
-            user2,              // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            0,                  // lockTime
-            0                   // tokenId
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            0 // tokenId
         );
 
         assertEq(DUST.balanceOf(user2), userDustBefore + (TOKEN_1 / 2));
@@ -138,11 +141,11 @@ contract DustLockTransferStrategyTest is BaseTest {
         vm.prank(incentivesController);
         vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         transferStrategy.performTransfer(
-            user2,              // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            MINTIME - 1,        // lockTime
-            0                   // tokenId
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            MINTIME - 1, // lockTime
+            0 // tokenId
         );
     }
 
@@ -151,11 +154,11 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         vm.prank(incentivesController);
         transferStrategy.performTransfer(
-            user2,              // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            MINTIME + WEEK,     // lockTime
-            0                   // tokenId
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            MINTIME + WEEK, // lockTime
+            0 // tokenId
         );
 
         assertEq(DUST.balanceOf(dustVault), vaultDustBefore - TOKEN_1);
@@ -172,11 +175,11 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         vm.prank(incentivesController);
         transferStrategy.performTransfer(
-            user2,              // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            MAXTIME,            // lockTime
-            0                   // tokenId
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            MAXTIME, // lockTime
+            0 // tokenId
         );
 
         assertEq(DUST.balanceOf(dustVault), vaultDustBefore - TOKEN_1);
@@ -192,11 +195,11 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         vm.prank(incentivesController);
         transferStrategy.performTransfer(
-            user2,              // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            MAXTIME,            // lockTime
-            0                   // tokenId
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            MAXTIME, // lockTime
+            0 // tokenId
         );
 
         uint256 createLockTokenId = dustLock.tokenId();
@@ -208,11 +211,11 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         vm.prank(incentivesController);
         transferStrategy.performTransfer(
-            user2,              // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            0,                  // lockTime
-            createLockTokenId  // tokenId
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            createLockTokenId // tokenId
         );
 
         assertEq(DUST.balanceOf(dustVault), vaultDustBefore - (2 * TOKEN_1));
@@ -225,22 +228,22 @@ contract DustLockTransferStrategyTest is BaseTest {
     function testPerformTransferWithMergingNonExistingTokenId() public {
         vm.prank(incentivesController);
         transferStrategy.performTransfer(
-            user2,              // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            MAXTIME,            // lockTime
-            0                   // tokenId
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            MAXTIME, // lockTime
+            0 // tokenId
         );
 
         uint256 createLockTokenId = dustLock.tokenId();
         vm.prank(incentivesController);
         vm.expectRevert(IDustLockTransferStrategy.InvalidTokenId.selector);
         transferStrategy.performTransfer(
-            user2,              // to
-            address(DUST),      // reward
-            TOKEN_1,            // amount
-            0,                  // lockTime
-            createLockTokenId + 1  // tokenId
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            createLockTokenId + 1 // tokenId
         );
     }
 }
