@@ -12,7 +12,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
     /* ========== SETUP ========== */
 
-    function _setUp() public override {
+    function _setUp() internal override {
         // Set IncentivesController mock and DustVault with DUST tokens
         incentivesController = address(0xc1);
         dustVault = address(0xd5);
@@ -25,7 +25,7 @@ contract DustLockTransferStrategyTest is BaseTest {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = TOKEN_10M;
 
-        mintErc20Token18Dec(address(DUST), usersTmp, amounts);
+        mintErc20Tokens(address(DUST), usersTmp, amounts);
 
         // Deploy DustLockTransferStrategy
         transferStrategy = new DustLockTransferStrategy(
@@ -136,7 +136,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
     function testPerformTransferWithLessThanMinLockTime() public {
         vm.prank(incentivesController);
-        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         transferStrategy.performTransfer(
             user2,              // to
             address(DUST),      // reward

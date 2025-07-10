@@ -191,10 +191,10 @@ contract DustLockTests is BaseTest {
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 5 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 5 weeks);
 
-        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLock(TOKEN_1, MINTIME);
 
-        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLockFor(TOKEN_1, MINTIME, user2);
     }
 
@@ -214,10 +214,10 @@ contract DustLockTests is BaseTest {
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 5 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 5 weeks);
 
-        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLock(TOKEN_1, MINTIME);
 
-        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLockFor(TOKEN_1, MINTIME, user2);
     }
 
@@ -237,10 +237,10 @@ contract DustLockTests is BaseTest {
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 4 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 4 weeks);
 
-        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLock(TOKEN_1, MINTIME - 1);
 
-        vm.expectRevert(IDustLock.LockDurationTooSort.selector);
+        vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLockFor(TOKEN_1, MINTIME - 1, user2);
     }
 
