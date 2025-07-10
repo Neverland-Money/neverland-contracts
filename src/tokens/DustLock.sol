@@ -12,8 +12,10 @@ import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-/// @title DustLock
-/// @notice Stores ERC20 token rewards and provides them to veDUST owners
+/**
+ * @title DustLock
+ * @notice Stores ERC20 token rewards and provides them to veDUST owners
+ */
 contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeCastLibrary for uint256;
@@ -50,8 +52,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     uint256 public tokenId;
 
-    /// @param _forwarder address of trusted forwarder
-    /// @param _token `DUST` token address
+    /**
+     * @param _forwarder address of trusted forwarder
+     * @param _token `DUST` token address
+     */
     constructor(address _forwarder, address _token, string memory _baseURI) ERC2771Context(_forwarder) {
         forwarder = _forwarder;
         token = _token;
@@ -76,6 +80,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         emit Transfer(address(this), address(0), tokenId);
     }
 
+    /// @inheritdoc IDustLock
     function setTeam(address _team) external {
         if (_msgSender() != team) revert NotTeam();
         if (_team == address(0)) revert ZeroAddress();
@@ -275,9 +280,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @dev Mapping from NFT ID to index of owner
     mapping(uint256 => uint256) internal tokenToOwnerIndex;
 
-    /// @dev Add a NFT to an index mapping to a given address
-    /// @param _to address of the receiver
-    /// @param _tokenId uint ID Of the token to be added
+    /**
+     * @dev Add a NFT to an index mapping to a given address
+     * @param _to address of the receiver
+     * @param _tokenId uint ID Of the token to be added
+     */
     function _addTokenToOwnerList(address _to, uint256 _tokenId) internal {
         uint256 currentCount = ownerToNFTokenCount[_to];
 
@@ -285,8 +292,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         tokenToOwnerIndex[_tokenId] = currentCount;
     }
 
-    /// @dev Add a NFT to a given address
-    ///      Throws if `_tokenId` is owned by someone.
+    /**
+     * @dev Add a NFT to a given address
+     * @param _to address of the receiver
+     * @param _tokenId uint ID Of the token to be added
+     */
     function _addTokenTo(address _to, uint256 _tokenId) internal {
         // Throws if `_tokenId` is owned by someone
         assert(_ownerOf(_tokenId) == address(0));
@@ -298,12 +308,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         ownerToNFTokenCount[_to] += 1;
     }
 
-    /// @dev Function to mint tokens
-    ///      Throws if `_to` is zero address.
-    ///      Throws if `_tokenId` is owned by someone.
-    /// @param _to The address that will receive the minted tokens.
-    /// @param _tokenId The token id to mint.
-    /// @return A boolean that indicates if the operation was successful.
+    /**
+     * @dev Function to mint tokens
+     * @param _to The address that will receive the minted tokens.
+     * @param _tokenId The token id to mint.
+     * @return A boolean that indicates if the operation was successful.
+     */
     function _mint(address _to, uint256 _tokenId) internal returns (bool) {
         // Throws if `_to` is zero address
         assert(_to != address(0));
@@ -313,9 +323,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         return true;
     }
 
-    /// @dev Remove a NFT from an index mapping to a given address
-    /// @param _from address of the sender
-    /// @param _tokenId uint ID Of the token to be removed
+    /**
+     * @dev Remove a NFT from an index mapping to a given address
+     * @param _from address of the sender
+     * @param _tokenId uint ID Of the token to be removed
+     */
     function _removeTokenFromOwnerList(address _from, uint256 _tokenId) internal {
         // Delete
         uint256 currentCount = ownerToNFTokenCount[_from] - 1;
@@ -343,8 +355,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         }
     }
 
-    /// @dev Remove a NFT from a given address
-    ///      Throws if `_from` is not the current owner.
+    /**
+     * @dev Remove a NFT from a given address
+     * @param _from address of the sender
+     * @param _tokenId uint ID Of the token to be removed
+     */
     function _removeTokenFrom(address _from, uint256 _tokenId) internal {
         // Throws if `_from` is not the current owner
         assert(_ownerOf(_tokenId) == _from);
@@ -356,7 +371,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         ownerToNFTokenCount[_from] -= 1;
     }
 
-    /// @dev Must be called prior to updating `LockedBalance`
+    /**
+     * @dev Burns the veNFT token, removing ownership and permissions
+     * @notice Must be called prior to updating `LockedBalance`
+     * @dev Only callable by approved users or the owner of the token
+     * @param _tokenId The ID of the veNFT token to burn
+     */
     function _burn(uint256 _tokenId) internal {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
@@ -417,10 +437,17 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                               ESCROW LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Record global and per-user data to checkpoints. Used by VotingEscrow system.
-    /// @param _tokenId NFT token ID. No user checkpoint if 0
-    /// @param _oldLocked Pevious locked amount / end lock time for the user
-    /// @param _newLocked New locked amount / end lock time for the user
+    /**
+     * @notice Record global and per-user voting power data to checkpoints
+     * @dev This critical function:
+     *      1. Updates user voting power points when their lock changes
+     *      2. Updates global voting power points
+     *      3. Updates slope changes for future epochs
+     *      4. Handles both normal and permanent locks
+     * @param _tokenId NFT token ID (0 means only update global checkpoints, no user checkpoint)
+     * @param _oldLocked Previous locked amount / end lock time / permanent status for the user
+     * @param _newLocked New locked amount / end lock time / permanent status for the user
+     */
     function _checkpoint(uint256 _tokenId, LockedBalance memory _oldLocked, LockedBalance memory _newLocked) internal {
         UserPoint memory uOld;
         UserPoint memory uNew;
@@ -584,12 +611,20 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         }
     }
 
-    /// @notice Deposit and lock tokens for a user
-    /// @param _tokenId NFT that holds lock
-    /// @param _value Amount to deposit
-    /// @param _unlockTime New time when to unlock the tokens, or 0 if unchanged
-    /// @param _oldLocked Previous locked amount / timestamp
-    /// @param _depositType The type of deposit
+    /**
+     * @notice Deposit and lock tokens for an existing veNFT
+     * @dev Core internal function that handles all token deposits including:
+     *      1. Updating supply
+     *      2. Updating token lock parameters
+     *      3. Creating checkpoints for voting power
+     *      4. Transferring tokens from sender to contract
+     *      5. Emitting appropriate events
+     * @param _tokenId The ID of the veNFT that holds the lock
+     * @param _value Amount of tokens to deposit (can be 0 for lock extensions)
+     * @param _unlockTime New time when to unlock the tokens, or 0 if unchanged
+     * @param _oldLocked Previous locked amount, timestamp and permanent status
+     * @param _depositType The type of deposit (create, increase amount, extend time, etc.)
+     */
     function _depositFor(
         uint256 _tokenId,
         uint256 _value,
@@ -641,10 +676,14 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _increaseAmountFor(_tokenId, _value, DepositType.DEPOSIT_FOR_TYPE);
     }
 
-    /// @dev Deposit `_value` tokens for `_to` and lock for `_lockDuration`
-    /// @param _value Amount to deposit
-    /// @param _lockDuration Number of seconds to lock tokens for (rounded down to nearest week)
-    /// @param _to Address to deposit
+    /**
+     * @dev Creates a new lock position by depositing tokens for a specified address
+     * @notice This internal function is used by createLock and createLockFor to create a new veNFT
+     * @param _value Amount of tokens to deposit
+     * @param _lockDuration Number of seconds to lock tokens for (rounded down to nearest week)
+     * @param _to Address that will own the newly created veNFT
+     * @return The ID of the newly created veNFT
+     */
     function _createLock(uint256 _value, uint256 _lockDuration, address _to) internal returns (uint256) {
         uint256 unlockTime = ((block.timestamp + _lockDuration) / WEEK) * WEEK; // Locktime is rounded down to weeks
 
@@ -865,6 +904,17 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         );
     }
 
+    /**
+     * @dev Helper function to create a new veNFT as part of the split operation
+     * @dev This function:
+     *      1. Increments the global tokenId counter to get a new ID
+     *      2. Sets the lock parameters for the new token
+     *      3. Creates a checkpoint for the new veNFT
+     *      4. Mints the new veNFT to the specified owner
+     * @param _to Address that will own the new veNFT
+     * @param _newLocked Lock parameters (amount, end time, permanent status) for the new veNFT
+     * @return _tokenId The ID of the newly created veNFT
+     */
     function _createSplitNFT(address _to, LockedBalance memory _newLocked) private returns (uint256 _tokenId) {
         _tokenId = ++tokenId;
         _locked[_tokenId] = _newLocked;

@@ -11,13 +11,15 @@ library BalanceLogicLibrary {
 
     uint256 internal constant WEEK = 1 weeks;
 
-    /// @notice Binary search to get the user point index for a token id at or prior to a given timestamp
-    /// @dev If a user point does not exist prior to the timestamp, this will return 0.
-    /// @param _userPointEpoch State of all user point epochs
-    /// @param _userPointHistory State of all user point history
-    /// @param _tokenId .
-    /// @param _timestamp .
-    /// @return User point index
+    /**
+     * @notice Binary search to get the user point index for a token id at or prior to a given timestamp
+     * @dev If a user point does not exist prior to the timestamp, this will return 0.
+     * @param _userPointEpoch State of all user point epochs
+     * @param _userPointHistory State of all user point history
+     * @param _tokenId The ID of the veNFT to query
+     * @param _timestamp The timestamp to find the user point at or before
+     * @return User point index
+     */
     function getPastUserPointIndex(
         mapping(uint256 => uint256) storage _userPointEpoch,
         mapping(uint256 => IDustLock.UserPoint[1000000000]) storage _userPointHistory,
@@ -47,12 +49,14 @@ library BalanceLogicLibrary {
         return lower;
     }
 
-    /// @notice Binary search to get the global point index at or prior to a given timestamp
-    /// @dev If a checkpoint does not exist prior to the timestamp, this will return 0.
-    /// @param _epoch Current global point epoch
-    /// @param _pointHistory State of all global point history
-    /// @param _timestamp .
-    /// @return Global point index
+    /**
+     * @notice Binary search to get the global point index at or prior to a given timestamp
+     * @dev If a checkpoint does not exist prior to the timestamp, this will return 0.
+     * @param _epoch Current global point epoch
+     * @param _pointHistory State of all global point history
+     * @param _timestamp The timestamp to find the global point at or before
+     * @return Global point index
+     */
     function getPastGlobalPointIndex(
         uint256 _epoch,
         mapping(uint256 => IDustLock.GlobalPoint) storage _pointHistory,
@@ -80,14 +84,16 @@ library BalanceLogicLibrary {
         return lower;
     }
 
-    /// @notice Get the current voting power for `_tokenId`
-    /// @dev Adheres to the ERC20 `balanceOf` interface for Aragon compatibility
-    ///      Fetches last user point prior to a certain timestamp, then walks forward to timestamp.
-    /// @param _userPointEpoch State of all user point epochs
-    /// @param _userPointHistory State of all user point history
-    /// @param _tokenId NFT for lock
-    /// @param _t Epoch time to return voting power at
-    /// @return User voting power
+    /**
+     * @notice Get the current voting power for `_tokenId`
+     * @dev Adheres to the ERC20 `balanceOf` interface for Aragon compatibility
+     *      Fetches last user point prior to a certain timestamp, then walks forward to timestamp.
+     * @param _userPointEpoch State of all user point epochs
+     * @param _userPointHistory State of all user point history
+     * @param _tokenId NFT for lock
+     * @param _t Epoch time to return voting power at
+     * @return User voting power
+     */
     function balanceOfNFTAt(
         mapping(uint256 => uint256) storage _userPointEpoch,
         mapping(uint256 => IDustLock.UserPoint[1000000000]) storage _userPointHistory,
@@ -109,12 +115,14 @@ library BalanceLogicLibrary {
         }
     }
 
-    /// @notice Calculate total voting power at some point in the past
-    /// @param _slopeChanges State of all slopeChanges
-    /// @param _pointHistory State of all global point history
-    /// @param _epoch The epoch to start search from
-    /// @param _t Time to calculate the total voting power at
-    /// @return Total voting power at that time
+    /**
+     * @notice Calculate total voting power at some point in the past
+     * @param _slopeChanges State of all slopeChanges
+     * @param _pointHistory State of all global point history
+     * @param _epoch The epoch to start search from
+     * @param _t Time to calculate the total voting power at
+     * @return Total voting power at that time
+     */
     function supplyAt(
         mapping(uint256 => int128) storage _slopeChanges,
         mapping(uint256 => IDustLock.GlobalPoint) storage _pointHistory,

@@ -11,7 +11,7 @@ import {IERC20} from '@aave/core-v3/contracts/dependencies/openzeppelin/contract
  *         tokenId to the `IDustTransferStrategy`.
  * @author Aave
  * @author Neverland
- **/
+ */
 abstract contract DustTransferStrategyBase is IDustTransferStrategy {
   using GPv2SafeERC20 for IERC20;
 
@@ -23,17 +23,13 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
     REWARDS_ADMIN = rewardsAdmin;
   }
 
-  /**
-   * @dev Modifier for incentives controller only functions
-   */
+  /// @dev Modifier for incentives controller only functions
   modifier onlyIncentivesController() {
     require(INCENTIVES_CONTROLLER == msg.sender, 'CALLER_NOT_INCENTIVES_CONTROLLER');
     _;
   }
 
-  /**
-   * @dev Modifier for reward admin only functions
-   */
+  /// @dev Modifier for reward admin only functions
   modifier onlyRewardsAdmin() {
     require(msg.sender == REWARDS_ADMIN, 'ONLY_REWARDS_ADMIN');
     _;

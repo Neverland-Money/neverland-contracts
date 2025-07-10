@@ -13,6 +13,10 @@ contract Dust is Initializable, ERC20Upgradeable, ERC20PausableUpgradeable, Owna
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the contract
+     * @param initialOwner The address that will own the contract after initialization
+     */
     function initialize(address initialOwner) public initializer {
         __ERC20_init("Dust", "DUST");
         __ERC20Pausable_init();
@@ -21,14 +25,36 @@ contract Dust is Initializable, ERC20Upgradeable, ERC20PausableUpgradeable, Owna
         _transferOwnership(initialOwner);
     }
 
+    /**
+     * @notice Pauses all token transfers
+     * @dev Can only be called by the contract owner
+     */
     function pause() public onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpauses all token transfers
+     * @dev Can only be called by the contract owner
+     */
     function unpause() public onlyOwner {
         _unpause();
     }
 
+    /**
+     * @notice Hook that is called before any transfer of tokens
+     * @dev Overrides both ERC20Upgradeable and ERC20PausableUpgradeable implementations
+     *      This combined implementation ensures:
+     *      1. The base ERC20 transfer logic is executed
+     *      2. The pausable functionality is enforced (transfers fail when contract is paused)
+     *      It's called in these scenarios:
+     *      - Regular transfers between addresses (both from and to are non-zero)
+     *      - Minting new tokens (from is zero)
+     *      - Burning tokens (to is zero)
+     * @param from Address tokens are transferred from (zero for minting)
+     * @param to Address tokens are transferred to (zero for burning)
+     * @param value Amount of tokens to transfer
+     */
     function _beforeTokenTransfer(address from, address to, uint256 value)
         internal
         override(ERC20Upgradeable, ERC20PausableUpgradeable)

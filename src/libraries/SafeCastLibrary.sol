@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-/// @title SafeCast Library
-/// @author velodrome.finance
-/// @notice Safely convert unsigned and signed integers without overflow / underflow
+/**
+ * @title SafeCast Library
+ * @author velodrome.finance
+ * @notice Safely convert unsigned and signed integers without overflow / underflow
+ */
 library SafeCastLibrary {
     error SafeCastOverflow();
     error SafeCastUnderflow();

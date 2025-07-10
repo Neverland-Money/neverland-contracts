@@ -13,12 +13,26 @@ import {IDustLockTransferStrategy, IDustTransferStrategy} from '../interfaces/ID
  *         created from DUST rewards, or allows for early withdrawal.
  *         Adding DUST to an existing veDUST lock is also supported.
  * @author Neverland
- **/
+ */
 contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransferStrategy {
   using GPv2SafeERC20 for IERC20;
 
+  /**
+   * @notice The DustLock contract that manages veNFTs
+   * @dev Used for creating new locks, adding to existing locks, and checking ownership
+   */
   IDustLock public immutable DUST_LOCK;
+  
+  /**
+   * @notice The vault address where DUST rewards are stored before distribution
+   * @dev Rewards are transferred from this vault when they are claimed
+   */
   address public immutable DUST_VAULT;
+  
+  /**
+   * @notice The DUST token address
+   * @dev Retrieved from the DUST_LOCK contract during construction
+   */
   address public immutable DUST;
 
   constructor(
@@ -70,6 +84,11 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
     return true;
   }
 
+  /**
+   * @notice Returns the address of the vault holding DUST rewards
+   * @dev This vault must approve this contract to transfer DUST tokens
+   * @return The address of the DUST_VAULT
+   */
   function getDustVault() external view returns (address) {
     return DUST_VAULT;
   }
