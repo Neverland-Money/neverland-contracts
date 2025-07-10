@@ -10,11 +10,14 @@ import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title RevenueReward
-/// @notice Stores ERC20 token rewards and provides them to veDUST owners
+/**
+ * @title RevenueReward
+ * @notice Stores ERC20 token rewards and provides them to veDUST owners
+ */
 contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    /// @inheritdoc IRevenueReward
     IDustLock public dustLock;
     /// @inheritdoc IRevenueReward
     address public rewardDistributor;
@@ -34,6 +37,13 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
 
+    /**
+     * @notice Initializes the RevenueReward contract
+     * @dev Sets up core dependencies for reward distribution
+     * @param _forwarder Address of the trusted forwarder for meta-transactions
+     * @param _dustLock Address of the DustLock contract that manages veNFTs
+     * @param _rewardDistributor Address authorized to notify new rewards
+     */
     constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
         dustLock = IDustLock(_dustLock);
         rewardDistributor = _rewardDistributor;
@@ -73,7 +83,6 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    /// @notice Reward amounts added during the epoch are added to be claimable at the end of the epoch
     function notifyRewardAmount(address token, uint256 amount) external nonReentrant {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
         if (amount == 0) revert ZeroAmount();
@@ -93,7 +102,16 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         emit NotifyReward(sender, token, epochNext, amount);
     }
 
-    /// @notice Calculates token's reward from last claimed start epoch until current start epoch
+    /**
+     * @notice Calculates token's reward from last claimed start epoch until current start epoch
+     * @dev Uses epoch-based accounting to prevent reward manipulation:
+     *      1. Finds epochs between last claimed and current time
+     *      2. For each epoch, calculates proportion of rewards based on user's veNFT balance vs total supply
+     *      3. Accumulates rewards across all epochs
+     * @param token The reward token address to calculate earnings for
+     * @param tokenId The ID of the veNFT to calculate earnings for
+     * @return Total unclaimed rewards accrued since last claim
+     */
     function earned(address token, uint256 tokenId) internal view returns (uint256) {
         // take start epoch of last claimed, as starting point
         uint256 _startTs = EpochTimeLibrary.epochNext(lastEarnTime[token][tokenId]);
@@ -122,11 +140,21 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         return reward;
     }
 
+    /**
+     * @notice Sets the address authorized to notify new rewards
+     * @dev Only callable by the current reward distributor
+     * @param newRewardDistributor The new address authorized to notify new rewards
+     */
     function setRewardDistributor(address newRewardDistributor) external {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
         rewardDistributor = newRewardDistributor;
     }
 
+    /**
+     * @notice Recovers unnotified rewards from the contract
+     * @dev Only callable by the current reward distributor
+     * @dev Transfers any unnotified rewards to the distributor
+     */
     function recoverTokens() external {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
 

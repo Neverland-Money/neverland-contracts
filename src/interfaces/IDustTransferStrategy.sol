@@ -27,14 +27,10 @@ interface IDustTransferStrategy {
    */
   function performTransfer(address to, address reward, uint256 amount, uint256 lockTime, uint256 tokenId) external returns (bool);
 
-  /**
-   * @return Returns the address of the Incentives Controller
-   */
+  /// @return Returns the address of the Incentives Controller
   function getIncentivesController() external view returns (address);
 
-  /**
-   * @return Returns the address of the Rewards admin
-   */
+  /// @return Returns the address of the Rewards admin
   function getRewardsAdmin() external view returns (address);
 
   /**

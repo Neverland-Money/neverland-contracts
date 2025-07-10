@@ -15,7 +15,7 @@ import {RewardsDataTypes} from '@aave-v3-periphery/contracts/rewards/libraries/R
  *         tokenId to the `IDustTransferStrategy` and remove rewards oracles.
  * @author Aave
  * @author Neverland
- **/
+ */
 contract DustRewardsController is RewardsDistributor, VersionedInitializable, IDustRewardsController {
   using SafeCast for uint256;
 
@@ -40,7 +40,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
   /**
    * @dev Initialize for RewardsController
    * @dev It expects an address as argument since its initialized via PoolAddressesProvider._updateImpl()
-   **/
+   */
   function initialize(address) external initializer {}
 
   /// @inheritdoc IDustRewardsController
@@ -202,7 +202,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
    * @param lockTime Optional lock time for supported rewards
    * @param tokenId Optional tokenId for supported rewards
    * @return Rewards claimed
-   **/
+   */
   function _claimRewards(
     address[] calldata assets,
     uint256 amount,
@@ -254,7 +254,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
    * @return
    *   rewardsList List of reward addresses
    *   claimedAmount List of claimed amounts, follows "rewardsList" items order
-   **/
+   */
   function _claimAllRewards(
     address[] calldata assets,
     address claimer,
@@ -290,12 +290,14 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
   }
 
   /**
-   * @dev Function to transfer rewards to the desired account using delegatecall and
-   * @param to Account address to send the rewards
-   * @param reward Address of the reward token
-   * @param amount Amount of rewards to transfer
-   * @param lockTime Optional lock time for supported rewards
-   * @param tokenId Optional tokenId for supported rewards
+   * @dev Internal function to transfer rewards to the recipient using the configured transfer strategy
+   * @notice This function delegates the actual reward transfer to the strategy contract specified for each reward token
+   * @notice The transfer strategy may handle specialized behaviors like creating/extending locks
+   * @param to Recipient address to receive the rewards
+   * @param reward Address of the reward token being transferred
+   * @param amount Amount of reward tokens to transfer
+   * @param lockTime Optional lock duration in seconds (for strategies that create/extend locks)
+   * @param tokenId Optional tokenId for strategies that interact with existing veNFTs
    */
   function _transferRewards(address to, address reward, uint256 amount, uint256 lockTime, uint256 tokenId) internal {
     IDustTransferStrategy transferStrategy = _transferStrategy[reward];
