@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {DustLock} from "../src/tokens/DustLock.sol";
 import {Dust} from "../src/tokens/Dust.sol";
 import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {IUserVaultFactory} from "../src/interfaces/IUserVaultFactory.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
 import {Script} from "forge-std/Script.sol";
@@ -17,8 +18,9 @@ import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 
 abstract contract BaseTest is Script, Test {
     Dust internal DUST;
-    DustLock internal dustLock;
+    IDustLock internal dustLock;
     RevenueReward internal revenueReward;
+    IUserVaultFactory internal userVaultFactory;
     MockERC20 internal mockUSDC;
 
     uint256 constant USDC_1 = 1e6;
@@ -71,16 +73,17 @@ abstract contract BaseTest is Script, Test {
         string memory baseUrl = "https://neverland.money/nfts/";
         dustLock = new DustLock(ZERO_ADDRESS, address(DUST), baseUrl);
 
-        // deploy RevenueReward
-        revenueReward = new RevenueReward(ZERO_ADDRESS, address(dustLock), admin);
-
         // user vault
         UserVaultRegistry userVaultRegistry = new UserVaultRegistry();
         // TODO: provide aave oracle for testing
         IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
+
         UserVault userVault = new UserVault(userVaultRegistry, aaveOracle);
         UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
-        UserVaultFactory userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
+        userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
+
+        // deploy RevenueReward
+        revenueReward = new RevenueReward(ZERO_ADDRESS, dustLock, admin, userVaultFactory);
 
         // add log labels
         vm.label(address(admin), "admin");

@@ -274,7 +274,7 @@ contract RevenueRewardsTest is BaseTest {
         // act/assert
         vm.startPrank(user2);
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
-        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        revenueReward.enableSelfRepayLoan(tokenId);
         vm.stopPrank();
     }
 
@@ -283,7 +283,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
-        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        revenueReward.enableSelfRepayLoan(tokenId);
 
         // act/assert
         vm.startPrank(user2);
@@ -302,9 +302,10 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(block.timestamp, 2 weeks + 1);
 
         // act
+        address userVault = userVaultFactory.getUserVault(user);
         vm.expectEmit(true, true, true, false, address(revenueReward));
-        emit SelfRepayingLoanUpdate(tokenId, user2, true);
-        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        emit SelfRepayingLoanUpdate(tokenId, userVault, true);
+        revenueReward.enableSelfRepayLoan(tokenId);
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
@@ -313,7 +314,7 @@ contract RevenueRewardsTest is BaseTest {
         // assert
         assertEq(mockUSDC.balanceOf(user), 0);
 
-        uint256 balanceAfter = mockUSDC.balanceOf(user2);
+        uint256 balanceAfter = mockUSDC.balanceOf(userVault);
         uint256 rewardAmount = balanceAfter;
 
         assertEq(rewardAmount, USDC_10K);
@@ -326,13 +327,14 @@ contract RevenueRewardsTest is BaseTest {
 
         skipToNextEpoch(1);
 
-        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        revenueReward.enableSelfRepayLoan(tokenId);
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
         revenueReward.getReward(tokenId, tokens);
 
-        assertEq(mockUSDC.balanceOf(user2), USDC_10K, "user2");
+        address userVault = userVaultFactory.getUserVault(user);
+        assertEq(mockUSDC.balanceOf(userVault), USDC_10K, "userVault");
 
         // epoch2
         skipToNextEpoch(1);

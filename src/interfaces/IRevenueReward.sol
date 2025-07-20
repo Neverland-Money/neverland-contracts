@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
+import {IUserVaultFactory} from "./IUserVaultFactory.sol";
 
 /**
  * @title IRevenueReward Interface
@@ -52,10 +53,15 @@ interface IRevenueReward {
 
     /**
      * @notice The address of the DustLock contract that manages veNFTs
-     * @dev Used to verify ownership of veNFTs when claiming rewards and validate permissions
      * @return The IDustLock interface of the connected DustLock contract
      */
     function dustLock() external view returns (IDustLock);
+
+    /**
+     * @notice The address of the UserVaultFactory contract that manages user vaults
+     * @return The IUserVaultFactory interface of the connected UserVaultFactory contract
+     */
+    function userVaultFactory() external view returns (IUserVaultFactory);
 
     /**
      * @notice The duration of a reward epoch in seconds
@@ -145,9 +151,8 @@ interface IRevenueReward {
      *      The getReward function must still be called to trigger the reward claim
      *      Can only be called by the veNFT owner
      * @param tokenId The ID of the veNFT to configure
-     * @param rewardReceiver The address that will receive this veNFT's rewards
      */
-    function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external;
+    function enableSelfRepayLoan(uint256 tokenId) external;
 
     /**
      * @notice Disables the self-repaying loan feature for a specific veNFT

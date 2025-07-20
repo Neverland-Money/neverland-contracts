@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {console2} from "forge-std/console2.sol";
 
 /**
@@ -19,6 +20,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IRevenueReward
     IDustLock public dustLock;
+    /// @inheritdoc IRevenueReward
+    IUserVaultFactory public userVaultFactory;
     /// @inheritdoc IRevenueReward
     address public rewardDistributor;
     /// @inheritdoc IRevenueReward
@@ -34,25 +37,32 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => uint256) public totalRewardsPerToken;
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
+    // TODO: enumerable, all token that are not address zero
     /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
+    // TODO ??? : check onchain, user -> token, check ui
 
-    /**
-     * @notice Initializes the RevenueReward contract
-     * @dev Sets up core dependencies for reward distribution
-     * @param _forwarder Address of the trusted forwarder for meta-transactions
-     * @param _dustLock Address of the DustLock contract that manages veNFTs
-     * @param _rewardDistributor Address authorized to notify new rewards
-     */
-    constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
-        dustLock = IDustLock(_dustLock);
+    constructor(
+        address _forwarder,
+        IDustLock _dustLock,
+        address _rewardDistributor,
+        IUserVaultFactory _userVaultFactory
+    ) ERC2771Context(_forwarder) {
+        dustLock = _dustLock;
+        userVaultFactory = _userVaultFactory;
         rewardDistributor = _rewardDistributor;
     }
 
     /// @inheritdoc IRevenueReward
-    function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual nonReentrant {
+    function enableSelfRepayLoan(uint256 tokenId) external virtual nonReentrant {
         if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
-        tokenRewardReceiver[tokenId] = rewardReceiver;
+        address userVault = userVaultFactory.getUserVault(_msgSender());
+        _changeRewardRecipient(tokenId, userVault);
+    }
+
+    function _changeRewardRecipient(uint256 tokenId, address rewardReceiver) internal virtual {
+        if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
+        tokenRewardReceiver[tokenId] = rewardReceiver; // TODO: bug reset on on token ownership change
         emit SelfRepayingLoanUpdate(tokenId, rewardReceiver, true);
     }
 
