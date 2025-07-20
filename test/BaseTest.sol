@@ -4,11 +4,16 @@ pragma solidity ^0.8.19;
 import {DustLock} from "../src/tokens/DustLock.sol";
 import {Dust} from "../src/tokens/Dust.sol";
 import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {MockERC20} from "./utils/MockERC20.sol";
+import {RevenueReward} from "../src/rewards/RevenueReward.sol";
 import {Script} from "forge-std/Script.sol";
 import {Test} from "forge-std/Test.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {MockERC20} from "./utils/MockERC20.sol";
-import {RevenueReward} from "../src/rewards/RevenueReward.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {UserVaultFactory} from "../src/self-repaying-loans/UserVaultFactory.sol";
+import {UserVaultRegistry} from "../src/self-repaying-loans/UserVaultRegistry.sol";
+import {UserVault} from "../src/self-repaying-loans/UserVault.sol";
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 
 abstract contract BaseTest is Script, Test {
     Dust internal DUST;
@@ -68,6 +73,14 @@ abstract contract BaseTest is Script, Test {
 
         // deploy RevenueReward
         revenueReward = new RevenueReward(ZERO_ADDRESS, address(dustLock), admin);
+
+        // user vault
+        UserVaultRegistry userVaultRegistry = new UserVaultRegistry();
+        // TODO: provide aave oracle for testing
+        IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
+        UserVault userVault = new UserVault(userVaultRegistry, aaveOracle);
+        UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
+        UserVaultFactory userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
 
         // add log labels
         vm.label(address(admin), "admin");

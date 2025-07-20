@@ -22,42 +22,48 @@ interface IUserVault {
     function initialize(address _user) external;
 
     /**
-     * @notice Repays a user's debt using a specified aggregator.
-     * @param tokenB The address of the repayment token.
-     * @param poolAddress The address of the lending pool.
-     * @param aggregatorAddress The address of the aggregator to use.
-     * @param aggregatorData Data to be passed to the aggregator.
+     * @notice Repays a user's debt for a specified token on a lending pool,
+     *         potentially using rewards or swapped collateral.
+     * @param debtToken The address of the debt token to be repaid.
+     * @param poolAddress The address of the lending pool where the debt exists.
+     * @param tokenIds List of token IDs involved in the operation.
+     * @param rewardTokens Array of reward token addresses to claim before repayment.
+     * @param aggregatorAddress Array of swap aggregator addresses to use for asset conversion if needed.
+     * @param aggregatorData Call data for each aggregator to perform swaps.
      */
     function repayUserDebt(
-        address tokenB,
+        address debtToken,
         address poolAddress,
-        address aggregatorAddress,
-        bytes calldata aggregatorData
+        uint256[] calldata tokenIds,
+        address[] calldata rewardTokens,
+        address[] calldata aggregatorAddress,
+        bytes[] calldata aggregatorData
     ) external;
 
     /**
-     * @notice Swaps assets in the vault using a supported aggregator.
-     * @param tokenB The address of the asset to receive.
-     * @param aggregator The address of the aggregator to use.
-     * @param aggregatorData Data to be passed to the aggregator.
+     * @notice Swaps a specified token using a given aggregator contract.
+     * @param token The address of the token to be swapped.
+     * @param aggregator The address of the swap aggregator contract to use for performing the swap.
+     * @param aggregatorData The calldata required by the aggregator contract for the swap execution.
+     * @param slippage The maximum acceptable slippage (in basis points or aggregator-specific format) for the swap transaction.
      */
-    function swap(address tokenB, address aggregator, bytes calldata aggregatorData) external;
+    function swap(address token, address aggregator, bytes calldata aggregatorData, uint256 slippage) external;
 
     /**
      * @notice Repays debt for a given pool with a specified token and amount.
      * @param poolAddress The address of the lending pool.
-     * @param token The address of the token to repay.
+     * @param debtToken The address of the token to repay.
      * @param amount The amount of the token to repay.
      */
-    function repayDebt(address poolAddress, address token, uint256 amount) external;
+    function repayDebt(address poolAddress, address debtToken, uint256 amount) external;
 
     /**
      * @notice Deposits collateral for a user into a lending pool.
      * @param poolAddress The address of the lending pool.
-     * @param token The address of the collateral token.
+     * @param debtToken The address of the collateral token.
      * @param amount The amount of collateral to deposit.
      */
-    function depositCollateral(address poolAddress, address token, uint256 amount) external;
+    function depositCollateral(address poolAddress, address debtToken, uint256 amount) external;
 
     /**
      * @notice Allows recovery of ERC20 tokens that may be stuck in the vault back to the user.
