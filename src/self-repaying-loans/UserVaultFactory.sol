@@ -2,10 +2,11 @@
 pragma solidity 0.8.19;
 
 import "../_shared/CommonErrors.sol";
+import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
 import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import {UserVault} from "./UserVault.sol";
 
-contract UserVaultFactory {
+contract UserVaultFactory is IUserVaultFactory {
     address private userVaultBeacon;
     // user address => user vault address
     mapping(address => address) private userVaults;
