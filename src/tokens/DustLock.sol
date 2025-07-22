@@ -11,6 +11,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 
 /**
  * @title DustLock
@@ -215,6 +216,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         ownershipChange[_tokenId] = block.number;
         // Log the transfer
         emit Transfer(_from, _to, _tokenId);
+        // notify other contracts
+        _notifyTokenTransferred(_tokenId, _from, _to, _sender);
     }
 
     /// @inheritdoc IDustLock
@@ -386,6 +389,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Remove token
         _removeTokenFrom(owner, _tokenId);
         emit Transfer(owner, address(0), _tokenId);
+        // notify other contracts
+        _notifyTokenBurned(_tokenId, sender);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1006,5 +1011,30 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function CLOCK_MODE() external pure returns (string memory) {
         return "mode=timestamp";
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          NOTIFY CONTRACTS
+    //////////////////////////////////////////////////////////////*/
+
+    IRevenueReward public revenueReward;
+
+    function setRevenueReward(IRevenueReward _revenueReward) public {
+        if (_msgSender() != team) revert NotTeam();
+        revenueReward = _revenueReward;
+    }
+
+    function _notifyTokenTransferred(uint256 _tokenId, address, /* _from */ address, /* _to */ address /* _sender */ )
+        internal
+    {
+        if (address(revenueReward) != address(0)) {
+            revenueReward._notifyTokenTransferred(_tokenId);
+        }
+    }
+
+    function _notifyTokenBurned(uint256 _tokenId, address /* _sender */ ) internal {
+        if (address(revenueReward) != address(0)) {
+            revenueReward._notifyTokenBurned(_tokenId);
+        }
     }
 }

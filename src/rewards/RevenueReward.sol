@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
+import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {console2} from "forge-std/console2.sol";
 
 /**
@@ -17,6 +18,8 @@ import {console2} from "forge-std/console2.sol";
  */
 contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.UintSet;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @inheritdoc IRevenueReward
     IDustLock public dustLock;
@@ -37,10 +40,11 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => uint256) public totalRewardsPerToken;
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
-    // TODO: enumerable, all token that are not address zero
+
     /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
-    // TODO ??? : check onchain, user -> token, check ui
+    mapping(address => EnumerableSet.UintSet) private userTokensWithSelfRepayingLoan;
+    EnumerableSet.AddressSet private usersWithSelfRepayingLoan;
 
     constructor(
         address _forwarder,
@@ -53,24 +57,94 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         rewardDistributor = _rewardDistributor;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                           SELF REPAYING LOANS
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IRevenueReward
     function enableSelfRepayLoan(uint256 tokenId) external virtual nonReentrant {
-        if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
-        address userVault = userVaultFactory.getUserVault(_msgSender());
-        _changeRewardRecipient(tokenId, userVault);
-    }
+        address sender = _msgSender();
+        if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
 
-    function _changeRewardRecipient(uint256 tokenId, address rewardReceiver) internal virtual {
-        if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
-        tokenRewardReceiver[tokenId] = rewardReceiver; // TODO: bug reset on on token ownership change
-        emit SelfRepayingLoanUpdate(tokenId, rewardReceiver, true);
+        address userVault = userVaultFactory.getUserVault(_msgSender());
+
+        tokenRewardReceiver[tokenId] = userVault;
+        usersWithSelfRepayingLoan.add(sender);
+        userTokensWithSelfRepayingLoan[sender].add(tokenId);
+
+        emit SelfRepayingLoanUpdate(tokenId, userVault, true);
     }
 
     /// @inheritdoc IRevenueReward
     function disableSelfRepayLoan(uint256 tokenId) external virtual nonReentrant {
-        if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
-        tokenRewardReceiver[tokenId] = address(0);
+        address sender = _msgSender();
+        if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
+
+        _removeToken(tokenId);
+
         emit SelfRepayingLoanUpdate(tokenId, address(0), false);
+    }
+
+    function _notifyTokenTransferred(uint256 _tokenId) public {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+        _removeToken(_tokenId);
+    }
+
+    function _notifyTokenBurned(uint256 _tokenId) public {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+        _removeToken(_tokenId);
+    }
+
+    /* === view functions === */
+
+    /// @inheritdoc IRevenueReward
+    function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory) {
+        require(to >= from, "Invalid range");
+        uint256 length = usersWithSelfRepayingLoan.length();
+        if (from >= length) return new address[](0);
+        if (to > length) to = length;
+
+        uint256 resultLen = to - from;
+        address[] memory users = new address[](resultLen);
+        for (uint256 i = 0; i < resultLen; i++) {
+            users[i] = usersWithSelfRepayingLoan.at(from + i);
+        }
+        return users;
+    }
+
+    /// @inheritdoc IRevenueReward
+    function getUserTokensWithSelfRepayingLoan(address user) external view returns (uint256[] memory tokenIds) {
+        uint256 len = userTokensWithSelfRepayingLoan[user].length();
+        tokenIds = new uint256[](len);
+        for (uint256 i = 0; i < len; i++) {
+            tokenIds[i] = userTokensWithSelfRepayingLoan[user].at(i);
+        }
+    }
+
+    /* === helper functions === */
+
+    function _removeToken(uint256 tokenId) internal {
+        address tokenOwner = dustLock.ownerOf(tokenId);
+
+        tokenRewardReceiver[tokenId] = address(0);
+        userTokensWithSelfRepayingLoan[tokenOwner].remove(tokenId);
+        if (userTokensWithSelfRepayingLoan[tokenOwner].length() <= 0) {
+            usersWithSelfRepayingLoan.remove(tokenOwner);
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                REWARDS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Sets the address authorized to notify new rewards
+     * @dev Only callable by the current reward distributor
+     * @param newRewardDistributor The new address authorized to notify new rewards
+     */
+    function setRewardDistributor(address newRewardDistributor) external {
+        if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
+        rewardDistributor = newRewardDistributor;
     }
 
     /// @inheritdoc IRevenueReward
@@ -111,6 +185,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         emit NotifyReward(sender, token, epochNext, amount);
     }
+
+    /* === helper functions === */
 
     /**
      * @notice Calculates token's reward from last claimed start epoch until current start epoch
@@ -153,15 +229,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         return reward;
     }
 
-    /**
-     * @notice Sets the address authorized to notify new rewards
-     * @dev Only callable by the current reward distributor
-     * @param newRewardDistributor The new address authorized to notify new rewards
-     */
-    function setRewardDistributor(address newRewardDistributor) external {
-        if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
-        rewardDistributor = newRewardDistributor;
-    }
+    /*//////////////////////////////////////////////////////////////
+                                RECOVERY
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Recovers unnotified rewards from the contract

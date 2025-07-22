@@ -85,6 +85,9 @@ abstract contract BaseTest is Script, Test {
         // deploy RevenueReward
         revenueReward = new RevenueReward(ZERO_ADDRESS, dustLock, admin, userVaultFactory);
 
+        // set RevenueReward to DustLock
+        dustLock.setRevenueReward(revenueReward);
+
         // add log labels
         vm.label(address(admin), "admin");
         vm.label(address(this), "user");

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IRevenueReward} from "./IRevenueReward.sol";
 import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
+import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
+import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 
 /**
  * @title IDustLock Interface
@@ -672,4 +673,12 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
 
     /// @inheritdoc IERC6372
     function CLOCK_MODE() external view returns (string memory);
+
+    /*//////////////////////////////////////////////////////////////
+                      NOTIFY CONTRACTS
+    //////////////////////////////////////////////////////////////*/
+
+    function revenueReward() external returns (IRevenueReward);
+
+    function setRevenueReward(IRevenueReward _revenueReward) external;
 }

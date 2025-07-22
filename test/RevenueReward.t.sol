@@ -264,7 +264,7 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(mockUSDC.balanceOf(user1), balanceAfterFirstClaim);
     }
 
-    /* ========== TEST GET REWARD ========== */
+    /* ========== TEST SELF REPAYING LOAN ========== */
 
     function testEnableSelfRepayLoanCantBeSetByNonTokenOwner() public {
         // arrange
@@ -349,6 +349,32 @@ contract RevenueRewardsTest is BaseTest {
         revenueReward.getReward(tokenId, tokens);
 
         assertEq(mockUSDC.balanceOf(user), USDC_10K, "user");
+    }
+
+    function testTransferredAndBurnedTokens() public {
+        // TODO: continue here
+        // arrange
+        uint256 user1Token1 = _createLock(user1, TOKEN_1, MAXTIME);
+        uint256 user1Token2 = _createLock(user1, TOKEN_1, MAXTIME);
+
+        uint256 user2Token1 = _createLock(user2, TOKEN_1, MAXTIME);
+        uint256 user2Token2 = _createLock(user2, TOKEN_1, MAXTIME);
+        uint256 user2Token3 = _createLock(user2, TOKEN_1, MAXTIME);
+
+        uint256 user3Token1 = _createLock(user3, TOKEN_1, MAXTIME);
+        uint256 user3Token2 = _createLock(user3, TOKEN_1, MAXTIME);
+        uint256 user3Token3 = _createLock(user3, TOKEN_1, MAXTIME);
+        uint256 user3Token4 = _createLock(user3, TOKEN_1, MAXTIME);
+
+        address[] memory users = revenueReward.getUsersWithSelfRepayingLoan(0, 5);
+        console2.log("hello");
+        console2.log(users.length);
+        //        console2.log(users[2]);
+        //console2.log(revenueReward.getUserTokensWithSelfRepayingLoan(user1));
+
+        // act
+
+        // assert
     }
 
     /* ========== TEST RECOVER TOKENS ========== */

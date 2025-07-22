@@ -51,6 +51,9 @@ interface IRevenueReward {
     /// @notice Error thrown when a non-owner address attempts a restricted operation
     error NotOwner();
 
+    /// @notice Error thrown when a non-DustLock address attempts a restricted operation
+    error NotDustLock();
+
     /**
      * @notice The address of the DustLock contract that manages veNFTs
      * @return The IDustLock interface of the connected DustLock contract
@@ -162,6 +165,41 @@ interface IRevenueReward {
      * @param tokenId The ID of the veNFT to restore default reward routing for
      */
     function disableSelfRepayLoan(uint256 tokenId) external;
+
+    /**
+     * @notice Notifies the contract that a specific token has been transferred.
+     * @dev Intended to update internal state or trigger logic after a veNFT transfer event.
+     *      Can only be called by authorized contracts, typically after a transfer operation.
+     * @param _tokenId The ID of the token (veNFT) that has been transferred.
+     */
+    function _notifyTokenTransferred(uint256 _tokenId) external;
+
+    /**
+     * @notice Notifies the contract that a specific token has been burned.
+     * @dev Intended to update internal state or trigger logic after a veNFT burn event.
+     *      Can only be called by authorized contracts, typically after a burn operation.
+     * @param _tokenId The ID of the token (veNFT) that has been burned.
+     */
+    function _notifyTokenBurned(uint256 _tokenId) external;
+
+    /**
+     * @notice Returns a list of user addresses with at least one active self-repaying loan within a given range.
+     * @dev Iterates over the internal set of users who have enabled self-repaying loans,
+     *      returning addresses from index `from` up to, but not including, index `to`.
+     *      If the specified range exceeds the number of users, the function adjusts accordingly.
+     * @param from The starting index (inclusive) in the user set.
+     * @param to The ending index (exclusive) in the user set.
+     * @return users An array of user addresses in the specified range who have self-repaying loans enabled.
+     */
+    function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory);
+
+    /**
+     * @notice Returns the list of token IDs for which the given user has enabled a self-repaying loan.
+     * @dev Checks the user's internal set of token IDs with self-repaying loans and returns them as an array.
+     * @param user The address of the user to query.
+     * @return tokenIds An array of token IDs currently associated with self-repaying loans for the user.
+     */
+    function getUserTokensWithSelfRepayingLoan(address user) external view returns (uint256[] memory tokenIds);
 
     /**
      * @notice Adds new rewards to the distribution pool for the current epoch
