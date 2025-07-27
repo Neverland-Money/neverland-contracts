@@ -171,16 +171,18 @@ interface IRevenueReward {
      * @dev Intended to update internal state or trigger logic after a veNFT transfer event.
      *      Can only be called by authorized contracts, typically after a transfer operation.
      * @param _tokenId The ID of the token (veNFT) that has been transferred.
+     * @param _from The owner of token transferred.
      */
-    function _notifyTokenTransferred(uint256 _tokenId) external;
+    function _notifyTokenTransferred(uint256 _tokenId, address _from) external;
 
     /**
      * @notice Notifies the contract that a specific token has been burned.
      * @dev Intended to update internal state or trigger logic after a veNFT burn event.
      *      Can only be called by authorized contracts, typically after a burn operation.
      * @param _tokenId The ID of the token (veNFT) that has been burned.
+     * @param _from The owner of token burned.
      */
-    function _notifyTokenBurned(uint256 _tokenId) external;
+    function _notifyTokenBurned(uint256 _tokenId, address _from) external;
 
     /**
      * @notice Returns a list of user addresses with at least one active self-repaying loan within a given range.

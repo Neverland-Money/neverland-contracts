@@ -351,30 +351,188 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(mockUSDC.balanceOf(user), USDC_10K, "user");
     }
 
-    function testTransferredAndBurnedTokens() public {
-        // TODO: continue here
-        // arrange
-        uint256 user1Token1 = _createLock(user1, TOKEN_1, MAXTIME);
-        uint256 user1Token2 = _createLock(user1, TOKEN_1, MAXTIME);
+    /* ========== TEST SELF REPAYING LOAN LISTS ========== */
 
-        uint256 user2Token1 = _createLock(user2, TOKEN_1, MAXTIME);
-        uint256 user2Token2 = _createLock(user2, TOKEN_1, MAXTIME);
-        uint256 user2Token3 = _createLock(user2, TOKEN_1, MAXTIME);
+    function testCreatedUserTokensList() public {
+        //*** arrange ***//
+        uint256[][] memory userTokens = new uint256[][](5);
 
-        uint256 user3Token1 = _createLock(user3, TOKEN_1, MAXTIME);
-        uint256 user3Token2 = _createLock(user3, TOKEN_1, MAXTIME);
-        uint256 user3Token3 = _createLock(user3, TOKEN_1, MAXTIME);
-        uint256 user3Token4 = _createLock(user3, TOKEN_1, MAXTIME);
+        userTokens[0] = _createDefaultLocks(user1, 2);
+        userTokens[1] = _createDefaultLocks(user2, 3);
+        userTokens[2] = _createDefaultLocks(user3, 3);
+        userTokens[3] = _createDefaultLocks(user4, 2);
+        userTokens[4] = _createDefaultLocks(user5, 1);
 
+        //*** act ***//
+        vm.startPrank(user1);
+        revenueReward.enableSelfRepayLoan(userTokens[0][0]);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        revenueReward.enableSelfRepayLoan(userTokens[1][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[1][1]);
+        vm.stopPrank();
+
+        vm.startPrank(user3);
+        revenueReward.enableSelfRepayLoan(userTokens[2][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[2][1]);
+        vm.stopPrank();
+
+        vm.startPrank(user4);
+        revenueReward.enableSelfRepayLoan(userTokens[3][0]);
+        vm.stopPrank();
+
+        //*** assert ***//
+        // users list
         address[] memory users = revenueReward.getUsersWithSelfRepayingLoan(0, 5);
-        console2.log("hello");
-        console2.log(users.length);
-        //        console2.log(users[2]);
-        //console2.log(revenueReward.getUserTokensWithSelfRepayingLoan(user1));
 
-        // act
+        assertEq(users.length, 4);
+        assertEq(users[0], user1);
+        assertEq(users[1], user2);
+        assertEq(users[2], user3);
+        assertEq(users[3], user4);
 
-        // assert
+        // user token list
+        uint256[] memory user1Tokens = revenueReward.getUserTokensWithSelfRepayingLoan(user1);
+        assertEq(user1Tokens.length, 1);
+        assertArrayContainsUint(user1Tokens, userTokens[0][0]);
+
+        uint256[] memory user2Tokens = revenueReward.getUserTokensWithSelfRepayingLoan(user2);
+        assertEq(user2Tokens.length, 2);
+        assertArrayContainsUint(user2Tokens, userTokens[1][0]);
+        assertArrayContainsUint(user2Tokens, userTokens[1][1]);
+
+        uint256[] memory user3Tokens = revenueReward.getUserTokensWithSelfRepayingLoan(user3);
+        assertEq(user3Tokens.length, 2);
+        assertArrayContainsUint(user3Tokens, userTokens[2][0]);
+        assertArrayContainsUint(user3Tokens, userTokens[2][1]);
+
+        uint256[] memory user4Tokens = revenueReward.getUserTokensWithSelfRepayingLoan(user4);
+        assertEq(user4Tokens.length, 1);
+        assertArrayContainsUint(user4Tokens, userTokens[3][0]);
+    }
+
+    function testTransferredUserTokensList() public {
+        //*** arrange ***//
+
+        // lock
+        uint256[][] memory userTokens = new uint256[][](5);
+
+        userTokens[0] = _createDefaultLocks(user1, 2);
+        userTokens[1] = _createDefaultLocks(user2, 3);
+        userTokens[2] = _createDefaultLocks(user3, 3);
+        userTokens[3] = _createDefaultLocks(user4, 2);
+        userTokens[4] = _createDefaultLocks(user5, 1);
+
+        // enable self repay
+        vm.prank(user1);
+        revenueReward.enableSelfRepayLoan(userTokens[0][0]);
+
+        vm.startPrank(user2);
+        revenueReward.enableSelfRepayLoan(userTokens[1][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[1][1]);
+        vm.stopPrank();
+
+        vm.startPrank(user3);
+        revenueReward.enableSelfRepayLoan(userTokens[2][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[2][1]);
+        vm.stopPrank();
+
+        vm.prank(user4);
+        revenueReward.enableSelfRepayLoan(userTokens[3][0]);
+
+        //*** act ***//
+
+        // transfer
+        vm.prank(user1);
+        dustLock.transferFrom(user1, user6, userTokens[0][0]);
+
+        vm.prank(user3);
+        dustLock.transferFrom(user3, user6, userTokens[2][1]);
+
+        vm.prank(user4);
+        dustLock.transferFrom(user4, user6, userTokens[3][0]);
+
+        //*** assert ***//
+        // users list
+        address[] memory users = revenueReward.getUsersWithSelfRepayingLoan(0, 5);
+
+        assertEq(users.length, 2);
+        assertArrayContainsAddr(users, user2);
+        assertArrayContainsAddr(users, user3);
+
+        // user token list
+        uint256[] memory user2Tokens = revenueReward.getUserTokensWithSelfRepayingLoan(user2);
+        assertEq(user2Tokens.length, 2);
+        assertArrayContainsUint(user2Tokens, userTokens[1][0]);
+        assertArrayContainsUint(user2Tokens, userTokens[1][1]);
+
+        uint256[] memory user3Tokens = revenueReward.getUserTokensWithSelfRepayingLoan(user3);
+        assertEq(user3Tokens.length, 1);
+        assertArrayContainsUint(user3Tokens, userTokens[2][0]);
+    }
+
+    function testBurnedUserTokensList() public {
+        //*** arrange ***//
+
+        // lock
+        uint256[][] memory userTokens = new uint256[][](5);
+
+        userTokens[0] = _createDefaultLocks(user1, 2);
+        userTokens[1] = _createDefaultLocks(user2, 3);
+        userTokens[2] = _createDefaultLocks(user3, 3);
+        userTokens[3] = _createDefaultLocks(user4, 2);
+        userTokens[4] = _createDefaultLocks(user5, 1);
+
+        // enable self repay
+        vm.prank(user1);
+        revenueReward.enableSelfRepayLoan(userTokens[0][0]);
+
+        vm.startPrank(user2);
+        revenueReward.enableSelfRepayLoan(userTokens[1][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[1][1]);
+        vm.stopPrank();
+
+        vm.startPrank(user3);
+        revenueReward.enableSelfRepayLoan(userTokens[2][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[2][1]);
+        vm.stopPrank();
+
+        vm.prank(user4);
+        revenueReward.enableSelfRepayLoan(userTokens[3][0]);
+
+        //*** act ***//
+
+        // early withdraw
+        vm.prank(user1);
+        dustLock.earlyWithdraw(userTokens[0][0]);
+
+        // withdraw
+        skipAndRoll(MAXTIME);
+
+        vm.startPrank(user2);
+        dustLock.withdraw(userTokens[1][0]);
+        dustLock.withdraw(userTokens[1][1]);
+        vm.stopPrank();
+
+        vm.prank(user3);
+        dustLock.withdraw(userTokens[2][1]);
+
+        //*** assert ***//
+        // users list
+        address[] memory users = revenueReward.getUsersWithSelfRepayingLoan(0, 5);
+        assertEq(users.length, 2);
+        assertArrayContainsAddr(users, user3);
+        assertArrayContainsAddr(users, user4);
+
+        // user token list
+        uint256[] memory user3Tokens = revenueReward.getUserTokensWithSelfRepayingLoan(user3);
+        assertEq(user3Tokens.length, 1);
+        assertArrayContainsUint(user3Tokens, userTokens[2][0]);
+
+        uint256[] memory user4Tokens = revenueReward.getUserTokensWithSelfRepayingLoan(user4);
+        assertEq(user4Tokens.length, 1);
+        assertArrayContainsUint(user4Tokens, userTokens[3][0]);
     }
 
     /* ========== TEST RECOVER TOKENS ========== */
@@ -413,6 +571,14 @@ contract RevenueRewardsTest is BaseTest {
     }
 
     /* ========== HELPER FUNCTIONS ========== */
+
+    function _createDefaultLocks(address _user, uint256 number) private returns (uint256[] memory) {
+        uint256[] memory userTokens = new uint256[](number);
+        for (uint256 i = 0; i < number; i++) {
+            userTokens[i] = _createLock(_user, TOKEN_1, MAXTIME);
+        }
+        return userTokens;
+    }
 
     function _createLock(address _user, uint256 _amount, uint256 _duration) private returns (uint256 tokenId) {
         mintErc20Token(address(DUST), _user, _amount);

@@ -390,7 +390,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _removeTokenFrom(owner, _tokenId);
         emit Transfer(owner, address(0), _tokenId);
         // notify other contracts
-        _notifyTokenBurned(_tokenId, sender);
+        _notifyTokenBurned(_tokenId, owner, sender);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1024,17 +1024,17 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         revenueReward = _revenueReward;
     }
 
-    function _notifyTokenTransferred(uint256 _tokenId, address, /* _from */ address, /* _to */ address /* _sender */ )
+    function _notifyTokenTransferred(uint256 _tokenId, address _from, address, /* _to */ address /* _sender */ )
         internal
     {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyTokenTransferred(_tokenId);
+            revenueReward._notifyTokenTransferred(_tokenId, _from);
         }
     }
 
-    function _notifyTokenBurned(uint256 _tokenId, address /* _sender */ ) internal {
+    function _notifyTokenBurned(uint256 _tokenId, address _owner, address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyTokenBurned(_tokenId);
+            revenueReward._notifyTokenBurned(_tokenId, _owner);
         }
     }
 }

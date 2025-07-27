@@ -43,6 +43,11 @@ abstract contract BaseTest is Script, Test {
     address internal user3 = address(0x3);
     address internal user4 = address(0x4);
     address internal user5 = address(0x5);
+    address internal user6 = address(0x6);
+    address internal user7 = address(0x5);
+    address internal user8 = address(0x6);
+    address internal user9 = address(0x7);
+    address internal user10 = address(0x8);
 
     uint256 constant MINTIME = 4 weeks;
     uint256 constant MAXTIME = 1 * 365 * 86400;
@@ -95,6 +100,7 @@ abstract contract BaseTest is Script, Test {
         vm.label(address(user2), "user2");
         vm.label(address(user3), "user3");
         vm.label(address(user4), "user4");
+        vm.label(address(user5), "user5");
 
         vm.label(address(DUST), "DUST");
         vm.label(address(dustLock), "DustLock");
@@ -140,5 +146,29 @@ abstract contract BaseTest is Script, Test {
     /// @dev Converts int128s to uint256, values always positive
     function convert(int128 _amount) internal pure returns (uint256) {
         return uint256(uint128(_amount));
+    }
+
+    // assertion helpers
+
+    function assertArrayContainsUint(uint256[] memory array, uint256 value) internal {
+        bool found = false;
+        for (uint256 i = 0; i < array.length; i++) {
+            if (array[i] == value) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "Array does not contain expected value");
+    }
+
+    function assertArrayContainsAddr(address[] memory array, address value) internal {
+        bool found = false;
+        for (uint256 i = 0; i < array.length; i++) {
+            if (array[i] == value) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "Array does not contain expected value");
     }
 }

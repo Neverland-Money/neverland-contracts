@@ -10,7 +10,6 @@ import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {console2} from "forge-std/console2.sol";
 
 /**
  * @title RevenueReward
@@ -78,21 +77,22 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     function disableSelfRepayLoan(uint256 tokenId) external virtual nonReentrant {
         address sender = _msgSender();
-        if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
+        address tokenOwner = dustLock.ownerOf(tokenId);
+        if (sender != tokenOwner) revert NotOwner();
 
-        _removeToken(tokenId);
+        _removeToken(tokenId, tokenOwner);
 
         emit SelfRepayingLoanUpdate(tokenId, address(0), false);
     }
 
-    function _notifyTokenTransferred(uint256 _tokenId) public {
+    function _notifyTokenTransferred(uint256 _tokenId, address _from) public {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
-        _removeToken(_tokenId);
+        _removeToken(_tokenId, _from);
     }
 
-    function _notifyTokenBurned(uint256 _tokenId) public {
+    function _notifyTokenBurned(uint256 _tokenId, address _from) public {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
-        _removeToken(_tokenId);
+        _removeToken(_tokenId, _from);
     }
 
     /* === view functions === */
@@ -123,13 +123,11 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /* === helper functions === */
 
-    function _removeToken(uint256 tokenId) internal {
-        address tokenOwner = dustLock.ownerOf(tokenId);
-
-        tokenRewardReceiver[tokenId] = address(0);
-        userTokensWithSelfRepayingLoan[tokenOwner].remove(tokenId);
-        if (userTokensWithSelfRepayingLoan[tokenOwner].length() <= 0) {
-            usersWithSelfRepayingLoan.remove(tokenOwner);
+    function _removeToken(uint256 _tokenId, address _tokenOwner) internal {
+        tokenRewardReceiver[_tokenId] = address(0);
+        userTokensWithSelfRepayingLoan[_tokenOwner].remove(_tokenId);
+        if (userTokensWithSelfRepayingLoan[_tokenOwner].length() <= 0) {
+            usersWithSelfRepayingLoan.remove(_tokenOwner);
         }
     }
 
