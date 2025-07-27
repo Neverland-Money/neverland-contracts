@@ -60,6 +60,9 @@ contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771Cont
     mapping(address => EnumerableSet.UintSet) private userTokensWithSelfRepayingLoan;
     EnumerableSet.AddressSet private usersWithSelfRepayingLoan;
 
+    /// tokenId -> block.timestamp of token_id minted
+    mapping(uint256 => uint256) tokenMintTime;
+
     function initialize(IDustLock _dustLock, address _rewardDistributor, IUserVaultFactory _userVaultFactory)
         public
         initializer
@@ -198,6 +201,11 @@ contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771Cont
         emit NotifyReward(sender, token, epochNext, amount);
     }
 
+    function _notifyTokenMinted(uint256 _tokenId) public {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+        tokenMintTime[_tokenId] = block.timestamp;
+    }
+
     /* === helper functions === */
 
     /**
@@ -211,6 +219,8 @@ contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771Cont
      * @return Total unclaimed rewards accrued since last claim
      */
     function earned(address token, uint256 tokenId) internal view returns (uint256) {
+        uint256 lastTokenIdEarnTime = lastEarnTime[token][tokenId];
+        if (lastTokenIdEarnTime == 0) lastTokenIdEarnTime = tokenMintTime[tokenId];
         // take start epoch of last claimed, as starting point
         uint256 _startTs = EpochTimeLibrary.epochNext(lastEarnTime[token][tokenId]);
         uint256 _endTs = EpochTimeLibrary.epochStart(block.timestamp);

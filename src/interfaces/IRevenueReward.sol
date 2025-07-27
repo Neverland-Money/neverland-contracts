@@ -215,6 +215,14 @@ interface IRevenueReward {
     function notifyRewardAmount(address token, uint256 amount) external;
 
     /**
+     * @notice Notifies the contract that a new token has been created
+     * @dev Intended to update internal state or trigger logic after a veNFT creation event
+     *      Can only be called by authorized contracts, typically after a creation operation
+     * @param _tokenId The ID of the token (veNFT) that has been created
+     */
+    function _notifyTokenMinted(uint256 _tokenId) external;
+
+    /**
      * @notice Updates the address authorized to add rewards to the contract
      * @dev Can only be called by the current reward distributor
      *      This is a critical permission that controls who can distribute rewards

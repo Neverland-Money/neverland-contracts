@@ -335,6 +335,7 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
+        _notifyTokenMinted(_tokenId, _to, _msgSender());
         return true;
     }
 
@@ -1047,6 +1048,12 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
     function _notifyTokenBurned(uint256 _tokenId, address _owner, address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
             revenueReward._notifyTokenBurned(_tokenId, _owner);
+        }
+    }
+
+    function _notifyTokenMinted(uint256 _tokenId, address, /* _owner */ address /* _sender */ ) internal {
+        if (address(revenueReward) != address(0)) {
+            revenueReward._notifyTokenMinted(_tokenId);
         }
     }
 
