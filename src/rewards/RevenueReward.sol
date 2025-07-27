@@ -169,9 +169,10 @@ contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771Cont
         for (uint256 i = 0; i < _length; i++) {
             uint256 _reward = earned(tokens[i], tokenId);
 
-            lastEarnTime[tokens[i]][tokenId] = block.timestamp;
-
-            if (_reward > 0) IERC20(tokens[i]).safeTransfer(rewardsReceiver, _reward);
+            if (_reward > 0) {
+                lastEarnTime[tokens[i]][tokenId] = block.timestamp;
+                IERC20(tokens[i]).safeTransfer(rewardsReceiver, _reward);
+            }
 
             emit ClaimRewards(rewardsReceiver, tokens[i], _reward);
         }
