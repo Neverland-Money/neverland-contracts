@@ -1,24 +1,39 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title RevenueReward
  * @notice Stores ERC20 token rewards and provides them to veDUST owners
  */
-contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
+contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUpgradeable, IRevenueReward {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(address _forwarder) ERC2771ContextUpgradeable(_forwarder) {
+        _disableInitializers();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
     IDustLock public dustLock;
@@ -45,12 +60,10 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => EnumerableSet.UintSet) private userTokensWithSelfRepayingLoan;
     EnumerableSet.AddressSet private usersWithSelfRepayingLoan;
 
-    constructor(
-        address _forwarder,
-        IDustLock _dustLock,
-        address _rewardDistributor,
-        IUserVaultFactory _userVaultFactory
-    ) ERC2771Context(_forwarder) {
+    function initialize(IDustLock _dustLock, address _rewardDistributor, IUserVaultFactory _userVaultFactory)
+        public
+        initializer
+    {
         dustLock = _dustLock;
         userVaultFactory = _userVaultFactory;
         rewardDistributor = _rewardDistributor;

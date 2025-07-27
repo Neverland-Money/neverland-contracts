@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {DustLock} from "../src/tokens/DustLock.sol";
 import {Dust} from "../src/tokens/Dust.sol";
 import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
 import {IUserVaultFactory} from "../src/interfaces/IUserVaultFactory.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
@@ -19,7 +20,7 @@ import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 abstract contract BaseTest is Script, Test {
     Dust internal DUST;
     IDustLock internal dustLock;
-    RevenueReward internal revenueReward;
+    IRevenueReward internal revenueReward;
     IUserVaultFactory internal userVaultFactory;
     MockERC20 internal mockUSDC;
 
@@ -82,7 +83,7 @@ abstract contract BaseTest is Script, Test {
         DustLock dustLockIml = new DustLock(ZERO_ADDRESS);
         TransparentUpgradeableProxy dustLockProxy =
             new TransparentUpgradeableProxy(address(dustLockIml), address(proxyAdmin), "");
-        dustLock = DustLock(address(dustLockProxy));
+        dustLock = IDustLock(address(dustLockProxy));
 
         string memory baseUrl = "https://neverland.money/nfts/";
         DustLock(address(dustLock)).initialize(address(DUST), baseUrl);
@@ -97,7 +98,11 @@ abstract contract BaseTest is Script, Test {
         userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
 
         // deploy RevenueReward
-        revenueReward = new RevenueReward(ZERO_ADDRESS, dustLock, admin, userVaultFactory);
+        RevenueReward revenueRewardIpl = new RevenueReward(ZERO_ADDRESS);
+        TransparentUpgradeableProxy revenueRewardProxy =
+            new TransparentUpgradeableProxy(address(revenueRewardIpl), address(proxyAdmin), "");
+        revenueReward = IRevenueReward(address(revenueRewardProxy));
+        RevenueReward(address(revenueReward)).initialize(dustLock, admin, userVaultFactory);
 
         // set RevenueReward to DustLock
         dustLock.setRevenueReward(revenueReward);
