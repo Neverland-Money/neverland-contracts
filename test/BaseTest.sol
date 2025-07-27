@@ -36,6 +36,7 @@ abstract contract BaseTest is Script, Test {
     uint256 constant TOKEN_10B = 1e28; // 1e10 = 10B tokens with 18 decimals
 
     address internal ZERO_ADDRESS = address(0);
+
     address internal admin = address(0xad1);
     address internal user = address(this);
     address internal user1 = address(0x1);
@@ -48,6 +49,8 @@ abstract contract BaseTest is Script, Test {
     address internal user8 = address(0x6);
     address internal user9 = address(0x7);
     address internal user10 = address(0x8);
+
+    address internal proxyAdmin = address(0xad2);
 
     uint256 constant MINTIME = 4 weeks;
     uint256 constant MAXTIME = 1 * 365 * 86400;
@@ -67,7 +70,8 @@ abstract contract BaseTest is Script, Test {
 
         // deploy DUST
         Dust dustImpl = new Dust();
-        TransparentUpgradeableProxy dustProxy = new TransparentUpgradeableProxy(address(dustImpl), address(admin), "");
+        TransparentUpgradeableProxy dustProxy =
+            new TransparentUpgradeableProxy(address(dustImpl), address(proxyAdmin), "");
         DUST = Dust(address(dustProxy));
         DUST.initialize(admin);
 
@@ -75,8 +79,13 @@ abstract contract BaseTest is Script, Test {
         mockUSDC = new MockERC20("USDC", "USDC", 6);
 
         // deploy DustLock
+        DustLock dustLockIml = new DustLock(ZERO_ADDRESS);
+        TransparentUpgradeableProxy dustLockProxy =
+            new TransparentUpgradeableProxy(address(dustLockIml), address(proxyAdmin), "");
+        dustLock = DustLock(address(dustLockProxy));
+
         string memory baseUrl = "https://neverland.money/nfts/";
-        dustLock = new DustLock(ZERO_ADDRESS, address(DUST), baseUrl);
+        DustLock(address(dustLock)).initialize(address(DUST), baseUrl);
 
         // user vault
         UserVaultRegistry userVaultRegistry = new UserVaultRegistry();
@@ -150,7 +159,7 @@ abstract contract BaseTest is Script, Test {
 
     // assertion helpers
 
-    function assertArrayContainsUint(uint256[] memory array, uint256 value) internal {
+    function assertArrayContainsUint(uint256[] memory array, uint256 value) internal pure {
         bool found = false;
         for (uint256 i = 0; i < array.length; i++) {
             if (array[i] == value) {
@@ -161,7 +170,7 @@ abstract contract BaseTest is Script, Test {
         assertTrue(found, "Array does not contain expected value");
     }
 
-    function assertArrayContainsAddr(address[] memory array, address value) internal {
+    function assertArrayContainsAddr(address[] memory array, address value) internal pure {
         bool found = false;
         for (uint256 i = 0; i < array.length; i++) {
             if (array[i] == value) {

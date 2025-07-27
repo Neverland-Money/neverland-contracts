@@ -2,35 +2,45 @@
 pragma solidity 0.8.19;
 
 import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
+import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title DustLock
  * @notice Stores ERC20 token rewards and provides them to veDUST owners
  */
-contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
+contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUpgradeable, IDustLock {
     using SafeERC20 for IERC20;
     using SafeCastLibrary for uint256;
     using SafeCastLibrary for int128;
     using Strings for uint256;
 
     /*//////////////////////////////////////////////////////////////
-                               CONSTRUCTOR
+                              CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    address public immutable forwarder;
+
+    constructor(address _forwarder) ERC2771ContextUpgradeable(_forwarder) {
+        forwarder = _forwarder;
+        _disableInitializers();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           STORAGE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustLock
-    address public immutable forwarder;
-    /// @inheritdoc IDustLock
-    address public immutable token;
+    address public token;
     /// @inheritdoc IDustLock
     address public team;
 
@@ -54,11 +64,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     uint256 public tokenId;
 
     /**
-     * @param _forwarder address of trusted forwarder
+     * @notice Initialize the contract
      * @param _token `DUST` token address
+     * @param _baseURI Base URI for token metadata
      */
-    constructor(address _forwarder, address _token, string memory _baseURI) ERC2771Context(_forwarder) {
-        forwarder = _forwarder;
+    function initialize(address _token, string memory _baseURI) public initializer {
+        __ReentrancyGuard_init();
+
         token = _token;
         team = _msgSender();
         baseURI = _baseURI;
@@ -1037,4 +1049,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
             revenueReward._notifyTokenBurned(_tokenId, _owner);
         }
     }
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[50] private __gap;
 }
