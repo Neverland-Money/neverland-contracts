@@ -84,17 +84,47 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(lastEarnTimeAfter, block.timestamp);
     }
 
+    function testUserSingleEpochClaimAndReclaim() public {
+        // arrange
+        assertEq(block.timestamp, 1 weeks + 1);
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        skipToNextEpoch(1);
+        assertEq(block.timestamp, 2 weeks + 1);
+
+        assertEq(mockUSDC.balanceOf(user), 0);
+
+        // act
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        revenueReward.getReward(tokenId, tokens);
+        revenueReward.getReward(tokenId, tokens);
+        revenueReward.getReward(tokenId, tokens);
+
+        // assert
+        uint256 balanceAfter = mockUSDC.balanceOf(user);
+        uint256 lastEarnTimeAfter = revenueReward.lastEarnTime(address(mockUSDC), tokenId);
+
+        uint256 rewardAmount = balanceAfter;
+
+        assertEq(rewardAmount, USDC_10K);
+        assertEq(lastEarnTimeAfter, block.timestamp);
+    }
+
     function testSingleUserMultiEpochClaim() public {
         // epoch 1
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
+        // epoch 2
         skipToNextEpoch(1);
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
         revenueReward.getReward(tokenId, tokens);
 
-        // epoch2
+        // epoch 3
         skipToNextEpoch(1);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
@@ -109,6 +139,46 @@ contract RevenueRewardsTest is BaseTest {
 
         assertEq(rewardAmount, 2 * USDC_10K);
         assertEq(lastEarnTimeAfter, block.timestamp);
+    }
+
+    function testUserClaimRewardsUntilTimestamp() public {
+        // epoch 1
+        assertEq(block.timestamp, 1 weeks + 1);
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        // epoch 2
+        skipToNextEpoch(1);
+        assertEq(block.timestamp, 2 weeks + 1);
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // epoch 3
+        skipToNextEpoch(1);
+        assertEq(block.timestamp, 3 weeks + 1);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        // epoch 4
+        skipToNextEpoch(1);
+        assertEq(block.timestamp, 4 weeks + 1);
+
+        // act
+        revenueReward.getRewardUntilTs(tokenId, tokens, 2 weeks + 1);
+        // assert
+        assertEq(mockUSDC.balanceOf(user), USDC_10K);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 2 weeks + 1);
+
+        // act
+        revenueReward.getRewardUntilTs(tokenId, tokens, 4 weeks + 1);
+        // assert
+        assertEq(mockUSDC.balanceOf(user), 2 * USDC_10K);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 4 weeks + 1);
+
+        // act
+        revenueReward.getRewardUntilTs(tokenId, tokens, 4 weeks + 1);
+        // assert
+        assertEq(mockUSDC.balanceOf(user), 2 * USDC_10K);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 4 weeks + 1);
     }
 
     function testMultipleUsersWithDifferentBalances() public {

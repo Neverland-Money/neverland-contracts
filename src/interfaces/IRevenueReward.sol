@@ -54,6 +54,9 @@ interface IRevenueReward {
     /// @notice Error thrown when a non-DustLock address attempts a restricted operation
     error NotDustLock();
 
+    /// @notice Error thrown when end timestamp when calculating rewards is more that current
+    error EndTimestampMoreThanCurrent();
+
     /**
      * @notice The address of the DustLock contract that manages veNFTs
      * @return The IDustLock interface of the connected DustLock contract
@@ -146,6 +149,20 @@ interface IRevenueReward {
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      */
     function getReward(uint256 tokenId, address[] memory tokens) external;
+
+    /**
+     * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens up to a specified timestamp
+     * @dev Similar to getReward, but allows specifying a custom end timestamp for the reward calculation period
+     *      This enables partial claiming of rewards up to a specific point in time rather than up to the current block timestamp
+     *      Calculates earned rewards for each specified token and transfers them to the appropriate recipient
+     *      If a reward receiver is configured via enableSelfRepayLoan, rewards go to that address
+     *      Otherwise, rewards are sent to the veNFT owner
+     *      Updates lastEarnTime for each claimed token to track future reward accruals
+     * @param tokenId The ID of the veNFT to claim rewards for
+     * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
+     * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
+     */
+    function getRewardUntilTs(uint256 tokenId, address[] memory tokens, uint256 rewardPeriodEndTs) external;
 
     /**
      * @notice Enables the self-repaying loan feature for a specific veNFT
