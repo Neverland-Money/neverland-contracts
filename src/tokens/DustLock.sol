@@ -792,7 +792,10 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
-        if (oldLocked.isPermanent) unlockPermanent(_tokenId);
+        if (oldLocked.isPermanent) {
+            unlockPermanent(_tokenId);
+            oldLocked = _locked[_tokenId];
+        }
 
         uint256 userLockedAmount = oldLocked.amount.toUint256();
 
