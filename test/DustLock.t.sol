@@ -313,7 +313,6 @@ contract DustLockTests is BaseTest {
     }
 
     function testEarlyWithdrawSameBlockAfterTransfer() public {
-        vm.skip(true);
         // arrange
         mintErc20Token(address(DUST), user2, TOKEN_10K);
 

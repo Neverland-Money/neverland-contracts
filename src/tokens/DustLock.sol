@@ -805,8 +805,8 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
         uint256 supplyBefore = supply;
         supply = supplyBefore - userLockedAmount;
 
-        // penaltyAmount = earlyWithdrawPenalty * balanceOfNFT(_tokenId) / userLockedAmount * userLockedAmount / 10_000
-        uint256 userPenaltyAmount = earlyWithdrawPenalty * balanceOfNFT(_tokenId) / 10_000;
+        // penaltyAmount = earlyWithdrawPenalty * _balanceOfNFTAt(_tokenId, block.timestamp) / userLockedAmount * userLockedAmount / 10_000
+        uint256 userPenaltyAmount = earlyWithdrawPenalty * _balanceOfNFTAt(_tokenId, block.timestamp) / 10_000;
         uint256 userTransferAmount = userLockedAmount - userPenaltyAmount;
         uint256 treasuryTransferAmount = userPenaltyAmount;
 
