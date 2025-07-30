@@ -6,6 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {EpochTimeLibrary} from "../src/libraries/EpochTimeLibrary.sol";
 import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
 import "forge-std/console2.sol";
+import {MockUSDC} from "../lib/forge-std/test/StdCheats.t.sol";
 
 contract RevenueRewardsTest is BaseTest {
     MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
@@ -332,6 +333,94 @@ contract RevenueRewardsTest is BaseTest {
         vm.stopPrank();
 
         assertEq(mockUSDC.balanceOf(user1), balanceAfterFirstClaim);
+    }
+
+    /* ========== TEST GET REWARD GAS ========== */
+
+    function testInitialGetRewardGasCosts() public {
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        uint256 gasStart;
+
+        ///*** create a token on epoch 2, get reward on epoch 3  ***//
+        skipNumberOfEpochs(1); // week2
+
+        _addReward(admin, mockUSDC, USDC_10K);
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+
+        skipNumberOfEpochs(1); // week3
+
+        gasStart = gasleft();
+        revenueReward.getReward(tokenId1, tokens);
+        uint256 gasUsedEpoch1Claim = gasStart - gasleft();
+
+        ///*** create a token on epoch 100, get reward on epoch 101 ***//
+        skipNumberOfEpochs(97); // week 100
+
+        _addReward(admin, mockUSDC, USDC_10K);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+
+        skipNumberOfEpochs(1); // week 101
+
+        gasStart = gasleft();
+        revenueReward.getReward(tokenId2, tokens);
+        uint256 gasUsedEpoch102Claim = gasStart - gasleft();
+
+        assertLt(gasUsedEpoch1Claim, 100_000);
+        assertLt(gasUsedEpoch102Claim, 100_000);
+    }
+
+    function testGetRewardGasCostsForLongUnclaimedDuration() public {
+        uint256 gasStart;
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        ///*** getting 300 epochs unclaimed rewards (epoch2 - epoch302) in one tx  ***//
+        goToEpoch(2);
+
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        dustLock.lockPermanent(tokenId1);
+
+        for (uint256 i = 0; i < 300; i++) {
+            _addReward(admin, mockUSDC, USDC_1);
+            skipNumberOfEpochs(1);
+        }
+        assertEq(block.timestamp, 302 weeks);
+
+        gasStart = gasleft();
+        revenueReward.getReward(tokenId1, tokens);
+        uint256 gasUsed = gasStart - gasleft();
+
+        assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
+        assertGe(gasUsed, 30_000_000);
+
+        ///*** getting 300 epochs (epoch302 - epoch 602) unclaimed rewards in multiple txs  ***//
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        dustLock.lockPermanent(tokenId2);
+        uint256 tokenId2CreationTime = 302 weeks;
+
+        for (uint256 i = 0; i < 300; i++) {
+            _addReward(admin, mockUSDC, USDC_1);
+            skipNumberOfEpochs(1);
+        }
+        assertEq(block.timestamp, 602 weeks);
+
+        uint256[] memory gasPerGetRewardUntilTs = new uint256[](10);
+        uint256 endTs = tokenId2CreationTime + 30 weeks;
+        for (uint256 i = 0; i < 10; i++) {
+            gasStart = gasleft();
+            revenueReward.getRewardUntilTs(tokenId2, tokens, endTs);
+            gasPerGetRewardUntilTs[i] = gasStart - gasleft();
+            endTs += 30 weeks;
+        }
+
+        for (uint256 i = 0; i < 10; i++) {
+            console2.log(gasPerGetRewardUntilTs[i]);
+            assertLt(gasPerGetRewardUntilTs[i], 10_000_000); // TODO: total supply linearly increases
+        }
+        assertEq(mockUSDC.balanceOf(user), 450 * 1e6);
     }
 
     /* ========== TEST SELF REPAYING LOAN ========== */

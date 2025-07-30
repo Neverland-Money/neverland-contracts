@@ -152,6 +152,18 @@ abstract contract BaseTest is Script, Test {
         vm.roll(block.number + 1);
     }
 
+    function skipNumberOfEpochs(uint256 epochs) internal {
+        for (uint256 i = 0; i < epochs; i++) {
+            skipToNextEpoch(0);
+        }
+    }
+
+    function goToEpoch(uint256 goToEpoch) internal {
+        uint256 currentEpoch = block.timestamp % 1 weeks;
+        if (goToEpoch <= currentEpoch) revert("goToEpoch less or equal than current");
+        skipNumberOfEpochs(goToEpoch - currentEpoch);
+    }
+
     /// @dev Get start of epoch based on timestamp
     function _getEpochStart(uint256 _timestamp) internal pure returns (uint256) {
         return _timestamp - (_timestamp % (7 days));
