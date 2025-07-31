@@ -374,47 +374,28 @@ contract RevenueRewardsTest is BaseTest {
     /* ========== TEST GET REWARD GAS ========== */
 
     function testInitialGetRewardGasCosts() public {
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(mockUSDC);
-
-        uint256 gasStart;
-
-        ///*** create a token on epoch 2, get reward on epoch 3  ***//
-        skipNumberOfEpochs(1); // week2
-
-        _addReward(admin, mockUSDC, USDC_10K);
-        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
-
-        skipNumberOfEpochs(1); // week3
-
-        gasStart = gasleft();
-        revenueReward.getReward(tokenId1, tokens);
-        uint256 gasUsedEpoch1Claim = gasStart - gasleft();
-
-        ///*** create a token on epoch 100, get reward on epoch 101 ***//
-        skipNumberOfEpochs(97); // week 100
+        ///*** create a token on epoch 300, get reward on epoch 301 ***//
+        goToEpoch(300);
 
         _addReward(admin, mockUSDC, USDC_10K);
         uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
 
         skipNumberOfEpochs(1); // week 101
 
-        gasStart = gasleft();
-        revenueReward.getReward(tokenId2, tokens);
-        uint256 gasUsedEpoch102Claim = gasStart - gasleft();
-
-        assertLt(gasUsedEpoch1Claim, 100_000);
-        assertLt(gasUsedEpoch102Claim, 100_000);
-    }
-
-    function testGetRewardGasCostsForLongUnclaimedDuration() public {
-        uint256 gasStart;
-
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
 
-        ///*** getting 300 epochs unclaimed rewards (epoch2 - epoch302) in one tx  ***//
-        goToEpoch(2);
+        uint256 gasStart = gasleft();
+        revenueReward.getReward(tokenId2, tokens);
+        uint256 gasUsed = gasStart - gasleft();
+
+        // console2.log("revenueReward.getReward gas:", gasUsed);
+        assertLt(gasUsed, 100_000); // About 75K
+    }
+
+    function testGetRewardGasCostsForLongUnclaimedDuration() public {
+        ///*** getting 300 epochs unclaimed rewards (epoch300 - epoch600) in one tx  ***//
+        goToEpoch(300);
 
         uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
         dustLock.lockPermanent(tokenId1);
@@ -423,28 +404,43 @@ contract RevenueRewardsTest is BaseTest {
             _addReward(admin, mockUSDC, USDC_1);
             skipNumberOfEpochs(1);
         }
-        assertEq(block.timestamp, 302 weeks);
+        assertEq(block.timestamp, 600 weeks);
 
-        gasStart = gasleft();
+        dustLock.checkpoint();
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        uint256 gasStart = gasleft();
         revenueReward.getReward(tokenId1, tokens);
         uint256 gasUsed = gasStart - gasleft();
 
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
-        assertGe(gasUsed, 30_000_000);
 
-        ///*** getting 300 epochs (epoch302 - epoch 602) unclaimed rewards in multiple txs  ***//
+        // console2.log("revenueReward.getReward gas:", gasUsed);
+        assertLt(gasUsed, 6_000_000); // about 5M
+    }
+
+    function testGetRewardUntilTsGasCostsForLongUnclaimedDuration() public {
+        ///*** getting 300 epochs (epoch300 - epoch 600) unclaimed rewards in multiple txs  ***//
+        goToEpoch(300);
+
         uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
         dustLock.lockPermanent(tokenId2);
-        uint256 tokenId2CreationTime = 302 weeks;
 
         for (uint256 i = 0; i < 300; i++) {
             _addReward(admin, mockUSDC, USDC_1);
             skipNumberOfEpochs(1);
+            if (i % 5 == 0) dustLock.checkpoint(); // simulate user activity every 5 epochs
         }
-        assertEq(block.timestamp, 602 weeks);
+        assertEq(block.timestamp, 600 weeks);
 
+        uint256 gasStart;
         uint256[] memory gasPerGetRewardUntilTs = new uint256[](10);
-        uint256 endTs = tokenId2CreationTime + 30 weeks;
+        uint256 endTs = 300 weeks + 30 weeks;
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
         for (uint256 i = 0; i < 10; i++) {
             gasStart = gasleft();
             revenueReward.getRewardUntilTs(tokenId2, tokens, endTs);
@@ -453,10 +449,10 @@ contract RevenueRewardsTest is BaseTest {
         }
 
         for (uint256 i = 0; i < 10; i++) {
-            console2.log(gasPerGetRewardUntilTs[i]);
-            assertLt(gasPerGetRewardUntilTs[i], 10_000_000); // TODO: total supply linearly increases
+            // console2.log("revenueReward.getRewardUntilTs gas:", gasPerGetRewardUntilTs[i]);
+            assertLt(gasPerGetRewardUntilTs[i], 550_000); // about 470K - 530K
         }
-        assertEq(mockUSDC.balanceOf(user), 450 * 1e6);
+        assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
     }
 
     /* ========== TEST SELF REPAYING LOAN ========== */

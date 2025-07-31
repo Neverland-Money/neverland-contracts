@@ -158,10 +158,10 @@ abstract contract BaseTest is Script, Test {
         }
     }
 
-    function goToEpoch(uint256 goToEpoch) internal {
+    function goToEpoch(uint256 epochNumber) internal {
         uint256 currentEpoch = block.timestamp % 1 weeks;
-        if (goToEpoch <= currentEpoch) revert("goToEpoch less or equal than current");
-        skipNumberOfEpochs(goToEpoch - currentEpoch);
+        if (epochNumber <= currentEpoch) revert("goToEpoch less or equal than current");
+        skipNumberOfEpochs(epochNumber - currentEpoch);
     }
 
     /// @dev Get start of epoch based on timestamp
