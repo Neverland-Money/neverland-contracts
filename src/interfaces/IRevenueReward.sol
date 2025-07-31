@@ -53,6 +53,9 @@ interface IRevenueReward {
     /// @notice Error thrown when a non-DustLock address attempts a restricted operation
     error NotDustLock();
 
+    /// @notice Error thrown when end timestamp when calculating rewards is more that current
+    error EndTimestampMoreThanCurrent();
+
     /**
      * @notice The address of the DustLock contract that manages veNFTs
      * @dev Used to verify ownership of veNFTs when claiming rewards and validate permissions
@@ -130,8 +133,14 @@ interface IRevenueReward {
      */
     function tokenRewardReceiver(uint256 tokenId) external view returns (address);
 
-    /// @notice Error thrown when end timestamp when calculating rewards is more that current
-    error EndTimestampMoreThanCurrent();
+    /**
+     * @notice Tracks whether reward claim delegation is enabled for each veNFT token.
+     * @dev Mapping from veNFT token ID to a boolean indicating if claim delegation is allowed.
+     * @param tokenId The ID of the veNFT.
+     * @return True if claim rewards delegation is enabled for the specified token, false otherwise.
+     *
+     */
+    function isTokenClaimRewardsDelegationEnabled(uint256 tokenId) external returns (bool);
 
     /**
      * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens
@@ -177,6 +186,32 @@ interface IRevenueReward {
      * @param tokenId The ID of the veNFT to restore default reward routing for
      */
     function disableSelfRepayLoan(uint256 tokenId) external;
+
+    /**
+     * @notice Handles necessary operations before a veNFT token is transferred
+     * @dev This function is called by the DustLock contract just before transferring a token
+     *      It performs two main actions:
+     *      1. Claims all pending rewards for the token being transferred
+     *      2. Removes the token from the self-repaying loan tracking if enabled
+     *      Can only be called by the DustLock contract
+     *      Throws NotDustLock error if called by any other address
+     * @param _tokenId The ID of the veNFT token that is about to be transferred
+     * @param _from The address of the current token owner (sender of the transfer)
+     */
+    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from) external;
+
+    /**
+     * @notice Handles necessary operations before a veNFT token is burned
+     * @dev This function is called by the DustLock contract just before burning a token
+     *      It performs two main actions:
+     *      1. Claims all pending rewards for the token being burned
+     *      2. Removes the token from the self-repaying loan tracking if enabled
+     *      Can only be called by the DustLock contract
+     *      Throws NotDustLock error if called by any other address
+     * @param _tokenId The ID of the veNFT token that is about to be burned
+     * @param _from The address of the current token owner
+     */
+    function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) external;
 
     /**
      * @notice Adds new rewards to the distribution pool for the current epoch

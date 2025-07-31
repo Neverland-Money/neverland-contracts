@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -16,6 +17,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  */
 contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.UintSet;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @inheritdoc IRevenueReward
     IDustLock public dustLock;
@@ -35,7 +38,12 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
     /// @inheritdoc IRevenueReward
+    mapping(uint256 => bool) public isTokenClaimRewardsDelegationEnabled;
+
+    /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
+    mapping(address => EnumerableSet.UintSet) private userTokensWithSelfRepayingLoan;
+    EnumerableSet.AddressSet private usersWithSelfRepayingLoan;
 
     /// tokenId -> block.timestamp of token_id minted
     mapping(uint256 => uint256) tokenMintTime;
@@ -61,13 +69,29 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IRevenueReward
     function disableSelfRepayLoan(uint256 tokenId) external virtual nonReentrant {
-        if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
-        tokenRewardReceiver[tokenId] = address(0);
+        address sender = _msgSender();
+        address tokenOwner = dustLock.ownerOf(tokenId);
+        if (sender != tokenOwner) revert NotOwner();
+
+        _removeToken(tokenId, tokenOwner);
+
         emit SelfRepayingLoanUpdate(tokenId, address(0), false);
     }
 
+    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from) public {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+        getReward(_tokenId, rewardTokens);
+        _removeToken(_tokenId, _from);
+    }
+
+    function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) public {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+        getReward(_tokenId, rewardTokens);
+        _removeToken(_tokenId, _from);
+    }
+
     /// @inheritdoc IRevenueReward
-    function getReward(uint256 tokenId, address[] memory tokens) external virtual {
+    function getReward(uint256 tokenId, address[] memory tokens) public virtual {
         getRewardUntilTs(tokenId, tokens, block.timestamp);
     }
 
@@ -128,6 +152,14 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /* === helper functions === */
+
+    function _removeToken(uint256 _tokenId, address _tokenOwner) internal {
+        tokenRewardReceiver[_tokenId] = address(0);
+        userTokensWithSelfRepayingLoan[_tokenOwner].remove(_tokenId);
+        if (userTokensWithSelfRepayingLoan[_tokenOwner].length() <= 0) {
+            usersWithSelfRepayingLoan.remove(_tokenOwner);
+        }
+    }
 
     /**
      * @notice Calculates token's reward from last claimed start epoch until current start epoch

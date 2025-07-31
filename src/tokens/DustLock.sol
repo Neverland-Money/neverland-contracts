@@ -12,6 +12,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 
 /**
  * @title DustLock
@@ -208,6 +209,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Clear approval. Throws if `_from` is not the current owner
         if (_ownerOf(_tokenId) != _from) revert NotOwner();
         delete idToApprovals[_tokenId];
+        // notify other contracts
+        _notifyBeforeTokenTransferred(_tokenId, _from, _to, _sender);
         // Remove NFT. Throws if `_tokenId` is not a valid NFT
         _removeTokenFrom(_from, _tokenId);
         // Add NFT
@@ -383,6 +386,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
         address owner = _ownerOf(_tokenId);
 
+        // notify other contracts
+        _notifyBeforeTokenBurned(_tokenId, owner, sender);
         // Clear approval
         delete idToApprovals[_tokenId];
         // Remove token
@@ -1018,6 +1023,25 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     IRevenueReward public revenueReward;
+
+    function setRevenueReward(IRevenueReward _revenueReward) public {
+        if (_msgSender() != team) revert NotTeam();
+        revenueReward = _revenueReward;
+    }
+
+    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from, address, /* _to */ address /* _sender */ )
+        internal
+    {
+        if (address(revenueReward) != address(0)) {
+            revenueReward._notifyBeforeTokenTransferred(_tokenId, _from);
+        }
+    }
+
+    function _notifyBeforeTokenBurned(uint256 _tokenId, address _owner, address /* _sender */ ) internal {
+        if (address(revenueReward) != address(0)) {
+            revenueReward._notifyBeforeTokenBurned(_tokenId, _owner);
+        }
+    }
 
     function _notifyTokenMinted(uint256 _tokenId, address, /* _owner */ address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {

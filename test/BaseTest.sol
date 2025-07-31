@@ -69,6 +69,9 @@ abstract contract BaseTest is Script, Test {
         // deploy RevenueReward
         revenueReward = new RevenueReward(ZERO_ADDRESS, address(dustLock), admin);
 
+        // set RevenueReward to DustLock
+        dustLock.setRevenueReward(revenueReward);
+
         // add log labels
         vm.label(address(admin), "admin");
         vm.label(address(this), "user");
@@ -113,6 +116,18 @@ abstract contract BaseTest is Script, Test {
         vm.roll(block.number + 1);
     }
 
+    function skipNumberOfEpochs(uint256 epochs) internal {
+        for (uint256 i = 0; i < epochs; i++) {
+            skipToNextEpoch(0);
+        }
+    }
+
+    function goToEpoch(uint256 epochNumber) internal {
+        uint256 currentEpoch = block.timestamp % 1 weeks;
+        if (epochNumber <= currentEpoch) revert("goToEpoch less or equal than current");
+        skipNumberOfEpochs(epochNumber - currentEpoch);
+    }
+
     /// @dev Get start of epoch based on timestamp
     function _getEpochStart(uint256 _timestamp) internal pure returns (uint256) {
         return _timestamp - (_timestamp % (7 days));
@@ -121,5 +136,11 @@ abstract contract BaseTest is Script, Test {
     /// @dev Converts int128s to uint256, values always positive
     function convert(int128 _amount) internal pure returns (uint256) {
         return uint256(uint128(_amount));
+    }
+
+    // assertion helpers
+
+    function assertEqApprOneWei(uint256 actualAmount, uint256 expectedAmount) internal pure {
+        assertApproxEqAbs(actualAmount, expectedAmount, 1);
     }
 }
