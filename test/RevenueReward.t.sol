@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "./BaseTest.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {EpochTimeLibrary} from "../src/libraries/EpochTimeLibrary.sol";
 import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
 import "forge-std/console2.sol";
@@ -333,6 +333,42 @@ contract RevenueRewardsTest is BaseTest {
         vm.stopPrank();
 
         assertEq(mockUSDC.balanceOf(user1), balanceAfterFirstClaim);
+    }
+
+    /* ========== TEST DUST LOCK INTERACTIONS ========== */
+
+    function testAutoClaimedRewardsForEarlyWithdrawnTokens() public {
+        // arrange
+        assertEq(block.timestamp, 1 weeks + 1);
+
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        goToEpoch(2);
+
+        // act
+        dustLock.earlyWithdraw(tokenId);
+
+        // assert
+        assertEq(mockUSDC.balanceOf(user), USDC_10K);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
+    }
+
+    function testAutoClaimedRewardsForWithdrawnTokens() public {
+        // arrange
+        assertEq(block.timestamp, 1 weeks + 1);
+
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        skipAndRoll(MAXTIME);
+
+        // act
+        dustLock.withdraw(tokenId);
+
+        // assert
+        assertEq(mockUSDC.balanceOf(user), USDC_10K);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
     }
 
     /* ========== TEST GET REWARD GAS ========== */

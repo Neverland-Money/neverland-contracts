@@ -193,13 +193,17 @@ interface IRevenueReward {
     function _notifyTokenTransferred(uint256 _tokenId, address _from) external;
 
     /**
-     * @notice Notifies the contract that a specific token has been burned.
-     * @dev Intended to update internal state or trigger logic after a veNFT burn event.
-     *      Can only be called by authorized contracts, typically after a burn operation.
-     * @param _tokenId The ID of the token (veNFT) that has been burned.
-     * @param _from The owner of token burned.
+     * @notice Handles necessary operations before a veNFT token is burned
+     * @dev This function is called by the DustLock contract just before burning a token
+     *      It performs two main actions:
+     *      1. Claims all pending rewards for the token being burned
+     *      2. Removes the token from the self-repaying loan tracking if enabled
+     *      Can only be called by the DustLock contract
+     *      Throws NotDustLock error if called by any other address
+     * @param _tokenId The ID of the veNFT token that is about to be burned
+     * @param _from The address of the current token owner
      */
-    function _notifyTokenBurned(uint256 _tokenId, address _from) external;
+    function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) external;
 
     /**
      * @notice Returns a list of user addresses with at least one active self-repaying loan within a given range.

@@ -397,13 +397,13 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
         address owner = _ownerOf(_tokenId);
 
+        // notify other contracts
+        _notifyBeforeTokenBurned(_tokenId, owner, sender);
         // Clear approval
         delete idToApprovals[_tokenId];
         // Remove token
         _removeTokenFrom(owner, _tokenId);
         emit Transfer(owner, address(0), _tokenId);
-        // notify other contracts
-        _notifyTokenBurned(_tokenId, owner, sender);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1048,9 +1048,9 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
         }
     }
 
-    function _notifyTokenBurned(uint256 _tokenId, address _owner, address /* _sender */ ) internal {
+    function _notifyBeforeTokenBurned(uint256 _tokenId, address _owner, address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyTokenBurned(_tokenId, _owner);
+            revenueReward._notifyBeforeTokenBurned(_tokenId, _owner);
         }
     }
 

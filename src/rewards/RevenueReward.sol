@@ -107,8 +107,9 @@ contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771Cont
         _removeToken(_tokenId, _from);
     }
 
-    function _notifyTokenBurned(uint256 _tokenId, address _from) public {
+    function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) public {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
+        getReward(_tokenId, rewardTokens);
         _removeToken(_tokenId, _from);
     }
 
@@ -163,7 +164,7 @@ contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771Cont
     }
 
     /// @inheritdoc IRevenueReward
-    function getReward(uint256 tokenId, address[] memory tokens) external virtual {
+    function getReward(uint256 tokenId, address[] memory tokens) public virtual {
         getRewardUntilTs(tokenId, tokens, block.timestamp);
     }
 
