@@ -165,7 +165,11 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /// @inheritdoc IDustRewardsController
-    function setClaimer(address user, address caller) external override onlyEmissionManager {
+    function setClaimer(address user, address caller) external override {
+        if (msg.sender != user) {
+            // If not the user themselves, require admin permission
+            require(msg.sender == _emissionManager, "ONLY_EMISSION_MANAGER_OR_SELF");
+        }
         _authorizedClaimers[user] = caller;
         emit ClaimerSet(user, caller);
     }
