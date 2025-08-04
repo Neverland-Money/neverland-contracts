@@ -13,6 +13,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import "../_shared/CommonErrors.sol";
 
 /**
  * @title DustLock
@@ -215,6 +216,7 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
     /* TRANSFER FUNCTIONS */
 
     function _transferFrom(address _from, address _to, uint256 _tokenId, address _sender) internal {
+        if (_to == address(0)) revert AddressZero();
         // Check requirements
         if (!_isApprovedOrOwner(_sender, _tokenId)) revert NotApprovedOrOwner();
         // Clear approval. Throws if `_from` is not the current owner
