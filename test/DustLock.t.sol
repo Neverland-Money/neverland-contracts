@@ -354,6 +354,41 @@ contract DustLockTests is BaseTest {
         );
     }
 
+    /* ========== TEST SPLIT ========== */
+
+    function testSplittingOfPermanentlyLockedTokenIsReverted() public {
+        // arrange
+        DUST.approve(address(dustLock), TOKEN_1 * 2);
+
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+
+        dustLock.lockPermanent(tokenId);
+
+        IDustLock.LockedBalance memory lockedTokenId;
+        lockedTokenId = dustLock.locked(tokenId);
+
+        assertTrue(lockedTokenId.isPermanent);
+
+        skipAndRoll(1 weeks);
+
+        dustLock.toggleSplit(user, true);
+
+        // act
+        vm.expectRevert(IDustLock.PermanentLock.selector);
+        dustLock.split(tokenId, TOKEN_1 / 2);
+
+        // assert
+        assertEq(dustLock.ownerOf(tokenId), address(user));
+
+        lockedTokenId = dustLock.locked(tokenId);
+        assertTrue(lockedTokenId.isPermanent);
+
+        assertEq(dustLock.balanceOfNFT(tokenId), TOKEN_1);
+
+        // Verify that no new tokens were created
+        assertEq(dustLock.tokenId(), 1);
+    }
+
     /* ========== HELPER FUNCTIONS ========== */
 
     function _createLocks(uint256 amount, uint256 duration)
