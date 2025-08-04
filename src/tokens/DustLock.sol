@@ -220,6 +220,8 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
         // Clear approval. Throws if `_from` is not the current owner
         if (_ownerOf(_tokenId) != _from) revert NotOwner();
         delete idToApprovals[_tokenId];
+        // notify other contracts
+        _notifyBeforeTokenTransferred(_tokenId, _from, _to, _sender);
         // Remove NFT. Throws if `_tokenId` is not a valid NFT
         _removeTokenFrom(_from, _tokenId);
         // Add NFT
@@ -228,8 +230,6 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
         ownershipChange[_tokenId] = block.number;
         // Log the transfer
         emit Transfer(_from, _to, _tokenId);
-        // notify other contracts
-        _notifyTokenTransferred(_tokenId, _from, _to, _sender);
     }
 
     /// @inheritdoc IDustLock
@@ -1040,11 +1040,11 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
         revenueReward = _revenueReward;
     }
 
-    function _notifyTokenTransferred(uint256 _tokenId, address _from, address, /* _to */ address /* _sender */ )
+    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from, address, /* _to */ address /* _sender */ )
         internal
     {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyTokenTransferred(_tokenId, _from);
+            revenueReward._notifyBeforeTokenTransferred(_tokenId, _from);
         }
     }
 

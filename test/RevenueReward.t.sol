@@ -396,6 +396,42 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
     }
 
+    function testAutoClaimedRewardsForTransferredTokens() public {
+        // arrange
+        assertEq(block.timestamp, 1 weeks + 1);
+
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        goToEpoch(2);
+
+        // act / assert
+        dustLock.transferFrom(user, user2, tokenId);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        vm.prank(user2);
+        revenueReward.getReward(tokenId, tokens);
+
+        assertEqApprOneWei(mockUSDC.balanceOf(user), USDC_10K);
+        assertEqApprOneWei(mockUSDC.balanceOf(user2), 0);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
+
+        // act / assert
+        _addReward(admin, mockUSDC, 2 * USDC_10K);
+
+        goToEpoch(3);
+
+        vm.prank(user2);
+        revenueReward.getReward(tokenId, tokens);
+
+        // assert
+        assertEqApprOneWei(mockUSDC.balanceOf(user), USDC_10K);
+        assertEqApprOneWei(mockUSDC.balanceOf(user2), 2 * USDC_10K);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
+    }
+
     /* ========== TEST GET REWARD GAS ========== */
 
     function testInitialGetRewardGasCosts() public {

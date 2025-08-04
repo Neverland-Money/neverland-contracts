@@ -103,8 +103,9 @@ contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771Cont
         emit SelfRepayingLoanUpdate(tokenId, address(0), false);
     }
 
-    function _notifyTokenTransferred(uint256 _tokenId, address _from) public {
+    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from) public {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
+        getReward(_tokenId, rewardTokens);
         _removeToken(_tokenId, _from);
     }
 

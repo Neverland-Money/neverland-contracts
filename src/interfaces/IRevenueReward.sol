@@ -184,13 +184,17 @@ interface IRevenueReward {
     function disableSelfRepayLoan(uint256 tokenId) external;
 
     /**
-     * @notice Notifies the contract that a specific token has been transferred.
-     * @dev Intended to update internal state or trigger logic after a veNFT transfer event.
-     *      Can only be called by authorized contracts, typically after a transfer operation.
-     * @param _tokenId The ID of the token (veNFT) that has been transferred.
-     * @param _from The owner of token transferred.
+     * @notice Handles necessary operations before a veNFT token is transferred
+     * @dev This function is called by the DustLock contract just before transferring a token
+     *      It performs two main actions:
+     *      1. Claims all pending rewards for the token being transferred
+     *      2. Removes the token from the self-repaying loan tracking if enabled
+     *      Can only be called by the DustLock contract
+     *      Throws NotDustLock error if called by any other address
+     * @param _tokenId The ID of the veNFT token that is about to be transferred
+     * @param _from The address of the current token owner (sender of the transfer)
      */
-    function _notifyTokenTransferred(uint256 _tokenId, address _from) external;
+    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from) external;
 
     /**
      * @notice Handles necessary operations before a veNFT token is burned
