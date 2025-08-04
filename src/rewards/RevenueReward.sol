@@ -14,6 +14,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 
 /**
  * @title RevenueReward
@@ -253,15 +254,25 @@ contract RevenueReward is Initializable, ReentrancyGuardUpgradeable, ERC2771Cont
                 _currTs += DURATION;
                 continue;
             }
-            // totalRewardPerEpoch * tokenBalanceCurrTs / tokenSupplyBalanceCurrTs
-            reward += (
-                tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs)
-                    / tokenSupplyBalanceCurrTs
+            // totalRewardTokens * tokenBalance / tokenSupplyBalance
+            reward += _calculateReward(
+                tokenRewardsPerEpoch[token][_currTs],
+                dustLock.balanceOfNFTAt(tokenId, _currTs),
+                tokenSupplyBalanceCurrTs
             );
+
             _currTs += DURATION;
         }
 
         return reward;
+    }
+
+    function _calculateReward(uint256 totalRewardTokens, uint256 tokenBalance, uint256 tokenSupplyBalance)
+        internal
+        pure
+        returns (uint256)
+    {
+        return ud(totalRewardTokens).mul(ud(tokenBalance)).div(ud(tokenSupplyBalance)).unwrap();
     }
 
     /*//////////////////////////////////////////////////////////////

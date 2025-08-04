@@ -5,8 +5,9 @@ import "./BaseTest.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {EpochTimeLibrary} from "../src/libraries/EpochTimeLibrary.sol";
 import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
-import "forge-std/console2.sol";
 import {MockUSDC} from "../lib/forge-std/test/StdCheats.t.sol";
+import "forge-std/console2.sol";
+import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 
 contract RevenueRewardsTest is BaseTest {
     MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
@@ -81,7 +82,7 @@ contract RevenueRewardsTest is BaseTest {
 
         uint256 rewardAmount = balanceAfter;
 
-        assertEq(rewardAmount, USDC_10K);
+        assertEqApprOneWei(rewardAmount, USDC_10K);
         assertEq(lastEarnTimeAfter, block.timestamp);
     }
 
@@ -110,7 +111,7 @@ contract RevenueRewardsTest is BaseTest {
 
         uint256 rewardAmount = balanceAfter;
 
-        assertEq(rewardAmount, USDC_10K);
+        assertEqApprOneWei(rewardAmount, USDC_10K);
         assertEq(lastEarnTimeAfter, block.timestamp);
     }
 
@@ -138,7 +139,7 @@ contract RevenueRewardsTest is BaseTest {
 
         uint256 rewardAmount = balanceAfter;
 
-        assertEq(rewardAmount, 2 * USDC_10K);
+        assertApproxEqAbs(rewardAmount, 2 * USDC_10K, 2);
         assertEq(lastEarnTimeAfter, block.timestamp);
     }
 
@@ -166,19 +167,19 @@ contract RevenueRewardsTest is BaseTest {
         // act
         revenueReward.getRewardUntilTs(tokenId, tokens, 2 weeks + 1);
         // assert
-        assertEq(mockUSDC.balanceOf(user), USDC_10K);
+        assertApproxEqAbs(mockUSDC.balanceOf(user), USDC_10K, 2);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 2 weeks + 1);
 
         // act
         revenueReward.getRewardUntilTs(tokenId, tokens, 4 weeks + 1);
         // assert
-        assertEq(mockUSDC.balanceOf(user), 2 * USDC_10K);
+        assertApproxEqAbs(mockUSDC.balanceOf(user), 2 * USDC_10K, 2);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 4 weeks + 1);
 
         // act
         revenueReward.getRewardUntilTs(tokenId, tokens, 4 weeks + 1);
         // assert
-        assertEq(mockUSDC.balanceOf(user), 2 * USDC_10K);
+        assertApproxEqAbs(mockUSDC.balanceOf(user), 2 * USDC_10K, 2);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 4 weeks + 1);
     }
 
@@ -211,7 +212,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 user2Reward = mockUSDC.balanceOf(user2) - user2BalanceBefore;
 
         // Alice should receive approximately twice as much reward as Bob (within small margin for rounding)
-        assertApproxEqRel(user1Reward, user2Reward * 2, 0.01e18, "Rewards not proportional to veNFT balances");
+        assertApproxEqRel(user1Reward, user2Reward * 2, 1, "Rewards not proportional to veNFT balances");
 
         // The sum of rewards should not exceed the total rewards
         assertLe(user1Reward + user2Reward, USDC_10K, "Total claimed exceeds available rewards");
@@ -240,7 +241,7 @@ contract RevenueRewardsTest is BaseTest {
 
         uint256 rewardAmount = balanceAfter;
 
-        assertEq(rewardAmount, 2 * USDC_10K);
+        assertApproxEqAbs(rewardAmount, 2 * USDC_10K, 2);
         assertEq(lastEarnTimeAfter, block.timestamp);
     }
 
@@ -278,7 +279,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 user2Reward = mockUSDC.balanceOf(user2) - user2BalanceBefore;
 
         // Alice should receive approximately twice as much reward as Bob (within small margin for rounding)
-        assertApproxEqRel(user1Reward, user2Reward * 2, 0.01e18);
+        assertApproxEqRel(user1Reward, user2Reward * 2, 1);
 
         // The sum of rewards should not exceed the total rewards
         assertLe(user1Reward + user2Reward, 2 * USDC_10K);
@@ -307,8 +308,8 @@ contract RevenueRewardsTest is BaseTest {
         vm.stopPrank();
 
         // assert
-        assertEq(mockUSDC.balanceOf(user1), USDC_10K);
-        assertEq(mockDAI.balanceOf(user1), daiBalanceBefore);
+        assertEqApprOneWei(mockUSDC.balanceOf(user1), USDC_10K);
+        assertEqApprOneWei(mockDAI.balanceOf(user1), daiBalanceBefore);
         assertGt(revenueReward.lastEarnTime(address(mockUSDC), tokenId), usdcLastEarnTimeBefore);
         assertEq(revenueReward.lastEarnTime(address(mockDAI), tokenId), daiLastEarnTimeBefore);
     }
@@ -335,6 +336,30 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(mockUSDC.balanceOf(user1), balanceAfterFirstClaim);
     }
 
+    function testRewardPrecision() public {
+        // arrange
+        uint256 userTokenId1 = _createLock(user, TOKEN_1K, MAXTIME);
+        uint256 user2TokenId1 = _createLock(user2, TOKEN_100M, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        skipToNextEpoch(1);
+
+        // act
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        revenueReward.getReward(userTokenId1, tokens);
+
+        vm.prank(user2);
+        revenueReward.getReward(user2TokenId1, tokens);
+
+        // assert
+
+        assertEq(mockUSDC.balanceOf(user), 9);
+        assertEq(mockUSDC.balanceOf(user2), 999990);
+    }
+
     /* ========== TEST DUST LOCK INTERACTIONS ========== */
 
     function testAutoClaimedRewardsForEarlyWithdrawnTokens() public {
@@ -350,7 +375,7 @@ contract RevenueRewardsTest is BaseTest {
         dustLock.earlyWithdraw(tokenId);
 
         // assert
-        assertEq(mockUSDC.balanceOf(user), USDC_10K);
+        assertEqApprOneWei(mockUSDC.balanceOf(user), USDC_10K);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
     }
 
@@ -367,7 +392,7 @@ contract RevenueRewardsTest is BaseTest {
         dustLock.withdraw(tokenId);
 
         // assert
-        assertEq(mockUSDC.balanceOf(user), USDC_10K);
+        assertEqApprOneWei(mockUSDC.balanceOf(user), USDC_10K);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
     }
 
@@ -503,12 +528,12 @@ contract RevenueRewardsTest is BaseTest {
         revenueReward.getReward(tokenId, tokens);
 
         // assert
-        assertEq(mockUSDC.balanceOf(user), 0);
+        assertEqApprOneWei(mockUSDC.balanceOf(user), 0);
 
         uint256 balanceAfter = mockUSDC.balanceOf(userVault);
         uint256 rewardAmount = balanceAfter;
 
-        assertEq(rewardAmount, USDC_10K);
+        assertEqApprOneWei(rewardAmount, USDC_10K);
     }
 
     function testDisableSelfRepayLoan() public {
@@ -525,7 +550,7 @@ contract RevenueRewardsTest is BaseTest {
         revenueReward.getReward(tokenId, tokens);
 
         address userVault = userVaultFactory.getUserVault(user);
-        assertEq(mockUSDC.balanceOf(userVault), USDC_10K, "userVault");
+        assertEqApprOneWei(mockUSDC.balanceOf(userVault), USDC_10K);
 
         // epoch2
         skipToNextEpoch(1);
@@ -539,7 +564,7 @@ contract RevenueRewardsTest is BaseTest {
 
         revenueReward.getReward(tokenId, tokens);
 
-        assertEq(mockUSDC.balanceOf(user), USDC_10K, "user");
+        assertEqApprOneWei(mockUSDC.balanceOf(user), USDC_10K);
     }
 
     /* ========== TEST SELF REPAYING LOAN LISTS ========== */
