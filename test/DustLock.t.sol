@@ -257,7 +257,35 @@ contract DustLockTests is BaseTest {
         dustLock.createLockFor(TOKEN_1, MAXTIME + WEEK, user2);
     }
 
-    /* ========== WITHDRAW ========== */
+    /* ========== LOCK/WITHDRAW ========== */
+
+    function testMinLockAmount() public {
+        assertEq(dustLock.team(), user);
+
+        // create lock
+        dustLock.setMinLockAmount(2 * TOKEN_1);
+
+        vm.expectRevert(IDustLock.AmountTooSmall.selector);
+        dustLock.createLock(2 * TOKEN_1 - 1, MAXTIME);
+
+        // increase amount
+        DUST.approve(address(dustLock), 2 * TOKEN_1);
+        uint256 tokenId = dustLock.createLock(2 * TOKEN_1, MAXTIME);
+
+        vm.expectRevert(IDustLock.AmountTooSmall.selector);
+        dustLock.increaseAmount(tokenId, 2 * TOKEN_1 - 1);
+
+        DUST.approve(address(dustLock), 2 * TOKEN_1);
+        dustLock.increaseAmount(tokenId, 2 * TOKEN_1);
+
+        // split
+        dustLock.toggleSplit(user, true);
+
+        vm.expectRevert(IDustLock.AmountTooSmall.selector);
+        dustLock.split(tokenId, 2 * TOKEN_1 - 1);
+
+        dustLock.split(tokenId, 2 * TOKEN_1);
+    }
 
     function testWithdraw() public {
         DUST.approve(address(dustLock), TOKEN_1);
