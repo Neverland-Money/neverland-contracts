@@ -7,15 +7,13 @@ import "forge-std/console2.sol";
 import {console2} from "forge-std/console2.sol";
 
 contract DustLockTests is BaseTest {
-    /* ========== TEST MIN LOCK TIME ========== */
-
     function _setUp() internal override {
         // Initial time => 1 sec after the start of week1
         assertEq(block.timestamp, 1 weeks + 1);
         mintErc20Token(address(DUST), user, TOKEN_100K);
     }
 
-    /* ========== TEST NFT ========== */
+    /* ========== NFT ========== */
 
     function testTransferOfNft() public {
         DUST.approve(address(dustLock), TOKEN_1);
@@ -30,6 +28,16 @@ contract DustLockTests is BaseTest {
 
         // flash protection
         assertEq(dustLock.balanceOfNFT(1), 0);
+    }
+
+    function testTransferToAddressZeroReverts() public {
+        // arrange
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+
+        // act / assert
+        vm.expectRevert(abi.encodeWithSelector(AddressZero.selector));
+        dustLock.transferFrom(user, address(0), tokenId);
     }
 
     function testTokenUri() public {
@@ -55,7 +63,7 @@ contract DustLockTests is BaseTest {
         assertEq(dustLock.tokenURI(tokenId), "https://google.com/search?q=1");
     }
 
-    /* ========== TEST PERMANENT LOCK BALANCE ========== */
+    /* ========== PERMANENT LOCK BALANCE ========== */
 
     /// invariant checks
     /// bound timestamp between 1600000000 and 100 years from then
@@ -84,7 +92,7 @@ contract DustLockTests is BaseTest {
         assertEq(dustLock.balanceOfNFTAt(tokenId, timestamp), TOKEN_1);
     }
 
-    /* ========== TEST LOCK BALANCE DECAY ========== */
+    /* ========== LOCK BALANCE DECAY ========== */
 
     function testBalanceOfNFTDecayFromStartToEndOfLockTime() public {
         DUST.approve(address(dustLock), TOKEN_1 * 2);
@@ -169,7 +177,7 @@ contract DustLockTests is BaseTest {
         return balanceOfAllNftAt;
     }
 
-    /* ========== TEST MIN LOCK TIME ========== */
+    /* ========== MIN/MAX LOCK TIME ========== */
 
     function testCreateLockMinLockTimeStartOfWeek() public {
         // arrange
@@ -231,8 +239,6 @@ contract DustLockTests is BaseTest {
         dustLock.createLockFor(TOKEN_1, MINTIME - 1, user2);
     }
 
-    /* ========== TEST MAX LOCK TIME ========== */
-
     function testMaxLockTime() public {
         // arrange
         uint256 startOfCurrentWeek = block.timestamp / WEEK * WEEK;
@@ -271,8 +277,6 @@ contract DustLockTests is BaseTest {
         // check voting checkpoint created on burn updating owner
         assertEq(dustLock.balanceOfNFT(1), 0);
     }
-
-    /* ========== EARLY WITHDRAW ========== */
 
     function testEarlyWithdraw() public {
         // arrange
@@ -388,18 +392,6 @@ contract DustLockTests is BaseTest {
 
         // Verify that no new tokens were created
         assertEq(dustLock.tokenId(), 1);
-    }
-
-    /* ========== TEST NFT TRANSFER ========== */
-
-    function testTransferToAddressZeroReverts() public {
-        // arrange
-        DUST.approve(address(dustLock), TOKEN_1);
-        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
-
-        // act / assert
-        vm.expectRevert(abi.encodeWithSelector(AddressZero.selector));
-        dustLock.transferFrom(user, address(0), tokenId);
     }
 
     /* ========== HELPER FUNCTIONS ========== */
