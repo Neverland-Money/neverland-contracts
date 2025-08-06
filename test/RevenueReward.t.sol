@@ -526,7 +526,7 @@ contract RevenueRewardsTest is BaseTest {
         // act/assert
         vm.startPrank(user2);
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
-        revenueReward.enableSelfRepayLoan(tokenId);
+        revenueReward.enableSelfRepayLoan(tokenId, true);
         vm.stopPrank();
     }
 
@@ -535,7 +535,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
-        revenueReward.enableSelfRepayLoan(tokenId);
+        revenueReward.enableSelfRepayLoan(tokenId, true);
 
         // act/assert
         vm.startPrank(user2);
@@ -557,7 +557,7 @@ contract RevenueRewardsTest is BaseTest {
         address userVault = userVaultFactory.getUserVault(user);
         vm.expectEmit(true, true, true, false, address(revenueReward));
         emit SelfRepayingLoanUpdate(tokenId, userVault, true);
-        revenueReward.enableSelfRepayLoan(tokenId);
+        revenueReward.enableSelfRepayLoan(tokenId, true);
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
@@ -579,7 +579,7 @@ contract RevenueRewardsTest is BaseTest {
 
         skipToNextEpoch(1);
 
-        revenueReward.enableSelfRepayLoan(tokenId);
+        revenueReward.enableSelfRepayLoan(tokenId, true);
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
@@ -617,21 +617,21 @@ contract RevenueRewardsTest is BaseTest {
 
         //*** act ***//
         vm.startPrank(user1);
-        revenueReward.enableSelfRepayLoan(userTokens[0][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[0][0], true);
         vm.stopPrank();
 
         vm.startPrank(user2);
-        revenueReward.enableSelfRepayLoan(userTokens[1][0]);
-        revenueReward.enableSelfRepayLoan(userTokens[1][1]);
+        revenueReward.enableSelfRepayLoan(userTokens[1][0], true);
+        revenueReward.enableSelfRepayLoan(userTokens[1][1], true);
         vm.stopPrank();
 
         vm.startPrank(user3);
-        revenueReward.enableSelfRepayLoan(userTokens[2][0]);
-        revenueReward.enableSelfRepayLoan(userTokens[2][1]);
+        revenueReward.enableSelfRepayLoan(userTokens[2][0], true);
+        revenueReward.enableSelfRepayLoan(userTokens[2][1], true);
         vm.stopPrank();
 
         vm.startPrank(user4);
-        revenueReward.enableSelfRepayLoan(userTokens[3][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[3][0], true);
         vm.stopPrank();
 
         //*** assert ***//
@@ -678,20 +678,20 @@ contract RevenueRewardsTest is BaseTest {
 
         // enable self repay
         vm.prank(user1);
-        revenueReward.enableSelfRepayLoan(userTokens[0][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[0][0], true);
 
         vm.startPrank(user2);
-        revenueReward.enableSelfRepayLoan(userTokens[1][0]);
-        revenueReward.enableSelfRepayLoan(userTokens[1][1]);
+        revenueReward.enableSelfRepayLoan(userTokens[1][0], true);
+        revenueReward.enableSelfRepayLoan(userTokens[1][1], true);
         vm.stopPrank();
 
         vm.startPrank(user3);
-        revenueReward.enableSelfRepayLoan(userTokens[2][0]);
-        revenueReward.enableSelfRepayLoan(userTokens[2][1]);
+        revenueReward.enableSelfRepayLoan(userTokens[2][0], true);
+        revenueReward.enableSelfRepayLoan(userTokens[2][1], true);
         vm.stopPrank();
 
         vm.prank(user4);
-        revenueReward.enableSelfRepayLoan(userTokens[3][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[3][0], true);
 
         //*** act ***//
 
@@ -738,20 +738,20 @@ contract RevenueRewardsTest is BaseTest {
 
         // enable self repay
         vm.prank(user1);
-        revenueReward.enableSelfRepayLoan(userTokens[0][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[0][0], true);
 
         vm.startPrank(user2);
-        revenueReward.enableSelfRepayLoan(userTokens[1][0]);
-        revenueReward.enableSelfRepayLoan(userTokens[1][1]);
+        revenueReward.enableSelfRepayLoan(userTokens[1][0], true);
+        revenueReward.enableSelfRepayLoan(userTokens[1][1], true);
         vm.stopPrank();
 
         vm.startPrank(user3);
-        revenueReward.enableSelfRepayLoan(userTokens[2][0]);
-        revenueReward.enableSelfRepayLoan(userTokens[2][1]);
+        revenueReward.enableSelfRepayLoan(userTokens[2][0], true);
+        revenueReward.enableSelfRepayLoan(userTokens[2][1], true);
         vm.stopPrank();
 
         vm.prank(user4);
-        revenueReward.enableSelfRepayLoan(userTokens[3][0]);
+        revenueReward.enableSelfRepayLoan(userTokens[3][0], true);
 
         //*** act ***//
 
