@@ -8,7 +8,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {console2} from "forge-std/console2.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title RevenueReward
@@ -37,6 +37,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
 
+    /// tokenId -> block.timestamp of token_id minted
+    mapping(uint256 => uint256) tokenMintTime;
+
     /**
      * @notice Initializes the RevenueReward contract
      * @dev Sets up core dependencies for reward distribution
@@ -64,19 +67,30 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function getReward(uint256 tokenId, address[] memory tokens) external virtual nonReentrant {
+    function getReward(uint256 tokenId, address[] memory tokens) external virtual {
+        getRewardUntilTs(tokenId, tokens, block.timestamp);
+    }
+
+    /// @inheritdoc IRevenueReward
+    function getRewardUntilTs(uint256 tokenId, address[] memory tokens, uint256 rewardPeriodEndTs)
+        public
+        virtual
+        nonReentrant
+    {
         address rewardsReceiver = tokenRewardReceiver[tokenId];
         if (rewardsReceiver == address(0)) {
             rewardsReceiver = dustLock.ownerOf(tokenId);
         }
 
         uint256 _length = tokens.length;
+
         for (uint256 i = 0; i < _length; i++) {
-            uint256 _reward = earned(tokens[i], tokenId);
+            uint256 _reward = earned(tokens[i], tokenId, rewardPeriodEndTs);
 
-            lastEarnTime[tokens[i]][tokenId] = block.timestamp;
-
-            if (_reward > 0) IERC20(tokens[i]).safeTransfer(rewardsReceiver, _reward);
+            if (_reward > 0) {
+                lastEarnTime[tokens[i]][tokenId] = rewardPeriodEndTs;
+                IERC20(tokens[i]).safeTransfer(rewardsReceiver, _reward);
+            }
 
             emit ClaimRewards(rewardsReceiver, tokens[i], _reward);
         }
@@ -103,19 +117,37 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /**
+     * @notice Notifies the contract that a specific token has been minted.
+     * @dev Intended to update internal state or trigger logic after a veNFT mint event.
+     *      Can only be called by authorized contracts, typically after a mint operation.
+     * @param _tokenId The ID of the token (veNFT) that has been minted.
+     */
+    function _notifyTokenMinted(uint256 _tokenId) public {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+        tokenMintTime[_tokenId] = block.timestamp;
+    }
+
+    /* === helper functions === */
+
+    /**
      * @notice Calculates token's reward from last claimed start epoch until current start epoch
      * @dev Uses epoch-based accounting to prevent reward manipulation:
-     *      1. Finds epochs between last claimed and current time
+     *      1. Finds epochs between last claimed (or token mint time) and endTs
      *      2. For each epoch, calculates proportion of rewards based on user's veNFT balance vs total supply
      *      3. Accumulates rewards across all epochs
      * @param token The reward token address to calculate earnings for
      * @param tokenId The ID of the veNFT to calculate earnings for
+     * @param endTs Timestamp of the end duration that token id rewards are calculated
      * @return Total unclaimed rewards accrued since last claim
      */
-    function earned(address token, uint256 tokenId) internal view returns (uint256) {
-        // take start epoch of last claimed, as starting point
-        uint256 _startTs = EpochTimeLibrary.epochNext(lastEarnTime[token][tokenId]);
-        uint256 _endTs = EpochTimeLibrary.epochStart(block.timestamp);
+    function earned(address token, uint256 tokenId, uint256 endTs) internal view returns (uint256) {
+        if (endTs > block.timestamp) {
+            revert EndTimestampMoreThanCurrent();
+        }
+
+        uint256 lastTokenEarnTime = Math.max(lastEarnTime[token][tokenId], tokenMintTime[tokenId]);
+        uint256 _startTs = EpochTimeLibrary.epochNext(lastTokenEarnTime);
+        uint256 _endTs = EpochTimeLibrary.epochStart(endTs);
 
         if (_startTs > _endTs) return 0;
 
@@ -124,20 +156,18 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         uint256 reward = 0;
         uint256 _currTs = _startTs;
-        if (_numEpochs > 0) {
-            for (uint256 i = 0; i <= _numEpochs; i++) {
-                uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(_currTs);
-                if (tokenSupplyBalanceCurrTs == 0) {
-                    _currTs += DURATION;
-                    continue;
-                }
-                // totalRewardPerEpoch * tokenBalanceCurrTs / tokenSupplyBalanceCurrTs
-                reward += (
-                    tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs)
-                        / tokenSupplyBalanceCurrTs
-                );
+        for (uint256 i = 0; i <= _numEpochs; i++) {
+            uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(_currTs);
+            if (tokenSupplyBalanceCurrTs == 0) {
                 _currTs += DURATION;
+                continue;
             }
+            // totalRewardPerEpoch * tokenBalanceCurrTs / tokenSupplyBalanceCurrTs
+            reward += (
+                tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs)
+                    / tokenSupplyBalanceCurrTs
+            );
+            _currTs += DURATION;
         }
 
         return reward;

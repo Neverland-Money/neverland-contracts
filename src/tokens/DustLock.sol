@@ -7,6 +7,7 @@ import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -320,6 +321,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
+        _notifyTokenMinted(_tokenId, _to, _msgSender());
         return true;
     }
 
@@ -1006,5 +1008,17 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function CLOCK_MODE() external pure returns (string memory) {
         return "mode=timestamp";
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          NOTIFY CONTRACTS
+    //////////////////////////////////////////////////////////////*/
+
+    IRevenueReward public revenueReward;
+
+    function _notifyTokenMinted(uint256 _tokenId, address, /* _owner */ address /* _sender */ ) internal {
+        if (address(revenueReward) != address(0)) {
+            revenueReward._notifyTokenMinted(_tokenId);
+        }
     }
 }
