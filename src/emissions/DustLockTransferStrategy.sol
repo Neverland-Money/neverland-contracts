@@ -60,6 +60,7 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
         if (tokenId > 0) {
             // Add DUST to an existing lock
             if (DUST_LOCK.ownerOf(tokenId) == address(0)) revert InvalidTokenId();
+            if (DUST_LOCK.ownerOf(tokenId) != to) revert NotTokenOwner();
             IERC20(reward).approve(address(DUST_LOCK), amount);
             DUST_LOCK.depositFor(tokenId, amount);
         } else if (lockTime > 0) {

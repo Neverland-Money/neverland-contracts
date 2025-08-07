@@ -246,4 +246,35 @@ contract DustLockTransferStrategyTest is BaseTest {
             createLockTokenId + 1 // tokenId
         );
     }
+
+    function testPerformTransferWithMergingNTokenIdOfDIfferentUser() public {
+        vm.prank(dustVault);
+        DUST.approve(address(dustLock), TOKEN_1);
+        vm.prank(dustVault);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+
+        address ownerOfTOkenId = dustLock.ownerOf(tokenId);
+        assertEq(ownerOfTOkenId, dustVault);
+
+        // SHould pass
+        vm.prank(incentivesController);
+        transferStrategy.performTransfer(
+            dustVault, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            tokenId // tokenId
+        );
+
+        // Should fail
+        vm.prank(incentivesController);
+        vm.expectRevert(IDustLockTransferStrategy.NotTokenOwner.selector);
+        transferStrategy.performTransfer(
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            tokenId // tokenId
+        );
+    }
 }
