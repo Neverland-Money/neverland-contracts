@@ -250,7 +250,7 @@ contract DustLockTests is BaseTest {
         dustLock.createLockFor(TOKEN_1, MAXTIME + WEEK, user2);
     }
 
-    /* ========== EARLY UNLOCK ========== */
+    /* ========== WITHDRAW ========== */
 
     function testWithdraw() public {
         DUST.approve(address(dustLock), TOKEN_1);
@@ -270,6 +270,8 @@ contract DustLockTests is BaseTest {
         // check voting checkpoint created on burn updating owner
         assertEq(dustLock.balanceOfNFT(1), 0);
     }
+
+    /* ========== EARLY WITHDRAW ========== */
 
     function testEarlyWithdraw() public {
         // arrange
@@ -294,8 +296,52 @@ contract DustLockTests is BaseTest {
 
         uint256 expectedUserPenalty = 0.3 * 5_000 * 1e18;
 
+        // TODO: why 10 DUST diff
+
         assertApproxEqAbs(
             DUST.balanceOf(address(user2)),
+            TOKEN_10K - expectedUserPenalty,
+            10 * 1e18, // up to 10 DUST diff allowed
+            "wrong amount on user"
+        );
+
+        assertApproxEqAbs(
+            DUST.balanceOf(address(dustLock.earlyWithdrawTreasury())),
+            expectedUserPenalty,
+            10 * 1e18, // up to 10 DUST diff allowed
+            "wrong amount on treasury"
+        );
+    }
+
+    function testEarlyWithdrawSameBlockAfterTransfer() public {
+        // arrange
+        mintErc20Token(address(DUST), user2, TOKEN_10K);
+
+        vm.startPrank(user2);
+        DUST.approve(address(dustLock), TOKEN_10K);
+        uint256 tokenId = dustLock.createLock(TOKEN_10K, MAXTIME);
+        vm.stopPrank();
+
+        dustLock.setEarlyWithdrawTreasury(user3);
+        dustLock.setEarlyWithdrawPenalty(3_000);
+
+        skipAndRoll(MAXTIME / 2);
+
+        // act
+        vm.prank(user2);
+        dustLock.transferFrom(user2, user4, tokenId);
+
+        vm.prank(user4);
+        dustLock.earlyWithdraw(tokenId);
+
+        // assert
+        assertEq(dustLock.balanceOfNFT(tokenId), 0);
+
+        uint256 expectedUserPenalty = 0.3 * 5_000 * 1e18;
+
+        // TODO: [NRL-6c19a5e-C02] Early withdrawal penalty fee mechanism bypass
+        assertApproxEqAbs(
+            DUST.balanceOf(address(user4)),
             TOKEN_10K - expectedUserPenalty,
             10 * 1e18, // up to 10 DUST diff allowed
             "wrong amount on user"
