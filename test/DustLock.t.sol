@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.19;
 
+import "../src/_shared/CommonErrors.sol";
 import "./BaseTest.sol";
 import "forge-std/console2.sol";
 import {console2} from "forge-std/console2.sol";
@@ -388,6 +389,18 @@ contract DustLockTests is BaseTest {
 
         // Verify that no new tokens were created
         assertEq(dustLock.tokenId(), 1);
+    }
+
+    /* ========== TEST NFT TRANSFER ========== */
+
+    function testTransferToAddressZeroReverts() public {
+        // arrange
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+
+        // act / assert
+        vm.expectRevert(abi.encodeWithSelector(AddressZero.selector));
+        dustLock.transferFrom(user, address(0), tokenId);
     }
 
     /* ========== HELPER FUNCTIONS ========== */
