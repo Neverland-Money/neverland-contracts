@@ -38,6 +38,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     address public immutable token;
     /// @inheritdoc IDustLock
     address public team;
+    /// @notice Pending team address for two-step ownership transfer
+    address public pendingTeam;
 
     mapping(uint256 => GlobalPoint) internal _pointHistory; // epoch -> unsigned global point
 
@@ -87,10 +89,30 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function setTeam(address _team) external {
+    function proposeTeam(address _newTeam) external {
         if (_msgSender() != team) revert NotTeam();
-        if (_team == address(0)) revert ZeroAddress();
-        team = _team;
+        if (_newTeam == address(0)) revert ZeroAddress();
+        if (_newTeam == team) revert SameAddress();
+        pendingTeam = _newTeam;
+        emit TeamProposed(team, _newTeam);
+    }
+
+    /// @inheritdoc IDustLock
+    function acceptTeam() external {
+        if (_msgSender() != pendingTeam) revert NotPendingTeam();
+        address oldTeam = team;
+        team = pendingTeam;
+        pendingTeam = address(0);
+        emit TeamAccepted(oldTeam, team);
+    }
+
+    /// @inheritdoc IDustLock
+    function cancelTeamProposal() external {
+        if (_msgSender() != team) revert NotTeam();
+        if (pendingTeam == address(0)) revert NoPendingTeam();
+        address cancelledTeam = pendingTeam;
+        pendingTeam = address(0);
+        emit TeamProposalCancelled(team, cancelledTeam);
     }
 
     /*///////////////////////////////////////////////////////////////

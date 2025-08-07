@@ -125,6 +125,10 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     error NotOwner();
     /// @notice Error thrown when a team-only function is called by a non-team address
     error NotTeam();
+    /// @notice Error thrown when a pending team function is called by a non-pending team address
+    error NotPendingTeam();
+    /// @notice Error thrown when trying to cancel a team proposal but no proposal exists
+    error NoPendingTeam();
     /// @notice Error thrown when a voter-only function is called by a non-voter address
     error NotVoter();
     /// @notice Error thrown when ownership changes during an operation
@@ -253,6 +257,27 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
         uint256 _ts
     );
 
+    /**
+     * @notice Emitted when a new team address is proposed
+     * @param currentTeam The current team address that proposed the change
+     * @param proposedTeam The newly proposed team address
+     */
+    event TeamProposed(address indexed currentTeam, address indexed proposedTeam);
+
+    /**
+     * @notice Emitted when a proposed team address accepts ownership
+     * @param oldTeam The previous team address
+     * @param newTeam The new team address that accepted ownership
+     */
+    event TeamAccepted(address indexed oldTeam, address indexed newTeam);
+
+    /**
+     * @notice Emitted when a team proposal is cancelled
+     * @param currentTeam The current team address that cancelled the proposal
+     * @param cancelledTeam The proposed team address that was cancelled
+     */
+    event TeamProposalCancelled(address indexed currentTeam, address indexed cancelledTeam);
+
     // State variables
     /// @notice Address of Meta-tx Forwarder
     function forwarder() external view returns (address);
@@ -267,6 +292,12 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     function team() external view returns (address);
 
     /**
+     * @notice Address of pending team for two-step ownership transfer
+     * @return The address of the pending team, or address(0) if no proposal exists
+     */
+    function pendingTeam() external view returns (address);
+
+    /**
      * @notice Current total count of veNFT tokens
      * @dev Used as a counter for minting new tokens and assigning IDs
      * @return The current highest token ID value
@@ -274,11 +305,32 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     function tokenId() external view returns (uint256);
 
     /**
-     * @notice Updates the team multisig address
-     * @dev Can only be called by the current team address
-     * @param _team New team multisig address to set
+     * @notice Proposes a new team address for two-step ownership transfer
+     * @dev This is the first step of a two-step ownership transfer process.
+     *      Only the current team can propose a new team address.
+     *      The proposed address must accept ownership to complete the transfer.
+     *      This prevents accidental loss of admin control due to typos or wrong addresses.
+     * @param _newTeam The address of the proposed new team multisig
      */
-    function setTeam(address _team) external;
+    function proposeTeam(address _newTeam) external;
+
+    /**
+     * @notice Accepts the proposed team address to complete the ownership transfer
+     * @dev This is the second step of the two-step ownership transfer process.
+     *      Only the pending team address can call this function.
+     *      Once called, the caller becomes the new team and the pending team is cleared.
+     *      This ensures that the new team controls the proposed address.
+     */
+    function acceptTeam() external;
+
+    /**
+     * @notice Cancels the pending team proposal
+     * @dev Allows the current team to cancel a pending ownership transfer.
+     *      Only the current team can call this function.
+     *      This is useful if the team made an error in the proposed address.
+     *      After cancellation, a new proposal can be made.
+     */
+    function cancelTeamProposal() external;
 
     /*///////////////////////////////////////////////////////////////
                              METADATA STORAGE
