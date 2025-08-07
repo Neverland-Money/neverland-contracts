@@ -10,6 +10,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 
 /**
  * @title RevenueReward
@@ -19,6 +20,19 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
+        dustLock = IDustLock(_dustLock);
+        rewardDistributor = _rewardDistributor;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
     IDustLock public dustLock;
@@ -48,22 +62,19 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// tokenId -> block.timestamp of token_id minted
     mapping(uint256 => uint256) tokenMintTime;
 
-    /**
-     * @notice Initializes the RevenueReward contract
-     * @dev Sets up core dependencies for reward distribution
-     * @param _forwarder Address of the trusted forwarder for meta-transactions
-     * @param _dustLock Address of the DustLock contract that manages veNFTs
-     * @param _rewardDistributor Address authorized to notify new rewards
-     */
-    constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
-        dustLock = IDustLock(_dustLock);
-        rewardDistributor = _rewardDistributor;
-    }
+    /*//////////////////////////////////////////////////////////////
+                           SELF REPAYING LOANS
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
     function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual nonReentrant {
-        if (_msgSender() != dustLock.ownerOf(tokenId)) revert NotOwner();
+        address sender = _msgSender();
+        if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
+
         tokenRewardReceiver[tokenId] = rewardReceiver;
+        usersWithSelfRepayingLoan.add(sender);
+        userTokensWithSelfRepayingLoan[sender].add(tokenId);
+
         emit SelfRepayingLoanUpdate(tokenId, rewardReceiver, true);
     }
 
@@ -90,6 +101,57 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         _removeToken(_tokenId, _from);
     }
 
+    /* === view functions === */
+
+    /// @inheritdoc IRevenueReward
+    function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory) {
+        require(to >= from, "Invalid range");
+        uint256 length = usersWithSelfRepayingLoan.length();
+        if (from >= length) return new address[](0);
+        if (to > length) to = length;
+
+        uint256 resultLen = to - from;
+        address[] memory users = new address[](resultLen);
+        for (uint256 i = 0; i < resultLen; i++) {
+            users[i] = usersWithSelfRepayingLoan.at(from + i);
+        }
+        return users;
+    }
+
+    /// @inheritdoc IRevenueReward
+    function getUserTokensWithSelfRepayingLoan(address user) external view returns (uint256[] memory tokenIds) {
+        uint256 len = userTokensWithSelfRepayingLoan[user].length();
+        tokenIds = new uint256[](len);
+        for (uint256 i = 0; i < len; i++) {
+            tokenIds[i] = userTokensWithSelfRepayingLoan[user].at(i);
+        }
+    }
+
+    /* === helper functions === */
+
+    function _removeToken(uint256 _tokenId, address _tokenOwner) internal {
+        tokenRewardReceiver[_tokenId] = address(0);
+        userTokensWithSelfRepayingLoan[_tokenOwner].remove(_tokenId);
+        isTokenClaimRewardsDelegationEnabled[_tokenId] = false;
+        if (userTokensWithSelfRepayingLoan[_tokenOwner].length() <= 0) {
+            usersWithSelfRepayingLoan.remove(_tokenOwner);
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                REWARDS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Sets the address authorized to notify new rewards
+     * @dev Only callable by the current reward distributor
+     * @param newRewardDistributor The new address authorized to notify new rewards
+     */
+    function setRewardDistributor(address newRewardDistributor) external {
+        if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
+        rewardDistributor = newRewardDistributor;
+    }
+
     /// @inheritdoc IRevenueReward
     function getReward(uint256 tokenId, address[] memory tokens) public virtual {
         getRewardUntilTs(tokenId, tokens, block.timestamp);
@@ -101,6 +163,12 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         virtual
         nonReentrant
     {
+        if (address(dustLock) != _msgSender()) {
+            if (!isTokenClaimRewardsDelegationEnabled[tokenId]) {
+                if (dustLock.ownerOf(tokenId) != _msgSender()) revert NotOwner();
+            }
+        }
+
         address rewardsReceiver = tokenRewardReceiver[tokenId];
         if (rewardsReceiver == address(0)) {
             rewardsReceiver = dustLock.ownerOf(tokenId);
@@ -140,25 +208,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         emit NotifyReward(sender, token, epochNext, amount);
     }
 
-    /**
-     * @notice Notifies the contract that a specific token has been minted.
-     * @dev Intended to update internal state or trigger logic after a veNFT mint event.
-     *      Can only be called by authorized contracts, typically after a mint operation.
-     * @param _tokenId The ID of the token (veNFT) that has been minted.
-     */
     function _notifyTokenMinted(uint256 _tokenId) public {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
         tokenMintTime[_tokenId] = block.timestamp;
-    }
-
-    /* === helper functions === */
-
-    function _removeToken(uint256 _tokenId, address _tokenOwner) internal {
-        tokenRewardReceiver[_tokenId] = address(0);
-        userTokensWithSelfRepayingLoan[_tokenOwner].remove(_tokenId);
-        if (userTokensWithSelfRepayingLoan[_tokenOwner].length() <= 0) {
-            usersWithSelfRepayingLoan.remove(_tokenOwner);
-        }
     }
 
     /**
@@ -194,26 +246,30 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                 _currTs += DURATION;
                 continue;
             }
-            // totalRewardPerEpoch * tokenBalanceCurrTs / tokenSupplyBalanceCurrTs
-            reward += (
-                tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs)
-                    / tokenSupplyBalanceCurrTs
+            // totalRewardTokens * tokenBalance / tokenSupplyBalance
+            reward += _calculateReward(
+                tokenRewardsPerEpoch[token][_currTs],
+                dustLock.balanceOfNFTAt(tokenId, _currTs),
+                tokenSupplyBalanceCurrTs
             );
+
             _currTs += DURATION;
         }
 
         return reward;
     }
 
-    /**
-     * @notice Sets the address authorized to notify new rewards
-     * @dev Only callable by the current reward distributor
-     * @param newRewardDistributor The new address authorized to notify new rewards
-     */
-    function setRewardDistributor(address newRewardDistributor) external {
-        if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
-        rewardDistributor = newRewardDistributor;
+    function _calculateReward(uint256 totalRewardTokens, uint256 tokenBalance, uint256 tokenSupplyBalance)
+        internal
+        pure
+        returns (uint256)
+    {
+        return ud(totalRewardTokens).mul(ud(tokenBalance)).div(ud(tokenSupplyBalance)).unwrap();
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                RECOVERY
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Recovers unnotified rewards from the contract

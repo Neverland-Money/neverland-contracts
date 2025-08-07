@@ -16,11 +16,18 @@ abstract contract BaseTest is Script, Test {
     RevenueReward internal revenueReward;
     MockERC20 internal mockUSDC;
 
+    uint256 constant USDC_1_UNIT = 1; // 1/100th of a cent
+    uint256 constant USDC_1_CENT = 10000; // 0.01 USDC
     uint256 constant USDC_1 = 1e6;
+    uint256 constant USDC_1K = 1e9; // 1e3 = 10K tokens with 6 decimals
     uint256 constant USDC_10K = 1e10; // 1e4 = 10K tokens with 6 decimals
     uint256 constant USDC_100K = 1e11; // 1e5 = 100K tokens with 6 decimals
 
+    uint256 constant TOKEN_1_WEI = 1;
+    uint256 constant TOKEN_1_MWEI = 1e6;
+    uint256 constant TOKEN_1_GWEI = 1e9;
     uint256 constant TOKEN_1 = 1e18;
+    uint256 constant TOKEN_1K = 1e21; // 1e3 = 1K tokens with 18 decimals
     uint256 constant TOKEN_10K = 1e22; // 1e4 = 10K tokens with 18 decimals
     uint256 constant TOKEN_100K = 1e23; // 1e5 = 100K tokens with 18 decimals
     uint256 constant TOKEN_1M = 1e24; // 1e6 = 1M tokens with 18 decimals
@@ -29,6 +36,7 @@ abstract contract BaseTest is Script, Test {
     uint256 constant TOKEN_10B = 1e28; // 1e10 = 10B tokens with 18 decimals
 
     address internal ZERO_ADDRESS = address(0);
+
     address internal admin = address(0xad1);
     address internal user = address(this);
     address internal user1 = address(0x1);

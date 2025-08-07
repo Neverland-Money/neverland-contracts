@@ -25,11 +25,15 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     using Strings for uint256;
 
     /*//////////////////////////////////////////////////////////////
-                               CONSTRUCTOR
+                              CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc IDustLock
     address public immutable forwarder;
+
+    /*//////////////////////////////////////////////////////////////
+                           STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IDustLock
     address public immutable token;
     /// @inheritdoc IDustLock

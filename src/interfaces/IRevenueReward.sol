@@ -58,7 +58,6 @@ interface IRevenueReward {
 
     /**
      * @notice The address of the DustLock contract that manages veNFTs
-     * @dev Used to verify ownership of veNFTs when claiming rewards and validate permissions
      * @return The IDustLock interface of the connected DustLock contract
      */
     function dustLock() external view returns (IDustLock);
@@ -212,6 +211,25 @@ interface IRevenueReward {
      * @param _from The address of the current token owner
      */
     function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) external;
+
+    /**
+     * @notice Returns a list of user addresses with at least one active self-repaying loan within a given range.
+     * @dev Iterates over the internal set of users who have enabled self-repaying loans,
+     *      returning addresses from index `from` up to, but not including, index `to`.
+     *      If the specified range exceeds the number of users, the function adjusts accordingly.
+     * @param from The starting index (inclusive) in the user set.
+     * @param to The ending index (exclusive) in the user set.
+     * @return users An array of user addresses in the specified range who have self-repaying loans enabled.
+     */
+    function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory);
+
+    /**
+     * @notice Returns the list of token IDs for which the given user has enabled a self-repaying loan.
+     * @dev Checks the user's internal set of token IDs with self-repaying loans and returns them as an array.
+     * @param user The address of the user to query.
+     * @return tokenIds An array of token IDs currently associated with self-repaying loans for the user.
+     */
+    function getUserTokensWithSelfRepayingLoan(address user) external view returns (uint256[] memory tokenIds);
 
     /**
      * @notice Adds new rewards to the distribution pool for the current epoch
