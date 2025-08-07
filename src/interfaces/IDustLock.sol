@@ -36,8 +36,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param permanent Amount of permanent (non-decaying) voting power
      */
     struct UserPoint {
-        int128 bias;
-        int128 slope; // # -dweight / dt
+        int256 bias; // WAD format (18 decimals) for precision
+        int256 slope; // WAD format (18 decimals) for precision # -dweight / dt
         uint256 ts;
         uint256 blk; // block
         uint256 permanent;
@@ -53,8 +53,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param permanentLockBalance Total amount of permanently locked tokens
      */
     struct GlobalPoint {
-        int128 bias;
-        int128 slope; // # -dweight / dt
+        int256 bias; // WAD format (18 decimals) for precision
+        int256 slope; // WAD format (18 decimals) for precision # -dweight / dt
         uint256 ts;
         uint256 blk; // block
         uint256 permanentLockBalance;
@@ -421,7 +421,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param _timestamp The timestamp to check for slope changes
      * @return The net change in slope (negative value means decrease in voting power)
      */
-    function slopeChanges(uint256 _timestamp) external view returns (int128);
+    function slopeChanges(uint256 _timestamp) external view returns (int256);
 
     /**
      * @notice Check if an account has permission to split veNFTs
