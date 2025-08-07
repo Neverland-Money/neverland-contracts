@@ -18,4 +18,7 @@ interface IDustLockTransferStrategy is IDustTransferStrategy {
 
     /// @notice Error thrown when an invalid veNFT token ID is used
     error InvalidTokenId();
+
+    /// @notice Error thrown when the caller is not the owner of the veNFT token
+    error NotTokenOwner();
 }
