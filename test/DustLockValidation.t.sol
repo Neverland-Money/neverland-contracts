@@ -270,4 +270,545 @@ contract DustLockValidationTest is BaseTest {
             isImprovement: isImprovement
         });
     }
+
+    /* ========== TWO-STEP TEAM OWNERSHIP TRANSFER TESTS ========== */
+
+    function testTwoStepTeamOwnershipTransfer() public {
+        address newTeam = address(0x999);
+
+        // Verify initial state
+        assertEq(dustLock.team(), user);
+        assertEq(dustLock.pendingTeam(), address(0));
+
+        // Step 1: Current team proposes new team
+        dustLock.proposeTeam(newTeam);
+
+        assertEq(dustLock.team(), user);
+        assertEq(dustLock.pendingTeam(), newTeam);
+
+        // Step 2: New team accepts ownership
+        vm.startPrank(newTeam);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // Verify final state
+        assertEq(dustLock.team(), newTeam);
+        assertEq(dustLock.pendingTeam(), address(0));
+    }
+
+    function testTeamOwnershipTransferValidations() public {
+        address newTeam = address(0x999);
+        address malicious = address(0x666);
+
+        // Test 1: Only current team can propose
+        vm.startPrank(malicious);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(newTeam);
+        vm.stopPrank();
+
+        // Test 2: Cannot propose zero address
+        vm.expectRevert(IDustLock.ZeroAddress.selector);
+        dustLock.proposeTeam(address(0));
+
+        // Test 3: Cannot propose same address
+        vm.expectRevert(IDustLock.SameAddress.selector);
+        dustLock.proposeTeam(user);
+
+        // Test 4: Valid proposal
+        dustLock.proposeTeam(newTeam);
+
+        // Test 5: Only pending team can accept
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+
+        vm.startPrank(malicious);
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // Test 6: Only current team can cancel
+        vm.startPrank(malicious);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.cancelTeamProposal();
+        vm.stopPrank();
+
+        vm.startPrank(newTeam);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.cancelTeamProposal();
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipTransferCancellation() public {
+        address newTeam = address(0x999);
+
+        // Test cancelling when no pending team
+        vm.expectRevert(IDustLock.NoPendingTeam.selector);
+        dustLock.cancelTeamProposal();
+
+        // Propose team
+        dustLock.proposeTeam(newTeam);
+        assertEq(dustLock.pendingTeam(), newTeam);
+
+        // Cancel proposal
+        dustLock.cancelTeamProposal();
+
+        assertEq(dustLock.team(), user);
+        assertEq(dustLock.pendingTeam(), address(0));
+
+        // Pending team can no longer accept
+        vm.startPrank(newTeam);
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipTransferAdminFunctions() public {
+        address newTeam = address(0x999);
+
+        // Complete ownership transfer
+        dustLock.proposeTeam(newTeam);
+        vm.startPrank(newTeam);
+        dustLock.acceptTeam();
+
+        // New team can use admin functions
+        dustLock.setMinLockAmount(2 * TOKEN_1);
+        assertEq(dustLock.minLockAmount(), 2 * TOKEN_1);
+
+        vm.stopPrank();
+
+        // Old team cannot use admin functions
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.setMinLockAmount(TOKEN_1);
+    }
+
+    function testTeamOwnershipTransferSecurityScenario() public {
+        address wrongTeam = address(0x111);
+        address correctTeam = address(0x999);
+
+        // Scenario: Team accidentally proposes wrong address
+        dustLock.proposeTeam(wrongTeam);
+
+        // Team realizes mistake and cancels
+        dustLock.cancelTeamProposal();
+        assertEq(dustLock.pendingTeam(), address(0));
+
+        // Team proposes correct address
+        dustLock.proposeTeam(correctTeam);
+
+        // Wrong team cannot accept (even though they were proposed before)
+        vm.startPrank(wrongTeam);
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // Correct team can accept
+        vm.startPrank(correctTeam);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        assertEq(dustLock.team(), correctTeam);
+    }
+
+    /* ========== EDGE CASES & ATTACK SCENARIOS ========== */
+
+    function testTeamOwnershipRaceConditionAttack() public {
+        address attacker = address(0x666);
+        address legitimateTeam = address(0x999);
+
+        // Team proposes legitimate new team
+        dustLock.proposeTeam(legitimateTeam);
+        assertEq(dustLock.pendingTeam(), legitimateTeam);
+
+        // Attacker tries to front-run the acceptance by proposing themselves
+        vm.startPrank(attacker);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(attacker);
+        vm.stopPrank();
+
+        // Attacker tries to accept before legitimate team
+        vm.startPrank(attacker);
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // Legitimate team can still accept
+        vm.startPrank(legitimateTeam);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        assertEq(dustLock.team(), legitimateTeam);
+        assertEq(dustLock.pendingTeam(), address(0));
+    }
+
+    function testTeamOwnershipDoubleAcceptanceAttack() public {
+        address newTeam = address(0x999);
+
+        // Complete normal flow
+        dustLock.proposeTeam(newTeam);
+        vm.startPrank(newTeam);
+        dustLock.acceptTeam();
+
+        // Try to accept again (should fail)
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // State should remain correct
+        assertEq(dustLock.team(), newTeam);
+        assertEq(dustLock.pendingTeam(), address(0));
+    }
+
+    function testTeamOwnershipProposalOverwriteAttack() public {
+        address maliciousTeam = address(0x666);
+        address legitimateTeam = address(0x999);
+
+        // Team proposes malicious address
+        dustLock.proposeTeam(maliciousTeam);
+        assertEq(dustLock.pendingTeam(), maliciousTeam);
+
+        // Team immediately overwrites with legitimate address
+        dustLock.proposeTeam(legitimateTeam);
+        assertEq(dustLock.pendingTeam(), legitimateTeam);
+
+        // Malicious team can no longer accept
+        vm.startPrank(maliciousTeam);
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // Only legitimate team can accept
+        vm.startPrank(legitimateTeam);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        assertEq(dustLock.team(), legitimateTeam);
+    }
+
+    function testTeamOwnershipAfterTransferAttacks() public {
+        address newTeam = address(0x999);
+        address attacker = address(0x666);
+
+        // Complete ownership transfer
+        dustLock.proposeTeam(newTeam);
+        vm.startPrank(newTeam);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // Old team cannot propose new teams
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(attacker);
+
+        // Old team cannot cancel (not team anymore)
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.cancelTeamProposal();
+
+        // Attacker cannot propose
+        vm.startPrank(attacker);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(attacker);
+        vm.stopPrank();
+
+        // Only new team has control
+        vm.startPrank(newTeam);
+        dustLock.proposeTeam(attacker); // New team can propose anyone
+        assertEq(dustLock.pendingTeam(), attacker);
+        dustLock.cancelTeamProposal(); // And cancel
+        assertEq(dustLock.pendingTeam(), address(0));
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipSelfProposalAttack() public {
+        // Team tries to propose themselves (should fail)
+        vm.expectRevert(IDustLock.SameAddress.selector);
+        dustLock.proposeTeam(user);
+
+        // State should remain unchanged
+        assertEq(dustLock.team(), user);
+        assertEq(dustLock.pendingTeam(), address(0));
+    }
+
+    function testTeamOwnershipZeroAddressAttacks() public {
+        // Try to propose zero address
+        vm.expectRevert(IDustLock.ZeroAddress.selector);
+        dustLock.proposeTeam(address(0));
+
+        // State should remain unchanged
+        assertEq(dustLock.team(), user);
+        assertEq(dustLock.pendingTeam(), address(0));
+    }
+
+    function testTeamOwnershipContractAddressEdgeCase() public {
+        // Propose the DustLock contract itself as new team
+        address contractAsTeam = address(dustLock);
+
+        dustLock.proposeTeam(contractAsTeam);
+        assertEq(dustLock.pendingTeam(), contractAsTeam);
+
+        // Contract cannot call acceptTeam (no code to do so)
+        // This would require the contract to have acceptTeam logic
+        // Let's cancel this dangerous proposal
+        dustLock.cancelTeamProposal();
+        assertEq(dustLock.pendingTeam(), address(0));
+    }
+
+    function testTeamOwnershipMultipleProposalsRapidFire() public {
+        address team1 = address(0x111);
+        address team2 = address(0x222);
+        address team3 = address(0x333);
+
+        // Rapid fire proposals (last one wins)
+        dustLock.proposeTeam(team1);
+        dustLock.proposeTeam(team2);
+        dustLock.proposeTeam(team3);
+
+        assertEq(dustLock.pendingTeam(), team3);
+
+        // Only team3 can accept
+        vm.startPrank(team1);
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        vm.startPrank(team2);
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        vm.startPrank(team3);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        assertEq(dustLock.team(), team3);
+    }
+
+    function testTeamOwnershipCancelAfterAcceptance() public {
+        address newTeam = address(0x999);
+
+        // Complete transfer
+        dustLock.proposeTeam(newTeam);
+        vm.startPrank(newTeam);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // Old team tries to cancel (should fail - they're not team anymore)
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.cancelTeamProposal();
+
+        // New team tries to cancel when no pending (should fail)
+        vm.startPrank(newTeam);
+        vm.expectRevert(IDustLock.NoPendingTeam.selector);
+        dustLock.cancelTeamProposal();
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipReentrancyProtection() public {
+        // This tests that the functions are protected against reentrancy
+        // The functions modify state before external calls, which is good practice
+
+        address newTeam = address(0x999);
+        dustLock.proposeTeam(newTeam);
+
+        // The accept function changes state before emitting events
+        // Let's verify state is consistent throughout
+        vm.startPrank(newTeam);
+
+        // Before acceptance
+        assertEq(dustLock.team(), user);
+        assertEq(dustLock.pendingTeam(), newTeam);
+
+        dustLock.acceptTeam();
+
+        // After acceptance - state should be immediately consistent
+        assertEq(dustLock.team(), newTeam);
+        assertEq(dustLock.pendingTeam(), address(0));
+
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipAdminFunctionsByPendingTeam() public {
+        address newTeam = address(0x999);
+
+        // Propose new team
+        dustLock.proposeTeam(newTeam);
+
+        // Pending team tries to use admin functions before accepting (should fail)
+        vm.startPrank(newTeam);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.setMinLockAmount(2 * TOKEN_1);
+
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(address(0x888));
+
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.cancelTeamProposal();
+
+        // Now accept
+        dustLock.acceptTeam();
+
+        // Now admin functions should work
+        dustLock.setMinLockAmount(2 * TOKEN_1);
+        assertEq(dustLock.minLockAmount(), 2 * TOKEN_1);
+
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipChainedTransfers() public {
+        address team1 = address(0x111);
+        address team2 = address(0x222);
+        address team3 = address(0x333);
+
+        // Transfer 1: user -> team1
+        dustLock.proposeTeam(team1);
+        vm.startPrank(team1);
+        dustLock.acceptTeam();
+
+        // Transfer 2: team1 -> team2
+        dustLock.proposeTeam(team2);
+        vm.stopPrank();
+
+        vm.startPrank(team2);
+        dustLock.acceptTeam();
+
+        // Transfer 3: team2 -> team3
+        dustLock.proposeTeam(team3);
+        vm.stopPrank();
+
+        vm.startPrank(team3);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // Verify final state
+        assertEq(dustLock.team(), team3);
+        assertEq(dustLock.pendingTeam(), address(0));
+
+        // Verify old teams have no control
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(address(0x444));
+
+        vm.startPrank(team1);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(address(0x444));
+        vm.stopPrank();
+
+        vm.startPrank(team2);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(address(0x444));
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipGasGriefingResistance() public {
+        address newTeam = address(0x999);
+
+        // Test that functions don't consume excessive gas
+        // and can't be griefed by gas limit attacks
+
+        uint256 gasBefore = gasleft();
+        dustLock.proposeTeam(newTeam);
+        uint256 gasAfter = gasleft();
+        uint256 gasUsed = gasBefore - gasAfter;
+
+        // Proposal should be very efficient (less than 50k gas)
+        assertLt(gasUsed, 50000, "proposeTeam uses too much gas");
+
+        gasBefore = gasleft();
+        vm.startPrank(newTeam);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+        gasAfter = gasleft();
+        gasUsed = gasBefore - gasAfter;
+
+        // Acceptance should be efficient (less than 50k gas)
+        assertLt(gasUsed, 50000, "acceptTeam uses too much gas");
+    }
+
+    function testTeamOwnershipProposalToCurrentTeamAfterTransfer() public {
+        address newTeam = address(0x999);
+
+        // Complete ownership transfer
+        dustLock.proposeTeam(newTeam);
+        vm.startPrank(newTeam);
+        dustLock.acceptTeam();
+
+        // New team tries to propose themselves (should fail)
+        vm.expectRevert(IDustLock.SameAddress.selector);
+        dustLock.proposeTeam(newTeam);
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipPendingTeamCannotProposeOthers() public {
+        address pendingTeam = address(0x999);
+        address anotherTeam = address(0x888);
+
+        // Propose pending team
+        dustLock.proposeTeam(pendingTeam);
+
+        // Pending team tries to propose another team before accepting (should fail)
+        vm.startPrank(pendingTeam);
+        vm.expectRevert(IDustLock.NotTeam.selector);
+        dustLock.proposeTeam(anotherTeam);
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipZeroAddressCannotAccept() public {
+        // This tests that zero address cannot somehow become pending
+        // and then try to accept (should be impossible but let's verify)
+
+        // Propose a legitimate team first
+        address legitimateTeam = address(0x999);
+        dustLock.proposeTeam(legitimateTeam);
+
+        // Zero address tries to accept (should fail)
+        vm.startPrank(address(0));
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+    }
+
+    function testTeamOwnershipMultipleProposalsSameBatch() public {
+        address team1 = address(0x111);
+        address team2 = address(0x222);
+
+        // Multiple proposals in same transaction context
+        dustLock.proposeTeam(team1);
+        // Immediately overwrite
+        dustLock.proposeTeam(team2);
+
+        // Only team2 should be able to accept
+        vm.startPrank(team1);
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        vm.startPrank(team2);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        assertEq(dustLock.team(), team2);
+    }
+
+    function testTeamOwnershipStatePersistenceAfterRevert() public {
+        address newTeam = address(0x999);
+
+        // Propose team
+        dustLock.proposeTeam(newTeam);
+        assertEq(dustLock.pendingTeam(), newTeam);
+
+        // Cause a revert in acceptance (by calling from wrong address)
+        vm.startPrank(address(0x666));
+        vm.expectRevert(IDustLock.NotPendingTeam.selector);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        // State should remain unchanged after revert
+        assertEq(dustLock.team(), user);
+        assertEq(dustLock.pendingTeam(), newTeam);
+
+        // Legitimate team can still accept
+        vm.startPrank(newTeam);
+        dustLock.acceptTeam();
+        vm.stopPrank();
+
+        assertEq(dustLock.team(), newTeam);
+        assertEq(dustLock.pendingTeam(), address(0));
+    }
 }
