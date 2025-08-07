@@ -7,13 +7,13 @@ import {ERC20PausableUpgradeable} from
 import {ERC20PermitUpgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 contract Dust is
     Initializable,
     ERC20Upgradeable,
     ERC20PausableUpgradeable,
-    OwnableUpgradeable,
+    Ownable2StepUpgradeable,
     ERC20PermitUpgradeable
 {
     /// @custom:oz-upgrades-unsafe-allow constructor
