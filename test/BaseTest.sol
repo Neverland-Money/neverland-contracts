@@ -211,10 +211,10 @@ abstract contract BaseTest is Script, Test {
      *      slightly higher tolerance in some tests. This is GOOD - it indicates we're now
      *      getting mathematically correct results with natural rounding variations, instead
      *      of consistently wrong results that were artificially precise to test.
-     *      
+     *
      *      OLD SYSTEM: Integer truncation → predictably wrong but consistent (±1 wei tolerance)
      *      NEW SYSTEM: WAD precision → mathematically correct with rounding (±3 wei tolerance)
-     *      
+     *
      *      The tolerance increase proves our precision fix is working correctly.
      */
     function assertEqApprThreeWei(uint256 actualAmount, uint256 expectedAmount) internal pure {

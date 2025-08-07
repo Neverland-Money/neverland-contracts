@@ -159,7 +159,7 @@ library BalanceLogicLibrary {
         if (bias < 0) {
             bias = 0;
         }
-        // Convert from WAD (18 decimals) back to token units with proper rounding  
+        // Convert from WAD (18 decimals) back to token units with proper rounding
         return uint256(bias) / 1e18 + _point.permanentLockBalance;
     }
 }

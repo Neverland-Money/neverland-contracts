@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
-import { UD60x18, ud } from "@prb/math/src/UD60x18.sol";
+import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -482,16 +482,16 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
                 uint256 amount = uint256(uint128(_oldLocked.amount));
                 uint256 timeDiff = _oldLocked.end - block.timestamp;
                 uint256 maxTime = uint256(uint128(iMAXTIME));
-                
+
                 // Use PRB Math UD60x18 for 18 decimal precision
                 // Convert inputs to WAD format first, then do calculations
                 UD60x18 amountWAD = ud(amount * 1e18);
                 UD60x18 timeDiffWAD = ud(timeDiff * 1e18);
                 UD60x18 maxTimeWAD = ud(maxTime * 1e18);
-                
+
                 UD60x18 biasResult = amountWAD.mul(timeDiffWAD).div(maxTimeWAD);
                 uOld.bias = int256(biasResult.intoUint256());
-                
+
                 // Calculate slope with 18 decimal precision: amount / maxTime
                 UD60x18 slopeResult = amountWAD.div(maxTimeWAD);
                 uOld.slope = int256(slopeResult.intoUint256());
@@ -500,16 +500,16 @@ contract DustLock is Initializable, ReentrancyGuardUpgradeable, ERC2771ContextUp
                 uint256 amount = uint256(uint128(_newLocked.amount));
                 uint256 timeDiff = _newLocked.end - block.timestamp;
                 uint256 maxTime = uint256(uint128(iMAXTIME));
-                
+
                 // Use PRB Math UD60x18 for 18 decimal precision
                 // Convert inputs to WAD format first, then do calculations
                 UD60x18 amountWAD = ud(amount * 1e18);
                 UD60x18 timeDiffWAD = ud(timeDiff * 1e18);
                 UD60x18 maxTimeWAD = ud(maxTime * 1e18);
-                
+
                 UD60x18 biasResult = amountWAD.mul(timeDiffWAD).div(maxTimeWAD);
                 uNew.bias = int256(biasResult.intoUint256());
-                
+
                 // Calculate slope with 18 decimal precision: amount / maxTime
                 UD60x18 slopeResult = amountWAD.div(maxTimeWAD);
                 uNew.slope = int256(slopeResult.intoUint256());
