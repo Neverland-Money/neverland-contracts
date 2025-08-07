@@ -776,7 +776,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
-        if (oldLocked.isPermanent) unlockPermanent(_tokenId);
+        if (oldLocked.isPermanent) {
+            unlockPermanent(_tokenId);
+            oldLocked = _locked[_tokenId];
+        }
 
         uint256 userLockedAmount = oldLocked.amount.toUint256();
 
