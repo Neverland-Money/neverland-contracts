@@ -75,6 +75,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
 
     /// @notice Error thrown when a user tries to vote multiple times in the same period
     error AlreadyVoted();
+    /// @notice Error thrown when the locked amount is less than minLockAmount
+    error AmountTooSmall();
     /// @notice Error thrown when the requested amount exceeds available balance
     error AmountTooBig();
     /// @notice Error thrown when an ERC721 receiver contract rejects the tokens
@@ -672,4 +674,22 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
 
     /// @inheritdoc IERC6372
     function CLOCK_MODE() external view returns (string memory);
+
+    /*//////////////////////////////////////////////////////////////
+                          MIN LOCK AMOUNT
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Returns the minimum amount of tokens required to create a veNFT lock
+     * @dev This value is used to validate lock creation and prevent spam attacks
+     * @return The minimum lock amount in token units (with 18 decimals)
+     */
+    function minLockAmount() external returns (uint256);
+
+    /**
+     * @notice Sets the minimum amount of tokens required to create a veNFT lock
+     * @dev Can only be called by the team address. This helps prevent spam and ensures meaningful lock amounts
+     * @param newMinLockAmount The new minimum lock amount in token units (with 18 decimals)
+     */
+    function setMinLockAmount(uint256 newMinLockAmount) external;
 }

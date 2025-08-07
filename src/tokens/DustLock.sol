@@ -684,9 +684,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      * @return The ID of the newly created veNFT
      */
     function _createLock(uint256 _value, uint256 _lockDuration, address _to) internal returns (uint256) {
+        if (_value == 0) revert ZeroAmount();
+        if (_value < minLockAmount) revert AmountTooSmall();
+
         uint256 unlockTime = ((block.timestamp + _lockDuration) / WEEK) * WEEK; // Locktime is rounded down to weeks
 
-        if (_value == 0) revert ZeroAmount();
         if (unlockTime <= block.timestamp) revert LockDurationNotInFuture();
         if (unlockTime < block.timestamp + MINTIME) revert LockDurationTooShort();
         if (unlockTime > block.timestamp + MAXTIME) revert LockDurationTooLong();
@@ -713,9 +715,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     function _increaseAmountFor(uint256 _tokenId, uint256 _value, DepositType _depositType) internal {
+        if (_value == 0) revert ZeroAmount();
+        if (_value < minLockAmount) revert AmountTooSmall();
+
         LockedBalance memory oldLocked = _locked[_tokenId];
 
-        if (_value == 0) revert ZeroAmount();
         if (oldLocked.amount <= 0) revert NoLockFound();
         if (oldLocked.end <= block.timestamp && !oldLocked.isPermanent) revert LockExpired();
 
@@ -885,6 +889,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         int128 _splitAmount = _amount.toInt128();
         if (_splitAmount == 0) revert ZeroAmount();
+        if (_amount < minLockAmount) revert AmountTooSmall();
         if (newLocked.amount <= _splitAmount) revert AmountTooBig();
 
         // Zero out and burn old veNFT
@@ -1019,6 +1024,17 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function CLOCK_MODE() external pure returns (string memory) {
         return "mode=timestamp";
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          MIN LOCK AMOUNT
+    //////////////////////////////////////////////////////////////*/
+    uint256 public minLockAmount = 1e18;
+
+    function setMinLockAmount(uint256 newMinLockAmount) public {
+        if (_msgSender() != team) revert NotTeam();
+        if (newMinLockAmount == 0) revert ZeroAmount();
+        minLockAmount = newMinLockAmount;
     }
 
     /*//////////////////////////////////////////////////////////////
