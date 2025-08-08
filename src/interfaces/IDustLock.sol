@@ -388,12 +388,6 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     function version() external view returns (string memory);
 
     /**
-     * @notice Returns the number of decimals used for user representation
-     * @return The number of decimals (typically 18)
-     */
-    function decimals() external view returns (uint8);
-
-    /**
      * @notice Updates the base URI for computing tokenURI
      * @dev Can only be called by the team address
      * @param newBaseURI The new base URI to set for all tokens

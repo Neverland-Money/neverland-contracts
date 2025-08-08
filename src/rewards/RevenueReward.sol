@@ -170,10 +170,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
             if (dustLock.ownerOf(tokenId) != _msgSender()) revert NotOwner();
         }
 
-        address rewardsReceiver = tokenRewardReceiver[tokenId];
-        if (rewardsReceiver == address(0)) {
-            rewardsReceiver = dustLock.ownerOf(tokenId);
-        }
+        address rewardsReceiver = _resolveRewardsReceiver(tokenId);
 
         uint256 _length = tokens.length;
 
@@ -266,6 +263,21 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         returns (uint256)
     {
         return ud(totalRewardTokens).mul(ud(tokenBalance)).div(ud(tokenSupplyBalance)).unwrap();
+    }
+
+    /**
+     * @notice Resolves the rewards receiver for a given tokenId
+     * @dev Prefers the configured tokenRewardReceiver; falls back to current owner
+     *      Reverts if the resolved address is zero to prevent burning rewards
+     * @param tokenId The veNFT token id to resolve the receiver for
+     * @return receiver The non-zero address that should receive rewards
+     */
+    function _resolveRewardsReceiver(uint256 tokenId) internal view returns (address receiver) {
+        receiver = tokenRewardReceiver[tokenId];
+        if (receiver == address(0)) {
+            receiver = dustLock.ownerOf(tokenId);
+        }
+        if (receiver == address(0)) revert AddressZero();
     }
 
     /*//////////////////////////////////////////////////////////////
