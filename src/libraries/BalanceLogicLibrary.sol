@@ -8,7 +8,10 @@ library BalanceLogicLibrary {
     using SafeCastLibrary for uint256;
     using SafeCastLibrary for int128;
 
+    /// Constants
     uint256 internal constant WEEK = 1 weeks;
+    uint256 internal constant MAX_USER_POINTS = 1_000_000_000;
+    uint256 internal constant MAX_CHECKPOINT_ITERATIONS = 255;
 
     /**
      * @notice Binary search to get the user point index for a token id at or prior to a given timestamp
@@ -21,7 +24,7 @@ library BalanceLogicLibrary {
      */
     function getPastUserPointIndex(
         mapping(uint256 => uint256) storage _userPointEpoch,
-        mapping(uint256 => IDustLock.UserPoint[1000000000]) storage _userPointHistory,
+        mapping(uint256 => IDustLock.UserPoint[MAX_USER_POINTS]) storage _userPointHistory,
         uint256 _tokenId,
         uint256 _timestamp
     ) internal view returns (uint256) {
@@ -95,7 +98,7 @@ library BalanceLogicLibrary {
      */
     function balanceOfNFTAt(
         mapping(uint256 => uint256) storage _userPointEpoch,
-        mapping(uint256 => IDustLock.UserPoint[1000000000]) storage _userPointHistory,
+        mapping(uint256 => IDustLock.UserPoint[MAX_USER_POINTS]) storage _userPointHistory,
         uint256 _tokenId,
         uint256 _t
     ) external view returns (uint256) {
@@ -139,7 +142,7 @@ library BalanceLogicLibrary {
         int256 slope = _point.slope;
         uint256 ts = _point.ts;
         uint256 t_i = (ts / WEEK) * WEEK;
-        for (uint256 i = 0; i < 255; ++i) {
+        for (uint256 i = 0; i < MAX_CHECKPOINT_ITERATIONS; ++i) {
             t_i += WEEK;
             int256 dSlope = 0;
             if (t_i > _t) {

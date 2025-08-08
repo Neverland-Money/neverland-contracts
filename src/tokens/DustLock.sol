@@ -72,7 +72,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         baseURI = _baseURI;
 
         earlyWithdrawTreasury = _msgSender();
-        earlyWithdrawPenalty = 5_000;
+        earlyWithdrawPenalty = DEFAULT_EARLY_WITHDRAW_PENALTY_BP;
 
         _pointHistory[0].blk = block.number;
         _pointHistory[0].ts = block.timestamp;
@@ -427,10 +427,15 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                              ESCROW STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    /// Constants
     uint256 internal constant WEEK = 1 weeks;
     uint256 internal constant MINTIME = 28 * 24 * 3600;
     uint256 internal constant MAXTIME = 1 * 365 * 86400;
     uint256 internal constant MULTIPLIER = 1 ether;
+    uint256 internal constant BASIS_POINTS = 10_000;
+    uint256 internal constant MAX_USER_POINTS = 1_000_000_000;
+    uint256 internal constant MAX_CHECKPOINT_ITERATIONS = 255;
+    uint256 internal constant DEFAULT_EARLY_WITHDRAW_PENALTY_BP = 5_000;
 
     /// @inheritdoc IDustLock
     uint256 public epoch;
@@ -438,7 +443,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     uint256 public supply;
 
     mapping(uint256 => LockedBalance) internal _locked;
-    mapping(uint256 => UserPoint[1000000000]) internal _userPointHistory;
+    mapping(uint256 => UserPoint[MAX_USER_POINTS]) internal _userPointHistory;
     mapping(uint256 => uint256) public userPointEpoch;
     /// @inheritdoc IDustLock
     mapping(uint256 => int256) public slopeChanges;
@@ -567,7 +572,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Go over weeks to fill history and calculate what the current point is
         {
             uint256 t_i = (lastCheckpoint / WEEK) * WEEK;
-            for (uint256 i = 0; i < 255; ++i) {
+            for (uint256 i = 0; i < MAX_CHECKPOINT_ITERATIONS; ++i) {
                 // Hopefully it won't happen that this won't get used in 5 years!
                 // If it does, users will be able to withdraw but vote weight will be broken
                 t_i += WEEK; // Initial value of t_i is always larger than the ts of the last point
@@ -854,8 +859,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         uint256 supplyBefore = supply;
         supply = supplyBefore - userLockedAmount;
 
-        // penaltyAmount = earlyWithdrawPenalty * _balanceOfNFTAt(_tokenId, block.timestamp) / userLockedAmount * userLockedAmount / 10_000
-        uint256 userPenaltyAmount = earlyWithdrawPenalty * _balanceOfNFTAt(_tokenId, block.timestamp) / 10_000;
+        // penaltyAmount = earlyWithdrawPenalty * _balanceOfNFTAt(_tokenId, block.timestamp) / userLockedAmount * userLockedAmount / BASIS_POINTS
+        uint256 userPenaltyAmount = earlyWithdrawPenalty * _balanceOfNFTAt(_tokenId, block.timestamp) / BASIS_POINTS;
         uint256 userTransferAmount = userLockedAmount - userPenaltyAmount;
         uint256 treasuryTransferAmount = userPenaltyAmount;
 
@@ -874,7 +879,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function setEarlyWithdrawPenalty(uint256 _earlyWithdrawPenalty) external nonReentrant {
         if (_msgSender() != team) revert NotTeam();
-        if (_earlyWithdrawPenalty >= 10_000) revert InvalidWithdrawPenalty();
+        if (_earlyWithdrawPenalty >= BASIS_POINTS) revert InvalidWithdrawPenalty();
 
         earlyWithdrawPenalty = _earlyWithdrawPenalty;
     }

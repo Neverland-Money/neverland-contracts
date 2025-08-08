@@ -18,6 +18,9 @@ import {AddressZero, InvalidTokenId} from "../_shared/CommonErrors.sol";
 contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransferStrategy {
     using GPv2SafeERC20 for IERC20;
 
+    /// Constants
+    uint256 internal constant BASIS_POINTS = 10_000;
+
     /**
      * @notice The DustLock contract that manages veNFTs
      * @dev Used for creating new locks, adding to existing locks, and checking ownership
@@ -70,7 +73,7 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
             DUST_LOCK.createLockFor(amount, lockTime, to);
         } else {
             // Early withdrawal w/ penalty
-            uint256 treasuryValue = (amount * DUST_LOCK.earlyWithdrawPenalty()) / 10_000;
+            uint256 treasuryValue = (amount * DUST_LOCK.earlyWithdrawPenalty()) / BASIS_POINTS;
             IERC20(reward).safeTransfer(to, amount - treasuryValue);
             IERC20(reward).safeTransfer(DUST_LOCK.earlyWithdrawTreasury(), treasuryValue);
         }

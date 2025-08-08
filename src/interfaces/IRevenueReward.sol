@@ -59,7 +59,6 @@ interface IRevenueReward {
     event SelfRepayingLoanUpdate(uint256 indexed token, address rewardReceiver, bool isEnabled);
 
     /// Functions
-    /// Functions
 
     /**
      * @notice The address of the DustLock contract that manages veNFTs
