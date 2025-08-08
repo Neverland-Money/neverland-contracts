@@ -28,11 +28,12 @@ contract Dust is
      * @param initialOwner The address that will own the contract after initialization
      */
     function initialize(address initialOwner) public initializer {
+        if (initialOwner == address(0)) revert AddressZero();
+
         __ERC20_init("Dust", "DUST");
         __ERC20Pausable_init();
         __ERC20Permit_init("Dust");
         __Ownable2Step_init();
-        if (initialOwner == address(0)) revert AddressZero();
         _transferOwnership(initialOwner);
     }
 
