@@ -103,7 +103,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IRevenueReward
     function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory) {
-        require(to >= from, "Invalid range");
+        if (to < from) revert InvalidRange();
         uint256 length = usersWithSelfRepayingLoan.length();
         if (from >= length) return new address[](0);
         if (to > length) to = length;

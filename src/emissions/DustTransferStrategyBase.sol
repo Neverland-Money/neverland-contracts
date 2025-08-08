@@ -25,13 +25,13 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
 
     /// @dev Modifier for incentives controller only functions
     modifier onlyIncentivesController() {
-        require(INCENTIVES_CONTROLLER == msg.sender, "CALLER_NOT_INCENTIVES_CONTROLLER");
+        if (INCENTIVES_CONTROLLER != msg.sender) revert CallerNotIncentivesController();
         _;
     }
 
     /// @dev Modifier for reward admin only functions
     modifier onlyRewardsAdmin() {
-        require(msg.sender == REWARDS_ADMIN, "ONLY_REWARDS_ADMIN");
+        if (msg.sender != REWARDS_ADMIN) revert OnlyRewardsAdmin();
         _;
     }
 

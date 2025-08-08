@@ -76,86 +76,132 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
 
     /// @notice Error thrown when a user tries to vote multiple times in the same period
     error AlreadyVoted();
+
     /// @notice Error thrown when the locked amount is less than minLockAmount
     error AmountTooSmall();
+
     /// @notice Error thrown when the requested amount exceeds available balance
     error AmountTooBig();
+
     /// @notice Error thrown when an ERC721 receiver contract rejects the tokens
     error ERC721ReceiverRejectedTokens();
+
     /// @notice Error thrown when transferring to an address that doesn't implement ERC721Receiver
     error ERC721TransferToNonERC721ReceiverImplementer();
+
     /// @notice Error thrown when a signature uses an invalid nonce
     error InvalidNonce();
+
     /// @notice Error thrown when a provided signature is invalid
     error InvalidSignature();
+
     /// @notice Error thrown when a signature's S value is invalid per EIP-2
     error InvalidSignatureS();
+
     /// @notice Error thrown when an early withdraw penalty value is invalid (>=10000)
     error InvalidWithdrawPenalty();
+
     /// @notice Error thrown when a zero address is provided where not allowed
     error InvalidAddress();
+
     /// @notice Error thrown when the lock duration doesn't extend beyond the current time
     error LockDurationNotInFuture();
+
     /// @notice Error thrown when the lock duration exceeds the maximum allowed time
     error LockDurationTooLong();
+
     /// @notice Error thrown when the lock duration is less than the minimum required time
     error LockDurationTooShort();
+
     /// @notice Error thrown when trying to perform an operation on an expired lock
     error LockExpired();
+
     /// @notice Error thrown when trying to withdraw from a lock that hasn't expired yet
     error LockNotExpired();
+
     /// @notice Error thrown when no lock is found for the specified token ID
     error NoLockFound();
+
     /// @notice Error thrown when attempting to operate on a token that doesn't exist
     error NonExistentToken();
+
     /// @notice Error thrown when the caller is neither the owner nor approved for the token
     error NotApprovedOrOwner();
+
     /// @notice Error thrown when a non-distributor address attempts a distributor action
     error NotDistributor();
+
     /// @notice Error thrown when a restricted function is called by someone other than the emergency council or governor
     error NotEmergencyCouncilOrGovernor();
+
     /// @notice Error thrown when a governor-only function is called by a non-governor address
     error NotGovernor();
+
     /// @notice Error thrown when trying to perform a locked NFT operation on a normal NFT
     error NotLockedNFT();
+
     /// @notice Error thrown when trying to perform a normal NFT operation on a locked NFT
     error NotNormalNFT();
+
     /// @notice Error thrown when trying to unlock a non-permanent lock using unlockPermanent
     error NotPermanentLock();
+
     /// @notice Error thrown when the caller is not the owner of the token
     error NotOwner();
+
     /// @notice Error thrown when a team-only function is called by a non-team address
     error NotTeam();
+
     /// @notice Error thrown when a pending team function is called by a non-pending team address
     error NotPendingTeam();
+
     /// @notice Error thrown when trying to cancel a team proposal but no proposal exists
     error NoPendingTeam();
+
     /// @notice Error thrown when a voter-only function is called by a non-voter address
     error NotVoter();
+
     /// @notice Error thrown when ownership changes during an operation
     error OwnershipChange();
+
     /// @notice Error thrown when trying to withdraw or modify a permanent lock
     error PermanentLock();
+
     /// @notice Error thrown when source and destination addresses are the same
     error SameAddress();
+
     /// @notice Error thrown when attempting to merge a veNFT with itself
     error SameNFT();
+
     /// @notice Error thrown when attempting to change state to the same value
     error SameState();
+
     /// @notice Error thrown when trying to split a veNFT with no owner
     error SplitNoOwner();
+
     /// @notice Error thrown when splitting is not allowed for the user
     error SplitNotAllowed();
+
     /// @notice Error thrown when a signature has expired (beyond the deadline)
     error SignatureExpired();
+
     /// @notice Error thrown when too many token IDs are provided in a batch operation
     error TooManyTokenIDs();
+
     /// @notice Error thrown when a zero address is provided where not allowed
     error ZeroAddress();
+
     /// @notice Error thrown when a zero amount is provided where not allowed
     error ZeroAmount();
+
     /// @notice Error thrown when an operation requires a non-zero balance
     error ZeroBalance();
+
+    /// @notice Error thrown when trying to add a token that already has an owner
+    error AlreadyOwned();
+
+    /// @notice Error thrown when querying a non-existent token ID
+    error InvalidTokenId();
 
     /**
      * @notice Emitted when tokens are deposited into the veNFT system

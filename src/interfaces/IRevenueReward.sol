@@ -9,6 +9,28 @@ import {IDustLock} from "../interfaces/IDustLock.sol";
  * @dev Handles reward epochs, claiming rewards, and self-repaying loan functionality
  */
 interface IRevenueReward {
+    /// Errors
+    
+    /// @notice Error thrown when attempting to notify or claim with a zero amount
+    error ZeroAmount();
+
+    /// @notice Error thrown when a non-distributor address attempts to notify rewards
+    error NotRewardDistributor();
+
+    /// @notice Error thrown when a non-owner address attempts a restricted operation
+    error NotOwner();
+
+    /// @notice Error thrown when a non-DustLock address attempts a restricted operation
+    error NotDustLock();
+
+    /// @notice Error thrown when end timestamp when calculating rewards is more that current
+    error EndTimestampMoreThanCurrent();
+
+    /// @notice Error thrown when an invalid range is provided
+    error InvalidRange();
+
+    /// Events
+
     /**
      * @notice Emitted when rewards are claimed by a user
      * @param user Address that claimed the rewards
@@ -41,20 +63,7 @@ interface IRevenueReward {
      */
     event SelfRepayingLoanUpdate(uint256 indexed token, address rewardReceiver, bool isEnabled);
 
-    /// @notice Error thrown when attempting to notify or claim with a zero amount
-    error ZeroAmount();
-
-    /// @notice Error thrown when a non-distributor address attempts to notify rewards
-    error NotRewardDistributor();
-
-    /// @notice Error thrown when a non-owner address attempts a restricted operation
-    error NotOwner();
-
-    /// @notice Error thrown when a non-DustLock address attempts a restricted operation
-    error NotDustLock();
-
-    /// @notice Error thrown when end timestamp when calculating rewards is more that current
-    error EndTimestampMoreThanCurrent();
+    /// Functions
 
     /**
      * @notice The address of the DustLock contract that manages veNFTs

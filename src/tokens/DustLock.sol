@@ -128,7 +128,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     string internal baseURI;
 
     function tokenURI(uint256 _tokenId) public view returns (string memory) {
-        require(_ownerOf(_tokenId) != address(0), "ERC721: invalid token ID");
+        if (_ownerOf(_tokenId) == address(0)) revert InvalidTokenId();
 
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId.toString())) : "";
     }
@@ -331,7 +331,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      */
     function _addTokenTo(address _to, uint256 _tokenId) internal {
         // Throws if `_tokenId` is owned by someone
-        assert(_ownerOf(_tokenId) == address(0));
+        if (_ownerOf(_tokenId) != address(0)) revert AlreadyOwned();
         // Change the owner
         idToOwner[_tokenId] = _to;
         // Update owner token index tracking
@@ -348,7 +348,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      */
     function _mint(address _to, uint256 _tokenId) internal returns (bool) {
         // Throws if `_to` is zero address
-        assert(_to != address(0));
+        if (_to == address(0)) revert AddressZero();
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
@@ -395,7 +395,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      */
     function _removeTokenFrom(address _from, uint256 _tokenId) internal {
         // Throws if `_from` is not the current owner
-        assert(_ownerOf(_tokenId) == _from);
+        if (_ownerOf(_tokenId) != _from) revert NotOwner();
         // Change the owner
         idToOwner[_tokenId] = address(0);
         // Update owner token index tracking
