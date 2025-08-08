@@ -159,7 +159,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IDustLock
     function ownerOf(uint256 _tokenId) external view returns (address) {
-        return _ownerOf(_tokenId);
+        address owner = _ownerOf(_tokenId);
+        if (owner == address(0)) revert InvalidTokenId();
+        return owner;
     }
 
     /// @inheritdoc IDustLock

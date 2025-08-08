@@ -5,7 +5,7 @@ import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contrac
 import {SafeERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 
-import {AddressZero, InvalidTokenId} from "../_shared/CommonErrors.sol";
+import {AddressZero} from "../_shared/CommonErrors.sol";
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IDustLockTransferStrategy, IDustTransferStrategy} from "../interfaces/IDustLockTransferStrategy.sol";
@@ -71,8 +71,8 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
         // If tokenId is 0, it means we are creating a new lock or performing an early withdrawal
         if (tokenId > 0) {
             // Add DUST to an existing lock
-            if (DUST_LOCK.ownerOf(tokenId) == address(0)) revert InvalidTokenId();
-            if (DUST_LOCK.ownerOf(tokenId) != to) revert NotTokenOwner();
+            address owner = DUST_LOCK.ownerOf(tokenId); // reverts if token doesn't exist
+            if (owner != to) revert NotTokenOwner();
             SafeERC20.safeIncreaseAllowance(IERC20(reward), address(DUST_LOCK), amount);
             DUST_LOCK.depositFor(tokenId, amount);
             SafeERC20.safeApprove(IERC20(reward), address(DUST_LOCK), 0);

@@ -313,7 +313,8 @@ contract DustLockTests is BaseTest {
 
         uint256 postBalance = DUST.balanceOf(address(user));
         assertEq(postBalance - preBalance, TOKEN_1);
-        assertEq(dustLock.ownerOf(1), address(0));
+        vm.expectRevert(InvalidTokenId.selector);
+        dustLock.ownerOf(1);
         assertEq(dustLock.balanceOf(address(user)), 0);
         // assertEq(dustLock.ownerToNFTokenIdList(address(owner), 0), 0);
 
