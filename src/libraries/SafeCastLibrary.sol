@@ -21,4 +21,16 @@ library SafeCastLibrary {
         if (value < 0) revert SafeCastUnderflow();
         return uint256(int256(value));
     }
+
+    /// @dev Safely convert uint256 to int256
+    function toInt256(uint256 value) internal pure returns (int256) {
+        if (value > uint256(type(int256).max)) revert SafeCastOverflow();
+        return int256(value);
+    }
+
+    /// @dev Safely convert int256 to uint256
+    function toUint256(int256 value) internal pure returns (uint256) {
+        if (value < 0) revert SafeCastUnderflow();
+        return uint256(value);
+    }
 }

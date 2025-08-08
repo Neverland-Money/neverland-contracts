@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.19;
 
+import {IRevenueReward} from "./IRevenueReward.sol";
 import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
+import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
+import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 
 /**
  * @title IDustLock Interface
@@ -15,12 +16,12 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /**
      * @notice Structure representing a locked token position
      * @dev Used to track the amount of tokens locked, when they unlock, and if they're permanently locked
-     * @param amount Amount of tokens locked in int128 format
+     * @param amount Amount of tokens locked in int256 format for consistency with precision calculations
      * @param end Timestamp when tokens unlock (0 for permanent locks)
      * @param isPermanent Whether this is a permanent lock that cannot be withdrawn normally
      */
     struct LockedBalance {
-        int128 amount;
+        int256 amount;
         uint256 end;
         bool isPermanent;
     }
@@ -35,8 +36,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param permanent Amount of permanent (non-decaying) voting power
      */
     struct UserPoint {
-        int128 bias;
-        int128 slope; // # -dweight / dt
+        int256 bias; // WAD format (18 decimals) for precision
+        int256 slope; // WAD format (18 decimals) for precision # -dweight / dt
         uint256 ts;
         uint256 blk; // block
         uint256 permanent;
@@ -52,8 +53,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param permanentLockBalance Total amount of permanently locked tokens
      */
     struct GlobalPoint {
-        int128 bias;
-        int128 slope; // # -dweight / dt
+        int256 bias; // WAD format (18 decimals) for precision
+        int256 slope; // WAD format (18 decimals) for precision # -dweight / dt
         uint256 ts;
         uint256 blk; // block
         uint256 permanentLockBalance;
@@ -472,7 +473,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param _timestamp The timestamp to check for slope changes
      * @return The net change in slope (negative value means decrease in voting power)
      */
-    function slopeChanges(uint256 _timestamp) external view returns (int128);
+    function slopeChanges(uint256 _timestamp) external view returns (int256);
 
     /**
      * @notice Check if an account has permission to split veNFTs
@@ -744,4 +745,12 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param newMinLockAmount The new minimum lock amount in token units (with 18 decimals)
      */
     function setMinLockAmount(uint256 newMinLockAmount) external;
+
+    /*//////////////////////////////////////////////////////////////
+                      NOTIFY CONTRACTS
+    //////////////////////////////////////////////////////////////*/
+
+    function revenueReward() external returns (IRevenueReward);
+
+    function setRevenueReward(IRevenueReward _revenueReward) external;
 }

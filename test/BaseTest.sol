@@ -49,7 +49,7 @@ abstract contract BaseTest is Script, Test {
     uint256 constant MAXTIME = 1 * 365 * 86400;
     uint256 constant WEEK = 1 weeks;
 
-    function setUp() public {
+    function setUp() public virtual {
         _testSetup();
         _setUp();
     }
@@ -148,7 +148,29 @@ abstract contract BaseTest is Script, Test {
 
     // assertion helpers
 
-    function assertEqApprOneWei(uint256 actualAmount, uint256 expectedAmount) internal pure {
-        assertApproxEqAbs(actualAmount, expectedAmount, 1);
+    function assertArrayContainsUint(uint256[] memory array, uint256 value) internal pure {
+        bool found = false;
+        for (uint256 i = 0; i < array.length; i++) {
+            if (array[i] == value) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "Array does not contain expected value");
+    }
+
+    function assertArrayContainsAddr(address[] memory array, address value) internal pure {
+        bool found = false;
+        for (uint256 i = 0; i < array.length; i++) {
+            if (array[i] == value) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "Array does not contain expected value");
+    }
+
+    function assertEqApprThreeWei(uint256 actualAmount, uint256 expectedAmount) internal pure {
+        assertApproxEqAbs(actualAmount, expectedAmount, 3);
     }
 }

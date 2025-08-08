@@ -12,6 +12,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 import "../_shared/CommonErrors.sol";
 
 /**
@@ -21,7 +22,7 @@ import "../_shared/CommonErrors.sol";
 contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeCastLibrary for uint256;
-    using SafeCastLibrary for int128;
+    using SafeCastLibrary for int256;
     using Strings for uint256;
 
     /*//////////////////////////////////////////////////////////////
@@ -429,7 +430,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     uint256 internal constant WEEK = 1 weeks;
     uint256 internal constant MINTIME = 28 * 24 * 3600;
     uint256 internal constant MAXTIME = 1 * 365 * 86400;
-    int128 internal constant iMAXTIME = 1 * 365 * 86400;
     uint256 internal constant MULTIPLIER = 1 ether;
 
     /// @inheritdoc IDustLock
@@ -441,7 +441,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     mapping(uint256 => UserPoint[1000000000]) internal _userPointHistory;
     mapping(uint256 => uint256) public userPointEpoch;
     /// @inheritdoc IDustLock
-    mapping(uint256 => int128) public slopeChanges;
+    mapping(uint256 => int256) public slopeChanges;
     /// @inheritdoc IDustLock
     mapping(address => bool) public canSplit;
     /// @inheritdoc IDustLock
@@ -484,21 +484,48 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function _checkpoint(uint256 _tokenId, LockedBalance memory _oldLocked, LockedBalance memory _newLocked) internal {
         UserPoint memory uOld;
         UserPoint memory uNew;
-        int128 oldDslope = 0;
-        int128 newDslope = 0;
+        int256 oldDslope = 0;
+        int256 newDslope = 0;
         uint256 _epoch = epoch;
 
         if (_tokenId != 0) {
             uNew.permanent = _newLocked.isPermanent ? _newLocked.amount.toUint256() : 0;
-            // Calculate slopes and biases
-            // Kept at zero when they have to
+            // Calculate slopes and biases using PRB Math v4
             if (_oldLocked.end > block.timestamp && _oldLocked.amount > 0) {
-                uOld.slope = _oldLocked.amount / iMAXTIME;
-                uOld.bias = uOld.slope * (_oldLocked.end - block.timestamp).toInt128();
+                uint256 amount = _oldLocked.amount.toUint256();
+                uint256 timeDiff = _oldLocked.end - block.timestamp;
+                uint256 maxTime = MAXTIME;
+
+                // Use PRB Math UD60x18 for 18 decimal precision
+                // Convert inputs to WAD format first, then do calculations
+                UD60x18 amountWAD = ud(amount * 1e18);
+                UD60x18 timeDiffWAD = ud(timeDiff * 1e18);
+                UD60x18 maxTimeWAD = ud(maxTime * 1e18);
+
+                UD60x18 biasResult = amountWAD.mul(timeDiffWAD).div(maxTimeWAD);
+                uOld.bias = int256(biasResult.intoUint256());
+
+                // Calculate slope with 18 decimal precision: amount / maxTime
+                UD60x18 slopeResult = amountWAD.div(maxTimeWAD);
+                uOld.slope = int256(slopeResult.intoUint256());
             }
             if (_newLocked.end > block.timestamp && _newLocked.amount > 0) {
-                uNew.slope = _newLocked.amount / iMAXTIME;
-                uNew.bias = uNew.slope * (_newLocked.end - block.timestamp).toInt128();
+                uint256 amount = _newLocked.amount.toUint256();
+                uint256 timeDiff = _newLocked.end - block.timestamp;
+                uint256 maxTime = MAXTIME;
+
+                // Use PRB Math UD60x18 for 18 decimal precision
+                // Convert inputs to WAD format first, then do calculations
+                UD60x18 amountWAD = ud(amount * 1e18);
+                UD60x18 timeDiffWAD = ud(timeDiff * 1e18);
+                UD60x18 maxTimeWAD = ud(maxTime * 1e18);
+
+                UD60x18 biasResult = amountWAD.mul(timeDiffWAD).div(maxTimeWAD);
+                uNew.bias = int256(biasResult.intoUint256());
+
+                // Calculate slope with 18 decimal precision: amount / maxTime
+                UD60x18 slopeResult = amountWAD.div(maxTimeWAD);
+                uNew.slope = int256(slopeResult.intoUint256());
             }
 
             // Read values of scheduled changes in the slope
@@ -544,13 +571,15 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                 // Hopefully it won't happen that this won't get used in 5 years!
                 // If it does, users will be able to withdraw but vote weight will be broken
                 t_i += WEEK; // Initial value of t_i is always larger than the ts of the last point
-                int128 d_slope = 0;
+                int256 d_slope = 0;
                 if (t_i > block.timestamp) {
                     t_i = block.timestamp;
                 } else {
                     d_slope = slopeChanges[t_i];
                 }
-                lastPoint.bias -= lastPoint.slope * (t_i - lastCheckpoint).toInt128();
+                // Time difference in seconds, slope is in WAD format
+                // slope * time_seconds gives WAD result
+                lastPoint.bias -= lastPoint.slope * int256(t_i - lastCheckpoint);
                 lastPoint.slope += d_slope;
                 if (lastPoint.bias < 0) {
                     // This can happen
@@ -669,7 +698,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
             (_oldLocked.amount, _oldLocked.end, _oldLocked.isPermanent);
 
         // Adding to existing lock, or if a lock is expired - creating a new one
-        newLocked.amount += _value.toInt128();
+        newLocked.amount += _value.toInt256();
         if (_unlockTime != 0) {
             newLocked.end = _unlockTime;
         }
@@ -913,7 +942,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (newLocked.end <= block.timestamp && !newLocked.isPermanent) revert LockExpired();
         if (newLocked.isPermanent) revert PermanentLock();
 
-        int128 _splitAmount = _amount.toInt128();
+        int256 _splitAmount = _amount.toInt256();
         if (_splitAmount == 0) revert ZeroAmount();
         if (_amount < minLockAmount) revert AmountTooSmall();
         if (newLocked.amount <= _splitAmount) revert AmountTooBig();
