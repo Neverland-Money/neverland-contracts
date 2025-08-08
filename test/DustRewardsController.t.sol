@@ -26,11 +26,13 @@ contract DustRewardsControllerTest is BaseTest {
         vm.prank(user);
         address claimer = rewardsController.getClaimer(user);
         assertEq(claimer, address(0), "Initial claimer should be zero address");
+        emit log("[rewardsController] Setting claimer by user");
         rewardsController.setClaimer(
             user, // user
             address(0x123) // caller
         );
         address newClaimer = rewardsController.getClaimer(user);
+        emit log_named_address("[rewardsController] New claimer", newClaimer);
         assertEq(newClaimer, address(0x123));
     }
 
@@ -38,11 +40,13 @@ contract DustRewardsControllerTest is BaseTest {
         vm.prank(emissionsManager);
         address claimer = rewardsController.getClaimer(user);
         assertEq(claimer, address(0), "Initial claimer should be zero address");
+        emit log("[rewardsController] Setting claimer by emissionsManager");
         rewardsController.setClaimer(
             user, // user
             address(0x123) // caller
         );
         address newClaimer = rewardsController.getClaimer(user);
+        emit log_named_address("[rewardsController] New claimer", newClaimer);
         assertEq(newClaimer, address(0x123));
     }
 
@@ -50,6 +54,7 @@ contract DustRewardsControllerTest is BaseTest {
         address claimer = rewardsController.getClaimer(user);
         assertEq(claimer, address(0), "Initial claimer should be zero address");
         vm.prank(user2);
+        emit log("[rewardsController] Expect revert: setClaimer by non-owner/non-emissionsManager");
         vm.expectRevert(IDustRewardsController.OnlyEmissionManagerOrSelf.selector);
         rewardsController.setClaimer(
             user, // user
@@ -63,13 +68,16 @@ contract DustRewardsControllerTest is BaseTest {
         vm.prank(emissionsManager);
         address claimer = rewardsController.getClaimer(user);
         assertEq(claimer, address(0), "Initial claimer should be zero address");
+        emit log("[rewardsController] Pre-setting claimer by emissionsManager");
         rewardsController.setClaimer(
             user, // user
             address(0x123) // caller
         );
         address newClaimer = rewardsController.getClaimer(user);
+        emit log_named_address("[rewardsController] New claimer", newClaimer);
         assertEq(newClaimer, address(0x123));
         vm.prank(user2);
+        emit log("[rewardsController] Expect revert: setClaimer by non-owner for other user");
         vm.expectRevert(IDustRewardsController.OnlyEmissionManagerOrSelf.selector);
         rewardsController.setClaimer(
             user, // user

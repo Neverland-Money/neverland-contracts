@@ -7,7 +7,6 @@ import {EpochTimeLibrary} from "../src/libraries/EpochTimeLibrary.sol";
 import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
 import {MockUSDC} from "../lib/forge-std/test/StdCheats.t.sol";
 import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
-import "forge-std/console2.sol";
 
 contract RevenueRewardsTest is BaseTest {
     MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
@@ -25,9 +24,12 @@ contract RevenueRewardsTest is BaseTest {
 
     function testNotifyRewardAmount() public {
         // arrange & act
+        emit log("[revenue] Notifying reward amount");
         _addReward(admin, mockUSDC, USDC_10K);
         // assert
-        assertEq(mockUSDC.balanceOf(address(revenueReward)), USDC_10K);
+        uint256 contractBalance = mockUSDC.balanceOf(address(revenueReward));
+        emit log_named_uint("[revenue] RevenueReward balance (USDC)", contractBalance);
+        assertEq(contractBalance, USDC_10K);
     }
 
     function testNotifyRewardAmountFromNonRewardDistributor() public {
@@ -35,12 +37,14 @@ contract RevenueRewardsTest is BaseTest {
 
         vm.startPrank(user1);
         mockUSDC.approve(address(revenueReward), USDC_10K);
+        emit log("[revenue] Expect revert: non-distributor notifying reward");
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector));
         revenueReward.notifyRewardAmount(address(mockUSDC), USDC_10K);
         vm.stopPrank();
     }
 
     function testSettingNewRewardDistributorFromAnyUser() public {
+        emit log("[revenue] Expect revert: setRewardDistributor from non-distributor");
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector));
         revenueReward.setRewardDistributor(user1);
     }
@@ -49,6 +53,7 @@ contract RevenueRewardsTest is BaseTest {
         _addReward(admin, mockUSDC, USDC_10K);
 
         vm.prank(admin);
+        emit log_named_address("[revenue] Setting new reward distributor", user1);
         revenueReward.setRewardDistributor(user1);
 
         _addReward(user1, mockUSDC, USDC_10K);
@@ -60,6 +65,7 @@ contract RevenueRewardsTest is BaseTest {
         // arrange
         assertEq(block.timestamp, 1 weeks + 1);
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipToNextEpoch(1);
@@ -81,6 +87,8 @@ contract RevenueRewardsTest is BaseTest {
         uint256 lastEarnTimeAfter = revenueReward.lastEarnTime(address(mockUSDC), tokenId);
 
         uint256 rewardAmount = balanceAfter;
+        emit log_named_uint("[claim] USDC claimed", rewardAmount);
+        emit log_named_uint("[claim] lastEarnTime", lastEarnTimeAfter);
 
         assertEqApprThreeWei(rewardAmount, USDC_10K);
         assertEq(lastEarnTimeAfter, block.timestamp);
@@ -90,6 +98,7 @@ contract RevenueRewardsTest is BaseTest {
         // arrange
         assertEq(block.timestamp, 1 weeks + 1);
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim/repeat] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipToNextEpoch(1);
@@ -110,6 +119,8 @@ contract RevenueRewardsTest is BaseTest {
         uint256 lastEarnTimeAfter = revenueReward.lastEarnTime(address(mockUSDC), tokenId);
 
         uint256 rewardAmount = balanceAfter;
+        emit log_named_uint("[claim/repeat] total USDC claimed", rewardAmount);
+        emit log_named_uint("[claim/repeat] lastEarnTime", lastEarnTimeAfter);
 
         assertEqApprThreeWei(rewardAmount, USDC_10K);
         assertEq(lastEarnTimeAfter, block.timestamp);
@@ -118,6 +129,7 @@ contract RevenueRewardsTest is BaseTest {
     function testSingleUserMultiEpochClaim() public {
         // epoch 1
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim/multi-epoch] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         // epoch 2
@@ -138,6 +150,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 lastEarnTimeAfter = revenueReward.lastEarnTime(address(mockUSDC), tokenId);
 
         uint256 rewardAmount = balanceAfter;
+        emit log_named_uint("[claim/multi-epoch] cumulative USDC claimed", rewardAmount);
 
         assertApproxEqAbs(rewardAmount, 2 * USDC_10K, 3);
         assertEq(lastEarnTimeAfter, block.timestamp);
@@ -147,6 +160,7 @@ contract RevenueRewardsTest is BaseTest {
         // epoch 1
         assertEq(block.timestamp, 1 weeks + 1);
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim/partial] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         // epoch 2
@@ -165,18 +179,21 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(block.timestamp, 4 weeks + 1);
 
         // act
+        emit log_named_uint("[claim/partial] claiming until", 2 weeks + 1);
         revenueReward.getRewardUntilTs(tokenId, tokens, 2 weeks + 1);
         // assert
         assertApproxEqAbs(mockUSDC.balanceOf(user), USDC_10K, 2);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 2 weeks + 1);
 
         // act
+        emit log_named_uint("[claim/partial] claiming until", 4 weeks + 1);
         revenueReward.getRewardUntilTs(tokenId, tokens, 4 weeks + 1);
         // assert
         assertApproxEqAbs(mockUSDC.balanceOf(user), 2 * USDC_10K, 3);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 4 weeks + 1);
 
         // act
+        emit log_named_uint("[claim/partial] claiming until", 4 weeks + 1);
         revenueReward.getRewardUntilTs(tokenId, tokens, 4 weeks + 1);
         // assert
         assertApproxEqAbs(mockUSDC.balanceOf(user), 2 * USDC_10K, 3);
@@ -187,6 +204,8 @@ contract RevenueRewardsTest is BaseTest {
         // arrange
         uint256 user1TokenId = _createLock(user1, TOKEN_1 * 2, MAXTIME);
         uint256 user2TokenId = _createLock(user2, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim/multi-user] user1 tokenId", user1TokenId);
+        emit log_named_uint("[claim/multi-user] user2 tokenId", user2TokenId);
 
         _addReward(admin, mockUSDC, USDC_10K);
 
@@ -211,6 +230,8 @@ contract RevenueRewardsTest is BaseTest {
         uint256 user1Reward = mockUSDC.balanceOf(user1) - user1BalanceBefore;
         uint256 user2Reward = mockUSDC.balanceOf(user2) - user2BalanceBefore;
 
+        emit log_named_uint("[claim/multi-user] user1 USDC claimed", user1Reward);
+        emit log_named_uint("[claim/multi-user] user2 USDC claimed", user2Reward);
         // Alice should receive approximately twice as much reward as Bob (within small margin for rounding)
         assertApproxEqRel(user1Reward, user2Reward * 2, 1, "Rewards not proportional to veNFT balances");
 
@@ -221,6 +242,7 @@ contract RevenueRewardsTest is BaseTest {
     function testSingleUserForMultipleUnclaimedPastEpochs() public {
         // epoch 1
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim/unclaimed] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipToNextEpoch(1);
@@ -240,6 +262,7 @@ contract RevenueRewardsTest is BaseTest {
         uint256 lastEarnTimeAfter = revenueReward.lastEarnTime(address(mockUSDC), tokenId);
 
         uint256 rewardAmount = balanceAfter;
+        emit log_named_uint("[claim/unclaimed] cumulative USDC claimed", rewardAmount);
 
         assertApproxEqAbs(rewardAmount, 2 * USDC_10K, 3);
         assertEq(lastEarnTimeAfter, block.timestamp);
@@ -249,6 +272,8 @@ contract RevenueRewardsTest is BaseTest {
         // arrange
         uint256 user1TokenId = _createLock(user1, TOKEN_1 * 2, MAXTIME);
         uint256 user2TokenId = _createLock(user2, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim/unclaimed multi] user1 tokenId", user1TokenId);
+        emit log_named_uint("[claim/unclaimed multi] user2 tokenId", user2TokenId);
 
         _addReward(admin, mockUSDC, USDC_10K);
 
@@ -278,6 +303,8 @@ contract RevenueRewardsTest is BaseTest {
         uint256 user1Reward = mockUSDC.balanceOf(user1) - user1BalanceBefore;
         uint256 user2Reward = mockUSDC.balanceOf(user2) - user2BalanceBefore;
 
+        emit log_named_uint("[claim/unclaimed multi] user1 USDC claimed", user1Reward);
+        emit log_named_uint("[claim/unclaimed multi] user2 USDC claimed", user2Reward);
         // Alice should receive approximately twice as much reward as Bob (within small margin for rounding)
         // Use absolute tolerance instead of relative for better control
         assertApproxEqAbs(user1Reward, user2Reward * 2, 2);
@@ -288,6 +315,7 @@ contract RevenueRewardsTest is BaseTest {
 
     function testClaimingForSubsetOfTokens() public {
         uint256 tokenId = _createLock(user1, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim/subset] tokenId", tokenId);
 
         // Add rewards for both tokens
         _addReward(admin, mockDAI, TOKEN_10K);
@@ -309,6 +337,8 @@ contract RevenueRewardsTest is BaseTest {
         vm.stopPrank();
 
         // assert
+        emit log_named_uint("[claim/subset] USDC claimed", mockUSDC.balanceOf(user1));
+        emit log_named_uint("[claim/subset] DAI claimed", mockDAI.balanceOf(user1));
         assertEqApprThreeWei(mockUSDC.balanceOf(user1), USDC_10K);
         assertEqApprThreeWei(mockDAI.balanceOf(user1), daiBalanceBefore);
         assertGt(revenueReward.lastEarnTime(address(mockUSDC), tokenId), usdcLastEarnTimeBefore);
@@ -317,6 +347,7 @@ contract RevenueRewardsTest is BaseTest {
 
     function testAttemptingToClaimTwice() public {
         uint256 tokenId = _createLock(user1, TOKEN_1, MAXTIME);
+        emit log_named_uint("[claim/twice] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K);
 
         skipToNextEpoch(1);
@@ -329,6 +360,7 @@ contract RevenueRewardsTest is BaseTest {
 
         // Record state after first claim
         uint256 balanceAfterFirstClaim = mockUSDC.balanceOf(user1);
+        emit log_named_uint("[claim/twice] balance after first claim (USDC)", balanceAfterFirstClaim);
 
         // Second claim immediately after
         revenueReward.getReward(tokenId, tokens);
@@ -341,6 +373,8 @@ contract RevenueRewardsTest is BaseTest {
         // arrange
         uint256 userTokenId1 = _createLock(user, TOKEN_1K, MAXTIME);
         uint256 user2TokenId1 = _createLock(user2, TOKEN_100M, MAXTIME);
+        emit log_named_uint("[precision] user1 tokenId", userTokenId1);
+        emit log_named_uint("[precision] user2 tokenId", user2TokenId1);
 
         _addReward(admin, mockUSDC, USDC_1);
 
@@ -357,6 +391,8 @@ contract RevenueRewardsTest is BaseTest {
 
         // assert
 
+        emit log_named_uint("[precision] user1 USDC claimed", mockUSDC.balanceOf(user));
+        emit log_named_uint("[precision] user2 USDC claimed", mockUSDC.balanceOf(user2));
         assertEq(mockUSDC.balanceOf(user), 9);
         assertEq(mockUSDC.balanceOf(user2), 999990);
     }
@@ -368,14 +404,17 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(block.timestamp, 1 weeks + 1);
 
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        emit log_named_uint("[auto-claim/earlyWithdraw] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         goToEpoch(2);
 
         // act
+        emit log("[auto-claim/earlyWithdraw] earlyWithdraw called");
         dustLock.earlyWithdraw(tokenId);
 
         // assert
+        emit log_named_uint("[auto-claim/earlyWithdraw] USDC received", mockUSDC.balanceOf(user));
         assertEqApprThreeWei(mockUSDC.balanceOf(user), USDC_10K);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
     }
@@ -385,14 +424,17 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(block.timestamp, 1 weeks + 1);
 
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        emit log_named_uint("[auto-claim/withdraw] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         skipAndRoll(MAXTIME);
 
         // act
+        emit log("[auto-claim/withdraw] withdraw called");
         dustLock.withdraw(tokenId);
 
         // assert
+        emit log_named_uint("[auto-claim/withdraw] USDC received", mockUSDC.balanceOf(user));
         assertEqApprThreeWei(mockUSDC.balanceOf(user), USDC_10K);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
     }
@@ -402,11 +444,13 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(block.timestamp, 1 weeks + 1);
 
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        emit log_named_uint("[auto-claim/transfer] tokenId", tokenId);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
         goToEpoch(2);
 
         // act / assert
+        emit log("[auto-claim/transfer] transferFrom to user2");
         dustLock.transferFrom(user, user2, tokenId);
 
         address[] memory tokens = new address[](1);
@@ -415,6 +459,8 @@ contract RevenueRewardsTest is BaseTest {
         vm.prank(user2);
         revenueReward.getReward(tokenId, tokens);
 
+        emit log_named_uint("[auto-claim/transfer] user USDC", mockUSDC.balanceOf(user));
+        emit log_named_uint("[auto-claim/transfer] user2 USDC", mockUSDC.balanceOf(user2));
         assertEqApprThreeWei(mockUSDC.balanceOf(user), USDC_10K);
         assertEqApprThreeWei(mockUSDC.balanceOf(user2), 0);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
@@ -428,6 +474,8 @@ contract RevenueRewardsTest is BaseTest {
         revenueReward.getReward(tokenId, tokens);
 
         // assert
+        emit log_named_uint("[auto-claim/transfer] user USDC", mockUSDC.balanceOf(user));
+        emit log_named_uint("[auto-claim/transfer] user2 USDC", mockUSDC.balanceOf(user2));
         assertEqApprThreeWei(mockUSDC.balanceOf(user), USDC_10K);
         assertEqApprThreeWei(mockUSDC.balanceOf(user2), 2 * USDC_10K);
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
@@ -442,7 +490,7 @@ contract RevenueRewardsTest is BaseTest {
         _addReward(admin, mockUSDC, USDC_10K);
         uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
 
-        skipNumberOfEpochs(1); // week 101
+        skipNumberOfEpochs(1); // week 301
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
@@ -450,9 +498,8 @@ contract RevenueRewardsTest is BaseTest {
         uint256 gasStart = gasleft();
         revenueReward.getReward(tokenId2, tokens);
         uint256 gasUsed = gasStart - gasleft();
-
-        // console2.log("revenueReward.getReward gas:", gasUsed);
-        assertLt(gasUsed, 100_000); // About 75K
+        emit log_named_uint("[gas] getReward (initial)", gasUsed);
+        assertLt(gasUsed, 100_000); // About 80K
     }
 
     function testGetRewardGasCostsForLongUnclaimedDuration() public {
@@ -479,12 +526,12 @@ contract RevenueRewardsTest is BaseTest {
 
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
 
-        // console2.log("revenueReward.getReward gas:", gasUsed);
+        emit log_named_uint("[gas] getReward (300 epochs)", gasUsed);
         assertLt(gasUsed, 6_000_000); // about 5M
     }
 
     function testGetRewardUntilTsGasCostsForLongUnclaimedDuration() public {
-        ///*** getting 300 epochs (epoch300 - epoch 600) unclaimed rewards in multiple txs  ***//
+        ///*** getting 300 epochs (epoch300 - epoch 600) unclaimed rewards in multiple txs ***//
         goToEpoch(300);
 
         uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
@@ -511,8 +558,10 @@ contract RevenueRewardsTest is BaseTest {
         }
 
         for (uint256 i = 0; i < 10; i++) {
-            // console2.log("revenueReward.getRewardUntilTs gas:", gasPerGetRewardUntilTs[i]);
-            assertLt(gasPerGetRewardUntilTs[i], 550_000); // about 470K - 530K
+            emit log_named_uint(
+                string(abi.encodePacked("[gas] getRewardUntilTs[", vm.toString(i), "]")), gasPerGetRewardUntilTs[i]
+            );
+            assertLt(gasPerGetRewardUntilTs[i], 550_000); // about 450K - 500K
         }
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
     }
@@ -526,6 +575,7 @@ contract RevenueRewardsTest is BaseTest {
 
         // act/assert
         vm.startPrank(user2);
+        emit log("[self-repay] Expect revert: enable by non-owner");
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
         revenueReward.enableSelfRepayLoan(tokenId, user2);
         vm.stopPrank();
@@ -540,6 +590,7 @@ contract RevenueRewardsTest is BaseTest {
 
         // act/assert
         vm.startPrank(user2);
+        emit log("[self-repay] Expect revert: disable by non-owner");
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
         revenueReward.disableSelfRepayLoan(tokenId);
         vm.stopPrank();
@@ -557,6 +608,8 @@ contract RevenueRewardsTest is BaseTest {
         // act
         vm.expectEmit(true, true, true, false, address(revenueReward));
         emit SelfRepayingLoanUpdate(tokenId, user2, true);
+        emit log_named_uint("[self-repay] tokenId", tokenId);
+        emit log_named_address("[self-repay] receiver", user2);
         revenueReward.enableSelfRepayLoan(tokenId, user2);
 
         address[] memory tokens = new address[](1);
@@ -568,6 +621,7 @@ contract RevenueRewardsTest is BaseTest {
 
         uint256 balanceAfter = mockUSDC.balanceOf(user2);
         uint256 rewardAmount = balanceAfter;
+        emit log_named_uint("[self-repay] USDC redirected", rewardAmount);
 
         assertEqApprThreeWei(rewardAmount, USDC_10K);
     }
@@ -579,6 +633,7 @@ contract RevenueRewardsTest is BaseTest {
 
         skipToNextEpoch(1);
 
+        emit log_named_uint("[self-repay/disable] tokenId", tokenId);
         revenueReward.enableSelfRepayLoan(tokenId, user2);
 
         address[] memory tokens = new address[](1);
@@ -595,10 +650,12 @@ contract RevenueRewardsTest is BaseTest {
 
         vm.expectEmit(true, true, true, false, address(revenueReward));
         emit SelfRepayingLoanUpdate(tokenId, ZERO_ADDRESS, false);
+        emit log("[self-repay/disable] disabling self-repay");
         revenueReward.disableSelfRepayLoan(tokenId);
 
         revenueReward.getReward(tokenId, tokens);
 
+        emit log_named_uint("[self-repay/disable] USDC to owner", mockUSDC.balanceOf(user));
         assertEqApprThreeWei(mockUSDC.balanceOf(user), USDC_10K);
     }
 
@@ -621,8 +678,11 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(mockDAI.balanceOf(admin), 0);
 
         vm.prank(admin);
+        emit log("[revenue/recover] recovering stray tokens");
         revenueReward.recoverTokens();
 
+        emit log_named_uint("[revenue/recover] USDC recovered", mockUSDC.balanceOf(admin));
+        emit log_named_uint("[revenue/recover] DAI recovered", mockDAI.balanceOf(admin));
         assertEq(mockUSDC.balanceOf(admin), 4 * USDC_10K);
         assertEq(mockDAI.balanceOf(admin), 2 * TOKEN_10K);
     }
@@ -633,6 +693,7 @@ contract RevenueRewardsTest is BaseTest {
         mockDAI.transfer(address(revenueReward), 2 * TOKEN_10K);
 
         vm.prank(user);
+        emit log("[revenue/recover] Expect revert: recover by non-distributor");
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotRewardDistributor.selector));
         revenueReward.recoverTokens();
     }

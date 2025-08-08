@@ -3,8 +3,6 @@ pragma solidity ^0.8.19;
 
 import "../src/_shared/CommonErrors.sol";
 import "./BaseTest.sol";
-import "forge-std/console2.sol";
-import {console2} from "forge-std/console2.sol";
 import {IDustLock} from "../src/interfaces/IDustLock.sol";
 import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
@@ -33,9 +31,11 @@ contract DustLockTests is BaseTest {
     function testTransferOfNft() public {
         DUST.approve(address(dustLock), TOKEN_1);
         uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        emit log_named_uint("[dustLock] created tokenId", tokenId);
         skipAndRoll(1);
 
         dustLock.transferFrom(address(user), address(user2), tokenId);
+        emit log("[dustLock] transferFrom user -> user2");
 
         assertEq(dustLock.balanceOf(address(user)), 0);
         assertEq(dustLock.ownerOf(tokenId), address(user2));
@@ -51,6 +51,7 @@ contract DustLockTests is BaseTest {
         uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
 
         // act / assert
+        emit log("[dustLock] Expect revert: transfer to zero address");
         vm.expectRevert(abi.encodeWithSelector(AddressZero.selector));
         dustLock.transferFrom(user, address(0), tokenId);
     }
@@ -58,6 +59,7 @@ contract DustLockTests is BaseTest {
     function testTokenUri() public {
         DUST.approve(address(dustLock), TOKEN_1);
         uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        emit log_named_uint("[dustLock] created tokenId", tokenId);
 
         assertEq(dustLock.tokenURI(tokenId), "https://neverland.money/nfts/1");
     }
@@ -69,11 +71,13 @@ contract DustLockTests is BaseTest {
         string memory newBaseURI = "https://google.com/search?q=";
 
         vm.startPrank(admin);
+        emit log("[dustLock] Expect revert: setBaseURI by non-team");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.setBaseURI(newBaseURI);
         vm.stopPrank();
 
         dustLock.setBaseURI(newBaseURI);
+        emit log_string("[dustLock] baseURI updated");
 
         assertEq(dustLock.tokenURI(tokenId), "https://google.com/search?q=1");
     }
@@ -90,6 +94,7 @@ contract DustLockTests is BaseTest {
         DUST.approve(address(dustLock), TOKEN_1);
         uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
         dustLock.lockPermanent(tokenId);
+        emit log_named_uint("[dustLock] locked permanent tokenId", tokenId);
         vm.warp(timestamp);
 
         assertEq(dustLock.balanceOfNFT(tokenId), TOKEN_1);
@@ -102,6 +107,7 @@ contract DustLockTests is BaseTest {
         DUST.approve(address(dustLock), TOKEN_1);
         uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
         dustLock.lockPermanent(tokenId);
+        emit log_named_uint("[dustLock] locked permanent tokenId", tokenId);
         vm.warp(timestamp);
 
         assertEq(dustLock.balanceOfNFTAt(tokenId, timestamp), TOKEN_1);
@@ -118,6 +124,7 @@ contract DustLockTests is BaseTest {
         assertEq(block.timestamp, 2 weeks);
         uint256 lockTime = MAXTIME / 2;
         uint256 tokenId = dustLock.createLock(TOKEN_1, lockTime);
+        emit log_named_uint("[dustLock] created tokenId", tokenId);
 
         assertApproxEqAbs(
             dustLock.balanceOfNFTAt(tokenId, block.timestamp),
@@ -149,6 +156,8 @@ contract DustLockTests is BaseTest {
 
         tokens[0] = dustLock.createLock(TOKEN_1, MAXTIME / 3);
         tokens[1] = dustLock.createLock(TOKEN_1, MAXTIME / 2);
+        emit log_named_uint("[dustLock] created tokenId#0", tokens[0]);
+        emit log_named_uint("[dustLock] created tokenId#1", tokens[1]);
 
         uint256 balanceOfAllNftAt0 = _getBalanceOfAllNftsAt(tokens, timestamp0);
         uint256 totalSupplyAt0 = dustLock.totalSupply();
@@ -159,6 +168,8 @@ contract DustLockTests is BaseTest {
 
         tokens[2] = dustLock.createLock(TOKEN_1, MAXTIME / 8);
         tokens[3] = dustLock.createLock(TOKEN_1, MAXTIME);
+        emit log_named_uint("[dustLock] created tokenId#2", tokens[2]);
+        emit log_named_uint("[dustLock] created tokenId#3", tokens[3]);
 
         uint256 balanceOfAllNftAt2 = _getBalanceOfAllNftsAt(tokens, timestamp2);
         uint256 totalSupplyAt2 = dustLock.totalSupply();
@@ -168,6 +179,7 @@ contract DustLockTests is BaseTest {
         uint256 timestamp7 = block.timestamp;
 
         tokens[4] = dustLock.createLock(TOKEN_1, MAXTIME / 4);
+        emit log_named_uint("[dustLock] created tokenId#4", tokens[4]);
 
         uint256 balanceOfAllNftAt7 = _getBalanceOfAllNftsAt(tokens, timestamp7);
         uint256 totalSupplyAt7 = dustLock.totalSupply();
@@ -205,9 +217,11 @@ contract DustLockTests is BaseTest {
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 5 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 5 weeks);
 
+        emit log("[dustLock] Expect revert: min lock time");
         vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLock(TOKEN_1, MINTIME);
 
+        emit log("[dustLock] Expect revert: createLockFor min lock time");
         vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLockFor(TOKEN_1, MINTIME, user2);
     }
@@ -226,9 +240,11 @@ contract DustLockTests is BaseTest {
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 5 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 5 weeks);
 
+        emit log("[dustLock] Expect revert: min lock time");
         vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLock(TOKEN_1, MINTIME);
 
+        emit log("[dustLock] Expect revert: createLockFor min lock time");
         vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLockFor(TOKEN_1, MINTIME, user2);
     }
@@ -247,9 +263,11 @@ contract DustLockTests is BaseTest {
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 4 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 4 weeks);
 
+        emit log("[dustLock] Expect revert: lock duration too short by 1");
         vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLock(TOKEN_1, MINTIME - 1);
 
+        emit log("[dustLock] Expect revert: createLockFor duration too short by 1");
         vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         dustLock.createLockFor(TOKEN_1, MINTIME - 1, user2);
     }
@@ -265,9 +283,11 @@ contract DustLockTests is BaseTest {
         assertEq(lockedTokenId1.end, startOfCurrentWeek + 52 weeks);
         assertEq(lockedTokenId2.end, startOfCurrentWeek + 52 weeks);
 
+        emit log("[dustLock] Expect revert: duration too long");
         vm.expectRevert(IDustLock.LockDurationTooLong.selector);
         dustLock.createLock(TOKEN_1, MAXTIME + WEEK);
 
+        emit log("[dustLock] Expect revert: createLockFor duration too long");
         vm.expectRevert(IDustLock.LockDurationTooLong.selector);
         dustLock.createLockFor(TOKEN_1, MAXTIME + WEEK, user2);
     }
@@ -280,13 +300,16 @@ contract DustLockTests is BaseTest {
         // create lock
         dustLock.setMinLockAmount(2 * TOKEN_1);
 
+        emit log("[dustLock] Expect revert: createLock amount too small");
         vm.expectRevert(IDustLock.AmountTooSmall.selector);
         dustLock.createLock(2 * TOKEN_1 - 1, MAXTIME);
 
         // increase amount
         DUST.approve(address(dustLock), 2 * TOKEN_1);
         uint256 tokenId = dustLock.createLock(2 * TOKEN_1, MAXTIME);
+        emit log_named_uint("[dustLock] created tokenId", tokenId);
 
+        emit log("[dustLock] Expect revert: increaseAmount amount too small");
         vm.expectRevert(IDustLock.AmountTooSmall.selector);
         dustLock.increaseAmount(tokenId, 2 * TOKEN_1 - 1);
 
@@ -296,6 +319,7 @@ contract DustLockTests is BaseTest {
         // split
         dustLock.toggleSplit(user, true);
 
+        emit log("[dustLock] Expect revert: split amount too small");
         vm.expectRevert(IDustLock.AmountTooSmall.selector);
         dustLock.split(tokenId, 2 * TOKEN_1 - 1);
 
@@ -310,8 +334,10 @@ contract DustLockTests is BaseTest {
 
         skipAndRoll(lockDuration);
         dustLock.withdraw(1);
+        emit log("[dustLock] withdraw called");
 
         uint256 postBalance = DUST.balanceOf(address(user));
+        emit log_named_uint("[dustLock] received DUST", postBalance - preBalance);
         assertEq(postBalance - preBalance, TOKEN_1);
         vm.expectRevert(InvalidTokenId.selector);
         dustLock.ownerOf(1);
@@ -339,6 +365,7 @@ contract DustLockTests is BaseTest {
         // act
         vm.prank(user2);
         dustLock.earlyWithdraw(tokenId);
+        emit log("[dustLock] earlyWithdraw called");
 
         // assert
         assertEq(dustLock.balanceOfNFT(tokenId), 0);
@@ -378,9 +405,11 @@ contract DustLockTests is BaseTest {
         // act
         vm.prank(user2);
         dustLock.transferFrom(user2, user4, tokenId);
+        emit log("[dustLock] transferFrom user2 -> user4 before earlyWithdraw");
 
         vm.prank(user4);
         dustLock.earlyWithdraw(tokenId);
+        emit log("[dustLock] earlyWithdraw by user4");
 
         // assert
         assertEq(dustLock.balanceOfNFT(tokenId), 0);
@@ -448,8 +477,10 @@ contract DustLockTests is BaseTest {
         DUST.approve(address(dustLock), TOKEN_1 * 2);
 
         uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        emit log_named_uint("[dustLock] created tokenId", tokenId);
 
         dustLock.lockPermanent(tokenId);
+        emit log("[dustLock] token locked permanent");
 
         IDustLock.LockedBalance memory lockedTokenId;
         lockedTokenId = dustLock.locked(tokenId);
@@ -461,6 +492,7 @@ contract DustLockTests is BaseTest {
         dustLock.toggleSplit(user, true);
 
         // act
+        emit log("[dustLock] Expect revert: split permanent lock");
         vm.expectRevert(IDustLock.PermanentLock.selector);
         dustLock.split(tokenId, TOKEN_1 / 2);
 
@@ -507,15 +539,18 @@ contract DustLockTests is BaseTest {
 
         // Test 1: Only current team can propose
         vm.startPrank(malicious);
+        emit log("[team] Expect revert: propose by non-team");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.proposeTeam(newTeam);
         vm.stopPrank();
 
         // Test 2: Cannot propose zero address
+        emit log("[team] Expect revert: propose zero address");
         vm.expectRevert(AddressZero.selector);
         dustLock.proposeTeam(address(0));
 
         // Test 3: Cannot propose same address
+        emit log("[team] Expect revert: propose same address");
         vm.expectRevert(SameAddress.selector);
         dustLock.proposeTeam(user);
 
@@ -523,21 +558,25 @@ contract DustLockTests is BaseTest {
         dustLock.proposeTeam(newTeam);
 
         // Test 5: Only pending team can accept
+        emit log("[team] Expect revert: accept by non-pending team");
         vm.expectRevert(IDustLock.NotPendingTeam.selector);
         dustLock.acceptTeam();
 
         vm.startPrank(malicious);
+        emit log("[team] Expect revert: accept by malicious");
         vm.expectRevert(IDustLock.NotPendingTeam.selector);
         dustLock.acceptTeam();
         vm.stopPrank();
 
         // Test 6: Only current team can cancel
         vm.startPrank(malicious);
+        emit log("[team] Expect revert: cancel by non-team");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.cancelTeamProposal();
         vm.stopPrank();
 
         vm.startPrank(newTeam);
+        emit log("[team] Expect revert: cancel by pending team");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.cancelTeamProposal();
         vm.stopPrank();
@@ -547,6 +586,7 @@ contract DustLockTests is BaseTest {
         address newTeam = address(0x999);
 
         // Test cancelling when no pending team
+        emit log("[team] Expect revert: cancel without pending team");
         vm.expectRevert(IDustLock.NoPendingTeam.selector);
         dustLock.cancelTeamProposal();
 
@@ -562,6 +602,7 @@ contract DustLockTests is BaseTest {
 
         // Pending team can no longer accept
         vm.startPrank(newTeam);
+        emit log("[team] Expect revert: pending team accept after cancel");
         vm.expectRevert(IDustLock.NotPendingTeam.selector);
         dustLock.acceptTeam();
         vm.stopPrank();
@@ -582,6 +623,7 @@ contract DustLockTests is BaseTest {
         vm.stopPrank();
 
         // Old team cannot use admin functions
+        emit log("[team] Expect revert: old team cannot set min lock amount");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.setMinLockAmount(TOKEN_1);
     }
@@ -602,6 +644,7 @@ contract DustLockTests is BaseTest {
 
         // Wrong team cannot accept (even though they were proposed before)
         vm.startPrank(wrongTeam);
+        emit log("[team] Expect revert: wrong team accept");
         vm.expectRevert(IDustLock.NotPendingTeam.selector);
         dustLock.acceptTeam();
         vm.stopPrank();
@@ -626,12 +669,14 @@ contract DustLockTests is BaseTest {
 
         // Attacker tries to front-run the acceptance by proposing themselves
         vm.startPrank(attacker);
+        emit log("[team] Expect revert: attacker propose");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.proposeTeam(attacker);
         vm.stopPrank();
 
         // Attacker tries to accept before legitimate team
         vm.startPrank(attacker);
+        emit log("[team] Expect revert: attacker accept");
         vm.expectRevert(IDustLock.NotPendingTeam.selector);
         dustLock.acceptTeam();
         vm.stopPrank();
@@ -700,15 +745,18 @@ contract DustLockTests is BaseTest {
         vm.stopPrank();
 
         // Old team cannot propose new teams
+        emit log("[team] Expect revert: old team propose");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.proposeTeam(attacker);
 
         // Old team cannot cancel (not team anymore)
+        emit log("[team] Expect revert: old team cancel");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.cancelTeamProposal();
 
         // Attacker cannot propose
         vm.startPrank(attacker);
+        emit log("[team] Expect revert: attacker propose");
         vm.expectRevert(IDustLock.NotTeam.selector);
         dustLock.proposeTeam(attacker);
         vm.stopPrank();
@@ -724,6 +772,7 @@ contract DustLockTests is BaseTest {
 
     function testTeamOwnershipSelfProposalAttack() public {
         // Team tries to propose themselves (should fail)
+        emit log("[team] Expect revert: propose self");
         vm.expectRevert(SameAddress.selector);
         dustLock.proposeTeam(user);
 
@@ -734,6 +783,7 @@ contract DustLockTests is BaseTest {
 
     function testTeamOwnershipZeroAddressAttacks() public {
         // Try to propose zero address
+        emit log("[team] Expect revert: propose zero address");
         vm.expectRevert(AddressZero.selector);
         dustLock.proposeTeam(address(0));
 
@@ -770,11 +820,13 @@ contract DustLockTests is BaseTest {
 
         // Only team3 can accept
         vm.startPrank(team1);
+        emit log("[team] Expect revert: team1 accept");
         vm.expectRevert(IDustLock.NotPendingTeam.selector);
         dustLock.acceptTeam();
         vm.stopPrank();
 
         vm.startPrank(team2);
+        emit log("[team] Expect revert: team2 accept");
         vm.expectRevert(IDustLock.NotPendingTeam.selector);
         dustLock.acceptTeam();
         vm.stopPrank();
@@ -1000,6 +1052,7 @@ contract DustLockTests is BaseTest {
 
         // Cause a revert in acceptance (by calling from wrong address)
         vm.startPrank(address(0x666));
+        emit log("[team] Expect revert: wrong address accept");
         vm.expectRevert(IDustLock.NotPendingTeam.selector);
         dustLock.acceptTeam();
         vm.stopPrank();

@@ -62,6 +62,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
     function testPerformTransferWithNotIncentivesControllerAsCaller() public {
         vm.prank(user);
+        emit log("[transferStrategy] Expect revert: caller not incentivesController");
         vm.expectRevert(IDustTransferStrategy.CallerNotIncentivesController.selector);
         transferStrategy.performTransfer(
             address(0), // to
@@ -74,6 +75,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
     function testPerformTransferWithAddressZero() public {
         vm.prank(incentivesController);
+        emit log("[transferStrategy] Expect revert: recipient address zero");
         vm.expectRevert(AddressZero.selector);
         transferStrategy.performTransfer(
             address(0), // to
@@ -96,11 +98,13 @@ contract DustLockTransferStrategyTest is BaseTest {
             0 // tokenId
         );
 
+        emit log_named_uint("[transferStrategy] Vault balance unchanged", DUST.balanceOf(dustVault));
         assertEq(DUST.balanceOf(dustVault), balanceBefore);
     }
 
     function testPerformTransferWithDifferentDustAddress() public {
         vm.prank(incentivesController);
+        emit log("[transferStrategy] Expect revert: invalid reward address (zero)");
         vm.expectRevert(IDustLockTransferStrategy.InvalidRewardAddress.selector);
         transferStrategy.performTransfer(
             user, // to
@@ -111,6 +115,7 @@ contract DustLockTransferStrategyTest is BaseTest {
         );
 
         vm.prank(incentivesController);
+        emit log("[transferStrategy] Expect revert: invalid reward address (random)");
         vm.expectRevert(IDustLockTransferStrategy.InvalidRewardAddress.selector);
         transferStrategy.performTransfer(
             user, // to
@@ -135,6 +140,9 @@ contract DustLockTransferStrategyTest is BaseTest {
             0 // tokenId
         );
 
+        emit log_named_uint("[transferStrategy] user2 received", DUST.balanceOf(user2) - userDustBefore);
+        emit log_named_uint("[transferStrategy] admin received", DUST.balanceOf(user) - adminDustBefore);
+        emit log_named_uint("[transferStrategy] vault spent", vaultDustBefore - DUST.balanceOf(dustVault));
         assertEq(DUST.balanceOf(user2), userDustBefore + (TOKEN_1 / 2));
         assertEq(DUST.balanceOf(dustVault), vaultDustBefore - TOKEN_1);
         assertEq(DUST.balanceOf(user), adminDustBefore + (TOKEN_1 / 2));
@@ -142,6 +150,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
     function testPerformTransferWithLessThanMinLockTime() public {
         vm.prank(incentivesController);
+        emit log("[transferStrategy] Expect revert: lock time too short");
         vm.expectRevert(IDustLock.LockDurationTooShort.selector);
         transferStrategy.performTransfer(
             user2, // to
@@ -164,9 +173,11 @@ contract DustLockTransferStrategyTest is BaseTest {
             0 // tokenId
         );
 
+        emit log_named_uint("[transferStrategy] created tokenId", dustLock.tokenId());
         assertEq(DUST.balanceOf(dustVault), vaultDustBefore - TOKEN_1);
         assertEq(dustLock.ownerOf(dustLock.tokenId()), user2);
         IDustLock.LockedBalance memory lockedBalance = dustLock.locked(dustLock.tokenId());
+        emit log_named_uint("[transferStrategy] lock end", lockedBalance.end);
         assertEq(lockedBalance.amount, 1e18);
         // We subtract 1 because of the previous transaction that moved the block.timestamp
         assertEq(lockedBalance.end, block.timestamp - 1 + MINTIME + WEEK);
@@ -185,9 +196,11 @@ contract DustLockTransferStrategyTest is BaseTest {
             0 // tokenId
         );
 
+        emit log_named_uint("[transferStrategy] created tokenId", dustLock.tokenId());
         assertEq(DUST.balanceOf(dustVault), vaultDustBefore - TOKEN_1);
         assertEq(dustLock.ownerOf(dustLock.tokenId()), user2);
         IDustLock.LockedBalance memory lockedBalance = dustLock.locked(dustLock.tokenId());
+        emit log_named_uint("[transferStrategy] lock end", lockedBalance.end);
         assertEq(lockedBalance.amount, 1e18);
         assertApproxEqAbs(lockedBalance.end, block.timestamp + MAXTIME, WEEK);
         assertEq(lockedBalance.isPermanent, false);
@@ -206,8 +219,10 @@ contract DustLockTransferStrategyTest is BaseTest {
         );
 
         uint256 createLockTokenId = dustLock.tokenId();
+        emit log_named_uint("[transferStrategy] created tokenId", createLockTokenId);
         assertEq(dustLock.ownerOf(createLockTokenId), user2);
         IDustLock.LockedBalance memory lockedBalanceFirst = dustLock.locked(createLockTokenId);
+        emit log_named_uint("[transferStrategy] initial locked amount", uint256(lockedBalanceFirst.amount));
         assertEq(lockedBalanceFirst.amount, 1e18);
         assertApproxEqAbs(lockedBalanceFirst.end, block.timestamp + MAXTIME, WEEK);
         assertEq(lockedBalanceFirst.isPermanent, false);
@@ -223,6 +238,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         assertEq(DUST.balanceOf(dustVault), vaultDustBefore - (2 * TOKEN_1));
         IDustLock.LockedBalance memory lockedBalanceSecond = dustLock.locked(createLockTokenId);
+        emit log_named_uint("[transferStrategy] merged locked amount", uint256(lockedBalanceSecond.amount));
         assertEq(lockedBalanceSecond.amount, 2e18);
         assertEq(lockedBalanceFirst.end, lockedBalanceSecond.end);
         assertEq(lockedBalanceSecond.isPermanent, false);
@@ -240,6 +256,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         uint256 createLockTokenId = dustLock.tokenId();
         vm.prank(incentivesController);
+        emit log("[transferStrategy] Expect revert: merging non-existing tokenId");
         vm.expectRevert(InvalidTokenId.selector);
         transferStrategy.performTransfer(
             user2, // to
@@ -261,6 +278,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         // SHould pass
         vm.prank(incentivesController);
+        emit log("[transferStrategy] depositFor to owner tokenId (should pass)");
         transferStrategy.performTransfer(
             dustVault, // to
             address(DUST), // reward
@@ -271,6 +289,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         // Should fail
         vm.prank(incentivesController);
+        emit log("[transferStrategy] Expect revert: depositFor to non-owner tokenId");
         vm.expectRevert(IDustLockTransferStrategy.NotTokenOwner.selector);
         transferStrategy.performTransfer(
             user2, // to
