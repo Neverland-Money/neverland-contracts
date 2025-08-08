@@ -42,6 +42,10 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
     constructor(address incentivesController, address rewardsAdmin, address dustVault, address dustLock)
         DustTransferStrategyBase(incentivesController, rewardsAdmin)
     {
+        if (incentivesController == address(0)) revert AddressZero();
+        if (rewardsAdmin == address(0)) revert AddressZero();
+        if (dustVault == address(0)) revert AddressZero();
+        if (dustLock == address(0)) revert AddressZero();
         DUST_VAULT = dustVault;
         DUST_LOCK = IDustLock(dustLock);
         DUST = DUST_LOCK.token();

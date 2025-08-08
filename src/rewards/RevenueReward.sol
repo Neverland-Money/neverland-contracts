@@ -8,7 +8,7 @@ import {IDustLock} from "../interfaces/IDustLock.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
-import {InvalidRange, ZeroAmount} from "../_shared/CommonErrors.sol";
+import {InvalidRange, ZeroAmount, AddressZero} from "../_shared/CommonErrors.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
@@ -27,6 +27,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
+        if (_forwarder == address(0)) revert AddressZero();
+        if (_dustLock == address(0)) revert AddressZero();
+        if (_rewardDistributor == address(0)) revert AddressZero();
         dustLock = IDustLock(_dustLock);
         rewardDistributor = _rewardDistributor;
     }
@@ -69,6 +72,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual nonReentrant {
         address sender = _msgSender();
         if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
+        if (rewardReceiver == address(0)) revert AddressZero();
 
         tokenRewardReceiver[tokenId] = rewardReceiver;
         usersWithSelfRepayingLoan.add(sender);
@@ -147,6 +151,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
      */
     function setRewardDistributor(address newRewardDistributor) external {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
+        if (newRewardDistributor == address(0)) revert AddressZero();
         rewardDistributor = newRewardDistributor;
     }
 

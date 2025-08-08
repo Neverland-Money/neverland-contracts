@@ -40,6 +40,9 @@ interface IDustRewardsController is IRewardsDistributor {
     /// @notice Error thrown when the strategy is not a contract
     error StrategyNotContract();
 
+    /// @notice Error thrown when a reward token address is invalid (zero)
+    error InvalidRewardAddress();
+
     /// Events
 
     /**

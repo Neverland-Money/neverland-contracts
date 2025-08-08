@@ -72,10 +72,10 @@ abstract contract BaseTest is Script, Test {
 
         // deploy DustLock
         string memory baseUrl = "https://neverland.money/nfts/";
-        dustLock = new DustLock(ZERO_ADDRESS, address(DUST), baseUrl);
+        dustLock = new DustLock(address(0xF0), address(DUST), baseUrl);
 
         // deploy RevenueReward
-        revenueReward = new RevenueReward(ZERO_ADDRESS, address(dustLock), admin);
+        revenueReward = new RevenueReward(address(0xF1), address(dustLock), admin);
 
         // set RevenueReward to DustLock
         dustLock.setRevenueReward(revenueReward);

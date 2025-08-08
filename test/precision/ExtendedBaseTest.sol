@@ -23,9 +23,9 @@ abstract contract ExtendedBaseTest is BaseTest {
 
         // Initialize RevenueReward instances for precision testing
         // Use user (address(this)) as rewardDistributor instead of admin (proxy admin)
-        testRevenueReward = new RevenueReward(ZERO_ADDRESS, address(dustLock), user);
-        testRevenueReward2 = new RevenueReward(ZERO_ADDRESS, address(dustLock), user);
-        testRevenueReward3 = new RevenueReward(ZERO_ADDRESS, address(dustLock), user);
+        testRevenueReward = new RevenueReward(address(0xF2), address(dustLock), user);
+        testRevenueReward2 = new RevenueReward(address(0xF3), address(dustLock), user);
+        testRevenueReward3 = new RevenueReward(address(0xF4), address(dustLock), user);
     }
 
     function _createRewardWithAmount(RevenueReward _revenueReward, address _token, uint256 _amount) internal {

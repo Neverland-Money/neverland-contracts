@@ -66,6 +66,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      * @param _token `DUST` token address
      */
     constructor(address _forwarder, address _token, string memory _baseURI) ERC2771Context(_forwarder) {
+        if (_forwarder == address(0)) revert AddressZero();
+        if (_token == address(0)) revert AddressZero();
         forwarder = _forwarder;
         token = _token;
         team = _msgSender();

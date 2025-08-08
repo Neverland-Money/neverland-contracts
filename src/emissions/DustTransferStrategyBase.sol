@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
+import {AddressZero} from "../_shared/CommonErrors.sol";
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 
@@ -19,6 +20,8 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
     address internal immutable REWARDS_ADMIN;
 
     constructor(address incentivesController, address rewardsAdmin) {
+        if (incentivesController == address(0)) revert AddressZero();
+        if (rewardsAdmin == address(0)) revert AddressZero();
         INCENTIVES_CONTROLLER = incentivesController;
         REWARDS_ADMIN = rewardsAdmin;
     }

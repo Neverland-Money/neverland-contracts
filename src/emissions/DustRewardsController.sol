@@ -335,6 +335,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
      * @param transferStrategy The address of the reward TransferStrategy
      */
     function _installTransferStrategy(address reward, IDustTransferStrategy transferStrategy) internal {
+        if (reward == address(0)) revert InvalidRewardAddress();
         if (address(transferStrategy) == address(0)) revert StrategyZeroAddress();
         if (_isContract(address(transferStrategy)) != true) revert StrategyNotContract();
 
