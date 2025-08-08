@@ -2,8 +2,9 @@
 pragma solidity 0.8.19;
 
 import {IRewardsDistributor} from "@aave-v3-periphery/contracts/rewards/interfaces/IRewardsDistributor.sol";
-import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
+
+import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 
 /**
  * @title IDustRewardsController

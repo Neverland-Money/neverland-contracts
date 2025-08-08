@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity 0.8.19;
 
-import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
-import {AddressZero} from "../_shared/CommonErrors.sol";
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
+
+import {AddressZero} from "../_shared/CommonErrors.sol";
+
+import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 
 /**
  * @title DustTransferStrategyBase

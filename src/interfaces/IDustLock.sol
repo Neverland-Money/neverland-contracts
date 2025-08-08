@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IRevenueReward} from "./IRevenueReward.sol";
-import {AddressZero, ZeroAmount, SameAddress, ZeroBalance, InvalidTokenId} from "../_shared/CommonErrors.sol";
 import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+
+import {AddressZero, ZeroAmount, SameAddress, ZeroBalance, InvalidTokenId} from "../_shared/CommonErrors.sol";
+
+import {IRevenueReward} from "./IRevenueReward.sol";
 
 /**
  * @title IDustLock Interface

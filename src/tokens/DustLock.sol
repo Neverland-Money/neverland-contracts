@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
+
 import {AddressZero, ZeroAmount, SameAddress, InvalidTokenId} from "../_shared/CommonErrors.sol";
+
+import {IDustLock} from "../interfaces/IDustLock.sol";
+import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
+
+import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
+import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 
 /**
  * @title DustLock

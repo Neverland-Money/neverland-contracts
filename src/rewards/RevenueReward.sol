@@ -3,15 +3,18 @@ pragma solidity 0.8.19;
 
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
-import {IDustLock} from "../interfaces/IDustLock.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
-import {InvalidRange, ZeroAmount, AddressZero} from "../_shared/CommonErrors.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
+
+import {InvalidRange, ZeroAmount, AddressZero} from "../_shared/CommonErrors.sol";
+
+import {IDustLock} from "../interfaces/IDustLock.sol";
+import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
+
+import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
 
 /**
  * @title RevenueReward

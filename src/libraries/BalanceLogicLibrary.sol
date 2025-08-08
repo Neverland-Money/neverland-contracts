@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IDustLock} from "../interfaces/IDustLock.sol";
 import {SafeCastLibrary} from "./SafeCastLibrary.sol";
+
+import {IDustLock} from "../interfaces/IDustLock.sol";
 
 library BalanceLogicLibrary {
     using SafeCastLibrary for uint256;

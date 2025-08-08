@@ -6,9 +6,10 @@ import {VersionedInitializable} from
 import {SafeCast} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeCast.sol";
 import {IScaledBalanceToken} from "@aave/core-v3/contracts/interfaces/IScaledBalanceToken.sol";
 import {RewardsDistributor} from "@aave-v3-periphery/contracts/rewards/RewardsDistributor.sol";
+import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
+
 import {IDustRewardsController} from "../interfaces/IDustRewardsController.sol";
 import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
-import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
 
 /**
  * @title DustRewardsController

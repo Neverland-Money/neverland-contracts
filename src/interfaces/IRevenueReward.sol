@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IDustLock} from "../interfaces/IDustLock.sol";
 import {ZeroAmount, InvalidRange} from "../_shared/CommonErrors.sol";
+
+import {IDustLock} from "../interfaces/IDustLock.sol";
 
 /**
  * @title IRevenueReward Interface

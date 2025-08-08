@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {DustTransferStrategyBase} from "./DustTransferStrategyBase.sol";
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
+
+import {AddressZero, InvalidTokenId} from "../_shared/CommonErrors.sol";
+
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IDustLockTransferStrategy, IDustTransferStrategy} from "../interfaces/IDustLockTransferStrategy.sol";
-import {AddressZero, InvalidTokenId} from "../_shared/CommonErrors.sol";
+
+import {DustTransferStrategyBase} from "./DustTransferStrategyBase.sol";
 
 /**
  * @title DustLockTransferStrategy
