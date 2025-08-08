@@ -125,7 +125,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     string public constant name = "veNFT";
     string public constant symbol = "veNFT";
     string public constant version = "2.0.0";
-    uint8 public constant decimals = 18;
 
     string internal baseURI;
 
