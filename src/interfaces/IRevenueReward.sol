@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
+import {ZeroAmount, InvalidRange} from "../_shared/CommonErrors.sol";
 
 /**
  * @title IRevenueReward Interface
@@ -10,9 +11,6 @@ import {IDustLock} from "../interfaces/IDustLock.sol";
  */
 interface IRevenueReward {
     /// Errors
-    
-    /// @notice Error thrown when attempting to notify or claim with a zero amount
-    error ZeroAmount();
 
     /// @notice Error thrown when a non-distributor address attempts to notify rewards
     error NotRewardDistributor();
@@ -25,9 +23,6 @@ interface IRevenueReward {
 
     /// @notice Error thrown when end timestamp when calculating rewards is more that current
     error EndTimestampMoreThanCurrent();
-
-    /// @notice Error thrown when an invalid range is provided
-    error InvalidRange();
 
     /// Events
 
@@ -63,6 +58,7 @@ interface IRevenueReward {
      */
     event SelfRepayingLoanUpdate(uint256 indexed token, address rewardReceiver, bool isEnabled);
 
+    /// Functions
     /// Functions
 
     /**

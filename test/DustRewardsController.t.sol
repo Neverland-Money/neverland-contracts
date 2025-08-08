@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {DustRewardsController} from "../src/emissions/DustRewardsController.sol";
+import {IDustRewardsController} from "../src/interfaces/IDustRewardsController.sol";
 import "./BaseTest.sol";
 
 contract DustRewardsControllerTest is BaseTest {
@@ -49,7 +50,7 @@ contract DustRewardsControllerTest is BaseTest {
         address claimer = rewardsController.getClaimer(user);
         assertEq(claimer, address(0), "Initial claimer should be zero address");
         vm.prank(user2);
-        vm.expectRevert("ONLY_EMISSION_MANAGER_OR_SELF");
+        vm.expectRevert(IDustRewardsController.OnlyEmissionManagerOrSelf.selector);
         rewardsController.setClaimer(
             user, // user
             address(0x123) // caller
@@ -69,7 +70,7 @@ contract DustRewardsControllerTest is BaseTest {
         address newClaimer = rewardsController.getClaimer(user);
         assertEq(newClaimer, address(0x123));
         vm.prank(user2);
-        vm.expectRevert("ONLY_EMISSION_MANAGER_OR_SELF");
+        vm.expectRevert(IDustRewardsController.OnlyEmissionManagerOrSelf.selector);
         rewardsController.setClaimer(
             user, // user
             address(0x123) // caller

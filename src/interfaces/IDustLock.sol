@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {IRevenueReward} from "./IRevenueReward.sol";
+import {AddressZero, ZeroAmount, SameAddress, ZeroBalance, InvalidTokenId} from "../_shared/CommonErrors.sol";
 import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
@@ -167,9 +168,6 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when trying to withdraw or modify a permanent lock
     error PermanentLock();
 
-    /// @notice Error thrown when source and destination addresses are the same
-    error SameAddress();
-
     /// @notice Error thrown when attempting to merge a veNFT with itself
     error SameNFT();
 
@@ -188,20 +186,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when too many token IDs are provided in a batch operation
     error TooManyTokenIDs();
 
-    /// @notice Error thrown when a zero address is provided where not allowed
-    error ZeroAddress();
-
-    /// @notice Error thrown when a zero amount is provided where not allowed
-    error ZeroAmount();
-
-    /// @notice Error thrown when an operation requires a non-zero balance
-    error ZeroBalance();
-
     /// @notice Error thrown when trying to add a token that already has an owner
     error AlreadyOwned();
-
-    /// @notice Error thrown when querying a non-existent token ID
-    error InvalidTokenId();
 
     /**
      * @notice Emitted when tokens are deposited into the veNFT system

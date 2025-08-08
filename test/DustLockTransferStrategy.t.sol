@@ -6,6 +6,9 @@ import {
     IDustLockTransferStrategy,
     IDustLock
 } from "../src/emissions/DustLockTransferStrategy.sol";
+import {IDustTransferStrategy} from "../src/interfaces/IDustTransferStrategy.sol";
+import {InvalidTokenId, AddressZero} from "../src/_shared/CommonErrors.sol";
+import {InvalidTokenId} from "../src/_shared/CommonErrors.sol";
 import "./BaseTest.sol";
 
 contract DustLockTransferStrategyTest is BaseTest {
@@ -59,7 +62,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
     function testPerformTransferWithNotIncentivesControllerAsCaller() public {
         vm.prank(user);
-        vm.expectRevert("CALLER_NOT_INCENTIVES_CONTROLLER");
+        vm.expectRevert(IDustTransferStrategy.CallerNotIncentivesController.selector);
         transferStrategy.performTransfer(
             address(0), // to
             address(DUST), // reward
@@ -71,7 +74,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
     function testPerformTransferWithAddressZero() public {
         vm.prank(incentivesController);
-        vm.expectRevert(IDustLockTransferStrategy.AddressZero.selector);
+        vm.expectRevert(AddressZero.selector);
         transferStrategy.performTransfer(
             address(0), // to
             address(DUST), // reward
@@ -237,7 +240,7 @@ contract DustLockTransferStrategyTest is BaseTest {
 
         uint256 createLockTokenId = dustLock.tokenId();
         vm.prank(incentivesController);
-        vm.expectRevert(IDustLockTransferStrategy.InvalidTokenId.selector);
+        vm.expectRevert(InvalidTokenId.selector);
         transferStrategy.performTransfer(
             user2, // to
             address(DUST), // reward

@@ -18,7 +18,7 @@ import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/R
  */
 interface IDustRewardsController is IRewardsDistributor {
     /// Errors
-    
+
     /// @notice Error thrown when a user is not authorized to claim rewards on behalf of another user
     error ClaimerUnauthorized();
 

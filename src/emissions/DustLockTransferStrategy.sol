@@ -6,6 +6,7 @@ import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contrac
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IDustLockTransferStrategy, IDustTransferStrategy} from "../interfaces/IDustLockTransferStrategy.sol";
+import {AddressZero, InvalidTokenId} from "../_shared/CommonErrors.sol";
 
 /**
  * @title DustLockTransferStrategy

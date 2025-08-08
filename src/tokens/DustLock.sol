@@ -13,7 +13,7 @@ import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
-import "../_shared/CommonErrors.sol";
+import {AddressZero, ZeroAmount, SameAddress, InvalidTokenId} from "../_shared/CommonErrors.sol";
 
 /**
  * @title DustLock
@@ -92,7 +92,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function proposeTeam(address _newTeam) external {
         if (_msgSender() != team) revert NotTeam();
-        if (_newTeam == address(0)) revert ZeroAddress();
+        if (_newTeam == address(0)) revert AddressZero();
         if (_newTeam == team) revert SameAddress();
         pendingTeam = _newTeam;
         emit TeamProposed(team, _newTeam);
@@ -207,7 +207,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         address sender = _msgSender();
         address owner = _ownerOf(_tokenId);
         // Throws if `_tokenId` is not a valid NFT
-        if (owner == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert AddressZero();
         // Throws if `_approved` is the current owner
         if (owner == _approved) revert SameAddress();
         // Check requirements

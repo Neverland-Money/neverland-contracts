@@ -458,11 +458,11 @@ contract DustLockTests is BaseTest {
         vm.stopPrank();
 
         // Test 2: Cannot propose zero address
-        vm.expectRevert(IDustLock.ZeroAddress.selector);
+        vm.expectRevert(AddressZero.selector);
         dustLock.proposeTeam(address(0));
 
         // Test 3: Cannot propose same address
-        vm.expectRevert(IDustLock.SameAddress.selector);
+        vm.expectRevert(SameAddress.selector);
         dustLock.proposeTeam(user);
 
         // Test 4: Valid proposal
@@ -670,7 +670,7 @@ contract DustLockTests is BaseTest {
 
     function testTeamOwnershipSelfProposalAttack() public {
         // Team tries to propose themselves (should fail)
-        vm.expectRevert(IDustLock.SameAddress.selector);
+        vm.expectRevert(SameAddress.selector);
         dustLock.proposeTeam(user);
 
         // State should remain unchanged
@@ -680,7 +680,7 @@ contract DustLockTests is BaseTest {
 
     function testTeamOwnershipZeroAddressAttacks() public {
         // Try to propose zero address
-        vm.expectRevert(IDustLock.ZeroAddress.selector);
+        vm.expectRevert(AddressZero.selector);
         dustLock.proposeTeam(address(0));
 
         // State should remain unchanged
@@ -881,7 +881,7 @@ contract DustLockTests is BaseTest {
         dustLock.acceptTeam();
 
         // New team tries to propose themselves (should fail)
-        vm.expectRevert(IDustLock.SameAddress.selector);
+        vm.expectRevert(SameAddress.selector);
         dustLock.proposeTeam(newTeam);
         vm.stopPrank();
     }
