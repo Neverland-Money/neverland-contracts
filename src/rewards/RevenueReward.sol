@@ -298,7 +298,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
             uint256 unnotifiedTokenAmount = balance - totalRewardsPerToken[token];
             if (unnotifiedTokenAmount > 0) {
                 IERC20(token).safeTransfer(rewardDistributor, unnotifiedTokenAmount);
-                emit RecoverTokens(token, balance);
+                emit RecoverTokens(token, unnotifiedTokenAmount);
             }
         }
     }
