@@ -133,15 +133,6 @@ interface IRevenueReward {
     function tokenRewardReceiver(uint256 tokenId) external view returns (address);
 
     /**
-     * @notice Tracks whether reward claim delegation is enabled for each veNFT token.
-     * @dev Mapping from veNFT token ID to a boolean indicating if claim delegation is allowed.
-     * @param tokenId The ID of the veNFT.
-     * @return True if claim rewards delegation is enabled for the specified token, false otherwise.
-     *
-     */
-    function isTokenClaimRewardsDelegationEnabled(uint256 tokenId) external returns (bool);
-
-    /**
      * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens
      * @dev Calculates earned rewards for each specified token and transfers them to the appropriate recipient
      *      If a reward receiver is configured via enableSelfRepayLoan, rewards go to that address

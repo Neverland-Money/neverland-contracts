@@ -51,8 +51,6 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => uint256) public totalRewardsPerToken;
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
-    /// @inheritdoc IRevenueReward
-    mapping(uint256 => bool) public isTokenClaimRewardsDelegationEnabled;
 
     /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
@@ -132,7 +130,6 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function _removeToken(uint256 _tokenId, address _tokenOwner) internal {
         tokenRewardReceiver[_tokenId] = address(0);
         userTokensWithSelfRepayingLoan[_tokenOwner].remove(_tokenId);
-        isTokenClaimRewardsDelegationEnabled[_tokenId] = false;
         if (userTokensWithSelfRepayingLoan[_tokenOwner].length() <= 0) {
             usersWithSelfRepayingLoan.remove(_tokenOwner);
         }
@@ -164,9 +161,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         nonReentrant
     {
         if (address(dustLock) != _msgSender()) {
-            if (!isTokenClaimRewardsDelegationEnabled[tokenId]) {
-                if (dustLock.ownerOf(tokenId) != _msgSender()) revert NotOwner();
-            }
+            if (dustLock.ownerOf(tokenId) != _msgSender()) revert NotOwner();
         }
 
         address rewardsReceiver = tokenRewardReceiver[tokenId];
