@@ -5,6 +5,21 @@ import "../src/_shared/CommonErrors.sol";
 import "./BaseTest.sol";
 import "forge-std/console2.sol";
 import {console2} from "forge-std/console2.sol";
+import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
+import {RevenueReward} from "../src/rewards/RevenueReward.sol";
+
+contract MaliciousRevenueReward is RevenueReward {
+    constructor(address _dustLock) RevenueReward(address(0xF1), _dustLock, msg.sender) {}
+
+    function _notifyBeforeTokenTransferred(uint256 tokenId, address from) public override {
+        dustLock.transferFrom(from, address(this), tokenId);
+    }
+
+    function _notifyBeforeTokenBurned(uint256 tokenId, address /* from */ ) public override {
+        dustLock.earlyWithdraw(tokenId);
+    }
+}
 
 contract DustLockTests is BaseTest {
     function _setUp() internal override {
@@ -385,6 +400,44 @@ contract DustLockTests is BaseTest {
             10 * 1e18, // up to 10 DUST diff allowed
             "wrong amount on treasury"
         );
+    }
+
+    function testReentrancyBlockedOnTransfer() public {
+        emit log("[transfer] Approving DUST and creating a lock");
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        emit log_named_uint("[transfer] Created tokenId", tokenId);
+
+        emit log("[transfer] Deploying malicious reward hook and setting it on DustLock");
+        MaliciousRevenueReward malicious = new MaliciousRevenueReward(address(dustLock));
+        dustLock.setRevenueReward(malicious);
+        emit log_named_address("[transfer] Malicious hook address", address(malicious));
+
+        emit log("[transfer] Approving malicious hook to operate on tokenId");
+        dustLock.approve(address(malicious), tokenId);
+
+        emit log("[transfer] Attempting reentrant transfer (should revert)");
+        vm.expectRevert("ReentrancyGuard: reentrant call");
+        dustLock.transferFrom(user, user2, tokenId);
+    }
+
+    function testReentrancyBlockedOnBurn() public {
+        emit log("[burn] Approving DUST and creating a lock");
+        DUST.approve(address(dustLock), TOKEN_1);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MAXTIME);
+        emit log_named_uint("[burn] Created tokenId", tokenId);
+
+        emit log("[burn] Deploying malicious reward hook and setting it on DustLock");
+        MaliciousRevenueReward malicious = new MaliciousRevenueReward(address(dustLock));
+        dustLock.setRevenueReward(malicious);
+        emit log_named_address("[burn] Malicious hook address", address(malicious));
+
+        emit log("[burn] Approving malicious hook to operate on tokenId");
+        dustLock.approve(address(malicious), tokenId);
+
+        emit log("[burn] Attempting reentrant earlyWithdraw (should revert)");
+        vm.expectRevert("ReentrancyGuard: reentrant call");
+        dustLock.earlyWithdraw(tokenId);
     }
 
     /* ========== TEST SPLIT ========== */

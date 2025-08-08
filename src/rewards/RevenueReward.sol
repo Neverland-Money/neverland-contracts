@@ -95,16 +95,30 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         emit SelfRepayingLoanUpdate(tokenId, address(0), false);
     }
 
-    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from) public {
+    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from) public virtual {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
-        getReward(_tokenId, rewardTokens);
+        _claimRewardsTo(_tokenId, _from);
         _removeToken(_tokenId, _from);
     }
 
-    function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) public {
+    function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) public virtual {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
-        getReward(_tokenId, rewardTokens);
+        _claimRewardsTo(_tokenId, _from);
         _removeToken(_tokenId, _from);
+    }
+
+    function _claimRewardsTo(uint256 tokenId, address receiver) internal {
+        address[] memory tokens = rewardTokens;
+        uint256 len = tokens.length;
+        for (uint256 i = 0; i < len; i++) {
+            address token = tokens[i];
+            uint256 reward = _earned(token, tokenId, block.timestamp);
+            if (reward > 0) {
+                lastEarnTime[token][tokenId] = block.timestamp;
+                IERC20(token).safeTransfer(receiver, reward);
+            }
+            emit ClaimRewards(receiver, token, reward);
+        }
     }
 
     /* === view functions === */
