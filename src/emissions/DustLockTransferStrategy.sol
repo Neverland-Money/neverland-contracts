@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
+import {SafeERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 
 import {AddressZero, InvalidTokenId} from "../_shared/CommonErrors.sol";
@@ -72,12 +73,14 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
             // Add DUST to an existing lock
             if (DUST_LOCK.ownerOf(tokenId) == address(0)) revert InvalidTokenId();
             if (DUST_LOCK.ownerOf(tokenId) != to) revert NotTokenOwner();
-            IERC20(reward).approve(address(DUST_LOCK), amount);
+            SafeERC20.safeIncreaseAllowance(IERC20(reward), address(DUST_LOCK), amount);
             DUST_LOCK.depositFor(tokenId, amount);
+            SafeERC20.safeApprove(IERC20(reward), address(DUST_LOCK), 0);
         } else if (lockTime > 0) {
             // Create a new lock
-            IERC20(reward).approve(address(DUST_LOCK), amount);
+            SafeERC20.safeIncreaseAllowance(IERC20(reward), address(DUST_LOCK), amount);
             DUST_LOCK.createLockFor(amount, lockTime, to);
+            SafeERC20.safeApprove(IERC20(reward), address(DUST_LOCK), 0);
         } else {
             // Early withdrawal w/ penalty
             uint256 treasuryValue = (amount * DUST_LOCK.earlyWithdrawPenalty()) / BASIS_POINTS;

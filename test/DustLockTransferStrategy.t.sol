@@ -280,4 +280,87 @@ contract DustLockTransferStrategyTest is BaseTest {
             tokenId // tokenId
         );
     }
+
+    function testPerformTransferRepeatedCreateLockResetsAllowance() public {
+        emit log("[createLock] First performTransfer call (create lock)");
+        vm.prank(incentivesController);
+        transferStrategy.performTransfer(
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            MAXTIME, // lockTime
+            0 // tokenId
+        );
+
+        emit log_named_uint(
+            "[createLock] Allowance after first call", DUST.allowance(address(transferStrategy), address(dustLock))
+        );
+        assertEq(DUST.allowance(address(transferStrategy), address(dustLock)), 0);
+
+        emit log("[createLock] Second performTransfer call (create lock again)");
+        vm.prank(incentivesController);
+        transferStrategy.performTransfer(
+            user3, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            MAXTIME, // lockTime
+            0 // tokenId
+        );
+
+        emit log_named_uint(
+            "[createLock] Allowance after second call", DUST.allowance(address(transferStrategy), address(dustLock))
+        );
+        assertEq(DUST.allowance(address(transferStrategy), address(dustLock)), 0);
+    }
+
+    function testPerformTransferRepeatedDepositForResetsAllowance() public {
+        emit log("[depositFor] Initial performTransfer call (create lock)");
+        vm.prank(incentivesController);
+        transferStrategy.performTransfer(
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            MAXTIME, // lockTime
+            0 // tokenId
+        );
+
+        uint256 tokenId = dustLock.tokenId();
+        emit log_named_uint("[depositFor] Created tokenId", tokenId);
+
+        emit log("[depositFor] First performTransfer call (depositFor)");
+        vm.prank(incentivesController);
+        transferStrategy.performTransfer(
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            tokenId // tokenId
+        );
+
+        emit log_named_uint(
+            "[depositFor] Allowance after first depositFor",
+            DUST.allowance(address(transferStrategy), address(dustLock))
+        );
+        assertEq(DUST.allowance(address(transferStrategy), address(dustLock)), 0);
+
+        emit log("[depositFor] Second performTransfer call (depositFor)");
+        vm.prank(incentivesController);
+        transferStrategy.performTransfer(
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            tokenId // tokenId
+        );
+
+        emit log_named_uint(
+            "[depositFor] Allowance after second depositFor",
+            DUST.allowance(address(transferStrategy), address(dustLock))
+        );
+        assertEq(DUST.allowance(address(transferStrategy), address(dustLock)), 0);
+
+        IDustLock.LockedBalance memory lockedBalance = dustLock.locked(tokenId);
+        emit log_named_uint("[depositFor] Final locked amount", uint256(lockedBalance.amount));
+        assertEq(lockedBalance.amount, 3e18);
+    }
 }
