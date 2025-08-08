@@ -175,7 +175,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 _length = tokens.length;
 
         for (uint256 i = 0; i < _length; i++) {
-            uint256 _reward = earned(tokens[i], tokenId, rewardPeriodEndTs);
+            uint256 _reward = _earned(tokens[i], tokenId, rewardPeriodEndTs);
 
             if (_reward > 0) {
                 lastEarnTime[tokens[i]][tokenId] = rewardPeriodEndTs;
@@ -222,7 +222,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
      * @param endTs Timestamp of the end duration that token id rewards are calculated
      * @return Total unclaimed rewards accrued since last claim
      */
-    function earned(address token, uint256 tokenId, uint256 endTs) internal view returns (uint256) {
+    function _earned(address token, uint256 tokenId, uint256 endTs) internal view returns (uint256) {
         if (endTs > block.timestamp) {
             revert EndTimestampMoreThanCurrent();
         }
