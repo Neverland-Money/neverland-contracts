@@ -2,13 +2,13 @@
 pragma solidity 0.8.19;
 
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
-import {SafeERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
-
-import {AddressZero} from "../_shared/CommonErrors.sol";
+import {SafeERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeERC20.sol";
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IDustLockTransferStrategy, IDustTransferStrategy} from "../interfaces/IDustLockTransferStrategy.sol";
+
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 import {DustTransferStrategyBase} from "./DustTransferStrategyBase.sol";
 
@@ -46,10 +46,10 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
     constructor(address incentivesController, address rewardsAdmin, address dustVault, address dustLock)
         DustTransferStrategyBase(incentivesController, rewardsAdmin)
     {
-        if (incentivesController == address(0)) revert AddressZero();
-        if (rewardsAdmin == address(0)) revert AddressZero();
-        if (dustVault == address(0)) revert AddressZero();
-        if (dustLock == address(0)) revert AddressZero();
+        CommonChecksLibrary.revertIfZeroAddress(incentivesController);
+        CommonChecksLibrary.revertIfZeroAddress(rewardsAdmin);
+        CommonChecksLibrary.revertIfZeroAddress(dustVault);
+        CommonChecksLibrary.revertIfZeroAddress(dustLock);
         DUST_VAULT = dustVault;
         DUST_LOCK = IDustLock(dustLock);
         DUST = DUST_LOCK.token();
@@ -64,7 +64,7 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
     {
         // Gracefully handle zero amount transfers
         if (amount == 0) return true;
-        if (to == address(0)) revert AddressZero();
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
         if (reward != DUST) revert InvalidRewardAddress();
         IERC20(reward).safeTransferFrom(DUST_VAULT, address(this), amount);
         // If tokenId is greater than 0, it means we are merging emissions with an existing lock

@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
+import {RewardsDistributor} from "@aave-v3-periphery/contracts/rewards/RewardsDistributor.sol";
+import {IScaledBalanceToken} from "@aave/core-v3/contracts/interfaces/IScaledBalanceToken.sol";
+import {SafeCast} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeCast.sol";
 import {VersionedInitializable} from
     "@aave/core-v3/contracts/protocol/libraries/aave-upgradeability/VersionedInitializable.sol";
-import {SafeCast} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeCast.sol";
-import {IScaledBalanceToken} from "@aave/core-v3/contracts/interfaces/IScaledBalanceToken.sol";
-import {RewardsDistributor} from "@aave-v3-periphery/contracts/rewards/RewardsDistributor.sol";
-import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
 
 import {IDustRewardsController} from "../interfaces/IDustRewardsController.sol";
 import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
+
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 /**
  * @title DustRewardsController
@@ -98,7 +100,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         uint256 lockTime,
         uint256 tokenId
     ) external override returns (uint256) {
-        if (to == address(0)) revert InvalidToAddress();
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
         return _claimRewards(assets, amount, msg.sender, msg.sender, to, reward, lockTime, tokenId);
     }
 
@@ -112,8 +114,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         uint256 lockTime,
         uint256 tokenId
     ) external override onlyAuthorizedClaimers(msg.sender, user) returns (uint256) {
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
         if (user == address(0)) revert InvalidUserAddress();
-        if (to == address(0)) revert InvalidToAddress();
         return _claimRewards(assets, amount, msg.sender, user, to, reward, lockTime, tokenId);
     }
 
@@ -134,7 +136,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         override
         returns (address[] memory rewardsList, uint256[] memory claimedAmounts)
     {
-        if (to == address(0)) revert InvalidToAddress();
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
         return _claimAllRewards(assets, msg.sender, msg.sender, to, lockTime, tokenId);
     }
 
@@ -151,8 +153,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         onlyAuthorizedClaimers(msg.sender, user)
         returns (address[] memory rewardsList, uint256[] memory claimedAmounts)
     {
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
         if (user == address(0)) revert InvalidUserAddress();
-        if (to == address(0)) revert InvalidToAddress();
         return _claimAllRewards(assets, msg.sender, user, to, lockTime, tokenId);
     }
 

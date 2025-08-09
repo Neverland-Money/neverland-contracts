@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {AddressZero, InvalidTokenId} from "../_shared/CommonErrors.sol";
-
 import {IDustTransferStrategy} from "./IDustTransferStrategy.sol";
 
 /**

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
 
 import "./BaseTest.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {EpochTimeLibrary} from "../src/libraries/EpochTimeLibrary.sol";
-import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
-import {MockUSDC} from "../lib/forge-std/test/StdCheats.t.sol";
-import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 
 contract RevenueRewardsTest is BaseTest {
     MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);

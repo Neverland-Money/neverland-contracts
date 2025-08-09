@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 import "./ExtendedBaseTest.sol";
-import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 
 /**
  * @title CheckpointTests

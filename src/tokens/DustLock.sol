@@ -2,20 +2,18 @@
 pragma solidity 0.8.19;
 
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
-
-import {AddressZero, ZeroAmount, SameAddress, InvalidTokenId} from "../_shared/CommonErrors.sol";
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 
 import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 
 /**
@@ -69,8 +67,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      * @param _token `DUST` token address
      */
     constructor(address _forwarder, address _token, string memory _baseURI) ERC2771Context(_forwarder) {
-        if (_forwarder == address(0)) revert AddressZero();
-        if (_token == address(0)) revert AddressZero();
+        CommonChecksLibrary.revertIfZeroAddress(_forwarder);
+        CommonChecksLibrary.revertIfZeroAddress(_token);
         forwarder = _forwarder;
         token = _token;
         team = _msgSender();
@@ -97,8 +95,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function proposeTeam(address _newTeam) external {
         if (_msgSender() != team) revert NotTeam();
-        if (_newTeam == address(0)) revert AddressZero();
-        if (_newTeam == team) revert SameAddress();
+        CommonChecksLibrary.revertIfZeroAddress(_newTeam);
+        CommonChecksLibrary.revertIfSameAddress(_newTeam, team);
         pendingTeam = _newTeam;
         emit TeamProposed(team, _newTeam);
     }
@@ -132,8 +130,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     string internal baseURI;
 
     function tokenURI(uint256 _tokenId) public view returns (string memory) {
-        if (_ownerOf(_tokenId) == address(0)) revert InvalidTokenId();
-
+        _ownerOfOrRevert(_tokenId);
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId.toString())) : "";
     }
 
@@ -154,14 +151,18 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     mapping(address => uint256) internal ownerToNFTokenCount;
 
     function _ownerOf(uint256 _tokenId) internal view returns (address) {
-        return idToOwner[_tokenId];
+        address owner = idToOwner[_tokenId];
+        return owner;
+    }
+
+    function _ownerOfOrRevert(uint256 _tokenId) internal view returns (address owner) {
+        owner = _ownerOf(_tokenId);
+        CommonChecksLibrary.revertIfInvalidTokenId(owner);
     }
 
     /// @inheritdoc IDustLock
     function ownerOf(uint256 _tokenId) external view returns (address) {
-        address owner = _ownerOf(_tokenId);
-        if (owner == address(0)) revert InvalidTokenId();
-        return owner;
+        return _ownerOfOrRevert(_tokenId);
     }
 
     /// @inheritdoc IDustLock
@@ -211,11 +212,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function approve(address _approved, uint256 _tokenId) external {
         address sender = _msgSender();
-        address owner = _ownerOf(_tokenId);
-        // Throws if `_tokenId` is not a valid NFT
-        if (owner == address(0)) revert AddressZero();
+        address owner = _ownerOfOrRevert(_tokenId);
         // Throws if `_approved` is the current owner
-        if (owner == _approved) revert SameAddress();
+        CommonChecksLibrary.revertIfSameAddress(owner, _approved);
         // Check requirements
         bool senderIsOwner = (_ownerOf(_tokenId) == sender);
         bool senderIsApprovedForAll = (ownerToOperators[owner])[sender];
@@ -229,7 +228,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setApprovalForAll(address _operator, bool _approved) external {
         address sender = _msgSender();
         // Throws if `_operator` is the `msg.sender`
-        if (_operator == sender) revert SameAddress();
+        CommonChecksLibrary.revertIfSameAddress(_operator, sender);
         ownerToOperators[sender][_operator] = _approved;
         emit ApprovalForAll(sender, _operator, _approved);
     }
@@ -237,7 +236,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /* TRANSFER FUNCTIONS */
 
     function _transferFrom(address _from, address _to, uint256 _tokenId, address _sender) internal {
-        if (_to == address(0)) revert AddressZero();
+        CommonChecksLibrary.revertIfZeroAddress(_to);
         // Check requirements
         if (!_isApprovedOrOwner(_sender, _tokenId)) revert NotApprovedOrOwner();
         // Clear approval. Throws if `_from` is not the current owner
@@ -250,7 +249,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Set the block of ownership transfer (for Flash NFT protection)
         ownershipChange[_tokenId] = block.number;
         // notify other contracts
-        _notifyBeforeTokenTransferred(_tokenId, _from, _to, _sender);
+        _notifyAfterTokenTransferred(_tokenId, _from, _to, _sender);
         // Log the transfer
         emit Transfer(_from, _to, _tokenId);
     }
@@ -359,7 +358,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      */
     function _mint(address _to, uint256 _tokenId) internal returns (bool) {
         // Throws if `_to` is zero address
-        if (_to == address(0)) revert AddressZero();
+        CommonChecksLibrary.revertIfZeroAddress(_to);
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
@@ -429,7 +428,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Remove token
         _removeTokenFrom(owner, _tokenId);
         // notify other contracts
-        _notifyBeforeTokenBurned(_tokenId, owner, sender);
+        _notifyAfterTokenBurned(_tokenId, owner, sender);
         emit Transfer(owner, address(0), _tokenId);
     }
 
@@ -754,7 +753,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      * @return The ID of the newly created veNFT
      */
     function _createLock(uint256 _value, uint256 _lockDuration, address _to) internal returns (uint256) {
-        if (_value == 0) revert ZeroAmount();
+        CommonChecksLibrary.revertIfZeroAmount(_value);
         if (_value < minLockAmount) revert AmountTooSmall();
 
         uint256 unlockTime = ((block.timestamp + _lockDuration) / WEEK) * WEEK; // Locktime is rounded down to weeks
@@ -785,7 +784,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     function _increaseAmountFor(uint256 _tokenId, uint256 _value, DepositType _depositType) internal {
-        if (_value == 0) revert ZeroAmount();
+        CommonChecksLibrary.revertIfZeroAmount(_value);
         if (_value < minLockAmount) revert AmountTooSmall();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
@@ -897,7 +896,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function setEarlyWithdrawTreasury(address _account) external nonReentrant {
         if (_msgSender() != team) revert NotTeam();
-        if (_account == address(0)) revert InvalidAddress();
+        CommonChecksLibrary.revertIfZeroAddress(_account);
         earlyWithdrawTreasury = _account;
     }
 
@@ -948,9 +947,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         nonReentrant
         returns (uint256 _tokenId1, uint256 _tokenId2)
     {
+        CommonChecksLibrary.revertIfZeroAmount(_amount);
+        address owner = _ownerOfOrRevert(_from);
         address sender = _msgSender();
-        address owner = _ownerOf(_from);
-        if (owner == address(0)) revert SplitNoOwner();
+
         if (!canSplit[owner] && !canSplit[address(0)]) revert SplitNotAllowed();
         if (!_isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
         LockedBalance memory newLocked = _locked[_from];
@@ -958,7 +958,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (newLocked.isPermanent) revert PermanentLock();
 
         int256 _splitAmount = _amount.toInt256();
-        if (_splitAmount == 0) revert ZeroAmount();
+
         if (_amount < minLockAmount) revert AmountTooSmall();
         if (newLocked.amount <= _splitAmount) revert AmountTooBig();
 
@@ -1103,7 +1103,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     function setMinLockAmount(uint256 newMinLockAmount) public {
         if (_msgSender() != team) revert NotTeam();
-        if (newMinLockAmount == 0) revert ZeroAmount();
+        CommonChecksLibrary.revertIfZeroAmount(newMinLockAmount);
         minLockAmount = newMinLockAmount;
     }
 
@@ -1118,20 +1118,20 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         revenueReward = _revenueReward;
     }
 
-    function _notifyBeforeTokenTransferred(
+    function _notifyAfterTokenTransferred(
         uint256 _tokenId,
         address _previousOwner,
         address, /* _to */
         address /* _sender */
     ) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyBeforeTokenTransferred(_tokenId, _previousOwner);
+            revenueReward._notifyAfterTokenTransferred(_tokenId, _previousOwner);
         }
     }
 
-    function _notifyBeforeTokenBurned(uint256 _tokenId, address _previousOwner, address /* _sender */ ) internal {
+    function _notifyAfterTokenBurned(uint256 _tokenId, address _previousOwner, address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyBeforeTokenBurned(_tokenId, _previousOwner);
+            revenueReward._notifyAfterTokenBurned(_tokenId, _previousOwner);
         }
     }
 

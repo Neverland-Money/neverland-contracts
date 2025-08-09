@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
+
+import {IDustRewardsController} from "../src/interfaces/IDustRewardsController.sol";
 
 import {DustRewardsController} from "../src/emissions/DustRewardsController.sol";
-import {IDustRewardsController} from "../src/interfaces/IDustRewardsController.sol";
 import "./BaseTest.sol";
 
 contract DustRewardsControllerTest is BaseTest {

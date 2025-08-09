@@ -9,7 +9,7 @@ import {ERC20PausableUpgradeable} from
 import {ERC20PermitUpgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
-import {AddressZero} from "../_shared/CommonErrors.sol";
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 contract Dust is
     Initializable,
@@ -28,7 +28,7 @@ contract Dust is
      * @param initialOwner The address that will own the contract after initialization
      */
     function initialize(address initialOwner) public initializer {
-        if (initialOwner == address(0)) revert AddressZero();
+        CommonChecksLibrary.revertIfZeroAddress(initialOwner);
 
         __ERC20_init("Dust", "DUST");
         __ERC20Pausable_init();

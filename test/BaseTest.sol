@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
-import {DustLock} from "../src/tokens/DustLock.sol";
-import {Dust} from "../src/tokens/Dust.sol";
-import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Script} from "forge-std/Script.sol";
 import {Test} from "forge-std/Test.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {MockERC20} from "./utils/MockERC20.sol";
+
+import {IDustLock} from "../src/interfaces/IDustLock.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
+import {Dust} from "../src/tokens/Dust.sol";
+import {DustLock} from "../src/tokens/DustLock.sol";
+import {MockERC20} from "./utils/MockERC20.sol";
 
 abstract contract BaseTest is Script, Test {
     Dust internal DUST;

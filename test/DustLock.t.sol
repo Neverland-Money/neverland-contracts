@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
-import "../src/_shared/CommonErrors.sol";
-import "./BaseTest.sol";
 import {IDustLock} from "../src/interfaces/IDustLock.sol";
-import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
+
+import {CommonChecksLibrary} from "../src/libraries/CommonChecksLibrary.sol";
+
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
+import "./BaseTest.sol";
 
 contract MaliciousRevenueReward is RevenueReward {
     constructor(address _dustLock) RevenueReward(address(0xF1), _dustLock, msg.sender) {}
 
-    function _notifyBeforeTokenTransferred(uint256 tokenId, address from) public override {
+    function _notifyAfterTokenTransferred(uint256 tokenId, address from) public override {
         dustLock.transferFrom(from, address(this), tokenId);
     }
 
-    function _notifyBeforeTokenBurned(uint256 tokenId, address /* from */ ) public override {
+    function _notifyAfterTokenBurned(uint256 tokenId, address /* from */ ) public override {
         dustLock.earlyWithdraw(tokenId);
     }
 }
@@ -52,7 +53,7 @@ contract DustLockTests is BaseTest {
 
         // act / assert
         emit log("[dustLock] Expect revert: transfer to zero address");
-        vm.expectRevert(abi.encodeWithSelector(AddressZero.selector));
+        vm.expectRevert(abi.encodeWithSelector(CommonChecksLibrary.AddressZero.selector));
         dustLock.transferFrom(user, address(0), tokenId);
     }
 
@@ -339,7 +340,7 @@ contract DustLockTests is BaseTest {
         uint256 postBalance = DUST.balanceOf(address(user));
         emit log_named_uint("[dustLock] received DUST", postBalance - preBalance);
         assertEq(postBalance - preBalance, TOKEN_1);
-        vm.expectRevert(InvalidTokenId.selector);
+        vm.expectRevert(CommonChecksLibrary.InvalidTokenId.selector);
         dustLock.ownerOf(1);
         assertEq(dustLock.balanceOf(address(user)), 0);
         // assertEq(dustLock.ownerToNFTokenIdList(address(owner), 0), 0);
@@ -546,12 +547,12 @@ contract DustLockTests is BaseTest {
 
         // Test 2: Cannot propose zero address
         emit log("[team] Expect revert: propose zero address");
-        vm.expectRevert(AddressZero.selector);
+        vm.expectRevert(CommonChecksLibrary.AddressZero.selector);
         dustLock.proposeTeam(address(0));
 
         // Test 3: Cannot propose same address
         emit log("[team] Expect revert: propose same address");
-        vm.expectRevert(SameAddress.selector);
+        vm.expectRevert(CommonChecksLibrary.SameAddress.selector);
         dustLock.proposeTeam(user);
 
         // Test 4: Valid proposal
@@ -773,7 +774,7 @@ contract DustLockTests is BaseTest {
     function testTeamOwnershipSelfProposalAttack() public {
         // Team tries to propose themselves (should fail)
         emit log("[team] Expect revert: propose self");
-        vm.expectRevert(SameAddress.selector);
+        vm.expectRevert(CommonChecksLibrary.SameAddress.selector);
         dustLock.proposeTeam(user);
 
         // State should remain unchanged
@@ -784,7 +785,7 @@ contract DustLockTests is BaseTest {
     function testTeamOwnershipZeroAddressAttacks() public {
         // Try to propose zero address
         emit log("[team] Expect revert: propose zero address");
-        vm.expectRevert(AddressZero.selector);
+        vm.expectRevert(CommonChecksLibrary.AddressZero.selector);
         dustLock.proposeTeam(address(0));
 
         // State should remain unchanged
@@ -987,7 +988,7 @@ contract DustLockTests is BaseTest {
         dustLock.acceptTeam();
 
         // New team tries to propose themselves (should fail)
-        vm.expectRevert(SameAddress.selector);
+        vm.expectRevert(CommonChecksLibrary.SameAddress.selector);
         dustLock.proposeTeam(newTeam);
         vm.stopPrank();
     }

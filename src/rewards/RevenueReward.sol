@@ -2,18 +2,17 @@
 pragma solidity 0.8.19;
 
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
-
-import {InvalidRange, ZeroAmount, AddressZero} from "../_shared/CommonErrors.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {ud} from "@prb/math/src/UD60x18.sol";
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
 
 /**
@@ -30,9 +29,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
-        if (_forwarder == address(0)) revert AddressZero();
-        if (_dustLock == address(0)) revert AddressZero();
-        if (_rewardDistributor == address(0)) revert AddressZero();
+        CommonChecksLibrary.revertIfZeroAddress(_forwarder);
+        CommonChecksLibrary.revertIfZeroAddress(_dustLock);
+        CommonChecksLibrary.revertIfZeroAddress(_rewardDistributor);
         dustLock = IDustLock(_dustLock);
         rewardDistributor = _rewardDistributor;
     }
@@ -73,9 +72,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IRevenueReward
     function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual nonReentrant {
+        CommonChecksLibrary.revertIfZeroAddress(rewardReceiver);
         address sender = _msgSender();
         if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
-        if (rewardReceiver == address(0)) revert AddressZero();
 
         tokenRewardReceiver[tokenId] = rewardReceiver;
         usersWithSelfRepayingLoan.add(sender);
@@ -95,29 +94,54 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         emit SelfRepayingLoanUpdate(tokenId, address(0), false);
     }
 
-    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from) public virtual {
+    /// @inheritdoc IRevenueReward
+    function _notifyAfterTokenTransferred(uint256 _tokenId, address _from) public virtual nonReentrant {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
         _claimRewardsTo(_tokenId, _from);
         _removeToken(_tokenId, _from);
     }
 
-    function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) public virtual {
+    /// @inheritdoc IRevenueReward
+    function _notifyAfterTokenBurned(uint256 _tokenId, address _from) public virtual nonReentrant {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
         _claimRewardsTo(_tokenId, _from);
         _removeToken(_tokenId, _from);
     }
 
+    /**
+     * @notice Claims accumulated rewards for a specific veNFT across all registered reward tokens up to the current timestamp
+     * @dev Calculates earned rewards for each token using epoch-based accounting and transfers them to the provided receiver.
+     *      Emits a ClaimRewards event per token. Updates lastEarnTime to the current timestamp for tokens with positive rewards.
+     * @param tokenId The ID of the veNFT to claim rewards for
+     * @param receiver The address to receive the rewards
+     */
     function _claimRewardsTo(uint256 tokenId, address receiver) internal {
         address[] memory tokens = rewardTokens;
-        uint256 len = tokens.length;
-        for (uint256 i = 0; i < len; i++) {
+        _claimRewardsUntilTs(tokenId, receiver, tokens, block.timestamp);
+    }
+
+    /**
+     * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens up to a specified timestamp
+     * @dev Calculates earned rewards for each specified token using epoch-based accounting and transfers them to the provided receiver.
+     *      Emits a ClaimRewards event per token. Updates lastEarnTime to rewardPeriodEndTs for tokens with positive rewards.
+     *      Reverts if rewardPeriodEndTs is in the future (via _earned).
+     * @param tokenId The ID of the veNFT to claim rewards for
+     * @param receiver The address to receive the rewards
+     * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
+     * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
+     */
+    function _claimRewardsUntilTs(uint256 tokenId, address receiver, address[] memory tokens, uint256 rewardPeriodEndTs)
+        internal
+    {
+        uint256 _length = tokens.length;
+        for (uint256 i = 0; i < _length; i++) {
             address token = tokens[i];
-            uint256 reward = _earned(token, tokenId, block.timestamp);
-            if (reward > 0) {
-                lastEarnTime[token][tokenId] = block.timestamp;
-                IERC20(token).safeTransfer(receiver, reward);
+            uint256 _reward = _earned(token, tokenId, rewardPeriodEndTs);
+            if (_reward > 0) {
+                lastEarnTime[token][tokenId] = rewardPeriodEndTs;
+                IERC20(token).safeTransfer(receiver, _reward);
             }
-            emit ClaimRewards(receiver, token, reward);
+            emit ClaimRewards(receiver, token, _reward);
         }
     }
 
@@ -125,7 +149,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IRevenueReward
     function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory) {
-        if (to < from) revert InvalidRange();
+        CommonChecksLibrary.revertIfInvalidRange(from, to);
         uint256 length = usersWithSelfRepayingLoan.length();
         if (from >= length) return new address[](0);
         if (to > length) to = length;
@@ -161,14 +185,10 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                                 REWARDS
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Sets the address authorized to notify new rewards
-     * @dev Only callable by the current reward distributor
-     * @param newRewardDistributor The new address authorized to notify new rewards
-     */
+    /// @inheritdoc IRevenueReward
     function setRewardDistributor(address newRewardDistributor) external {
+        CommonChecksLibrary.revertIfZeroAddress(newRewardDistributor);
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
-        if (newRewardDistributor == address(0)) revert AddressZero();
         rewardDistributor = newRewardDistributor;
     }
 
@@ -188,25 +208,13 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         }
 
         address rewardsReceiver = _resolveRewardsReceiver(tokenId);
-
-        uint256 _length = tokens.length;
-
-        for (uint256 i = 0; i < _length; i++) {
-            uint256 _reward = _earned(tokens[i], tokenId, rewardPeriodEndTs);
-
-            if (_reward > 0) {
-                lastEarnTime[tokens[i]][tokenId] = rewardPeriodEndTs;
-                IERC20(tokens[i]).safeTransfer(rewardsReceiver, _reward);
-            }
-
-            emit ClaimRewards(rewardsReceiver, tokens[i], _reward);
-        }
+        _claimRewardsUntilTs(tokenId, rewardsReceiver, tokens, rewardPeriodEndTs);
     }
 
     /// @inheritdoc IRevenueReward
     function notifyRewardAmount(address token, uint256 amount) external nonReentrant {
+        CommonChecksLibrary.revertIfZeroAmount(amount);
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
-        if (amount == 0) revert ZeroAmount();
         if (!isRewardToken[token]) {
             isRewardToken[token] = true;
             rewardTokens.push(token);
@@ -223,6 +231,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         emit NotifyReward(sender, token, epochNext, amount);
     }
 
+    /// @inheritdoc IRevenueReward
     function _notifyTokenMinted(uint256 _tokenId) public {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
         tokenMintTime[_tokenId] = block.timestamp;
@@ -284,36 +293,29 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /**
      * @notice Resolves the rewards receiver for a given tokenId
-     * @dev Prefers the configured tokenRewardReceiver; falls back to current owner
-     *      Reverts if the resolved address is zero to prevent burning rewards
+     * @dev Prefers the configured tokenRewardReceiver; falls back to current owner (ownerOf reverts if token doesn't exist)
      * @param tokenId The veNFT token id to resolve the receiver for
-     * @return receiver The non-zero address that should receive rewards
+     * @return receiver The address that should receive rewards
      */
     function _resolveRewardsReceiver(uint256 tokenId) internal view returns (address receiver) {
         receiver = tokenRewardReceiver[tokenId];
-        if (receiver == address(0)) {
-            receiver = dustLock.ownerOf(tokenId);
-        }
-        if (receiver == address(0)) revert AddressZero();
+        if (receiver == address(0)) receiver = dustLock.ownerOf(tokenId);
     }
 
     /*//////////////////////////////////////////////////////////////
                                 RECOVERY
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Recovers unnotified rewards from the contract
-     * @dev Only callable by the current reward distributor
-     * @dev Transfers any unnotified rewards to the distributor
-     */
+    /// @inheritdoc IRevenueReward
     function recoverTokens() external {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
 
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address token = rewardTokens[i];
             uint256 balance = IERC20(token).balanceOf(address(this));
-            uint256 unnotifiedTokenAmount = balance - totalRewardsPerToken[token];
-            if (unnotifiedTokenAmount > 0) {
+            uint256 credited = totalRewardsPerToken[token];
+            if (balance > credited) {
+                uint256 unnotifiedTokenAmount = balance - credited;
                 IERC20(token).safeTransfer(rewardDistributor, unnotifiedTokenAmount);
                 emit RecoverTokens(token, unnotifiedTokenAmount);
             }

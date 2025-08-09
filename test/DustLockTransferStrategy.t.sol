@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {
     DustLockTransferStrategy,
@@ -7,8 +7,9 @@ import {
     IDustLock
 } from "../src/emissions/DustLockTransferStrategy.sol";
 import {IDustTransferStrategy} from "../src/interfaces/IDustTransferStrategy.sol";
-import {InvalidTokenId, AddressZero} from "../src/_shared/CommonErrors.sol";
-import {InvalidTokenId} from "../src/_shared/CommonErrors.sol";
+
+import {CommonChecksLibrary} from "../src/libraries/CommonChecksLibrary.sol";
+
 import "./BaseTest.sol";
 
 contract DustLockTransferStrategyTest is BaseTest {
@@ -76,7 +77,7 @@ contract DustLockTransferStrategyTest is BaseTest {
     function testPerformTransferWithAddressZero() public {
         vm.prank(incentivesController);
         emit log("[transferStrategy] Expect revert: recipient address zero");
-        vm.expectRevert(AddressZero.selector);
+        vm.expectRevert(CommonChecksLibrary.InvalidToAddress.selector);
         transferStrategy.performTransfer(
             address(0), // to
             address(DUST), // reward
@@ -257,7 +258,7 @@ contract DustLockTransferStrategyTest is BaseTest {
         uint256 createLockTokenId = dustLock.tokenId();
         vm.prank(incentivesController);
         emit log("[transferStrategy] Expect revert: merging non-existing tokenId");
-        vm.expectRevert(InvalidTokenId.selector);
+        vm.expectRevert(CommonChecksLibrary.InvalidTokenId.selector);
         transferStrategy.performTransfer(
             user2, // to
             address(DUST), // reward

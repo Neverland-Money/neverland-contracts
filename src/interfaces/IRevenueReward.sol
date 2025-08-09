@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {ZeroAmount, InvalidRange} from "../_shared/CommonErrors.sol";
-
 import {IDustLock} from "../interfaces/IDustLock.sol";
 
 /**
@@ -139,10 +137,10 @@ interface IRevenueReward {
 
     /**
      * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens
-     * @dev Calculates earned rewards for each specified token and transfers them to the appropriate recipient
-     *      If a reward receiver is configured via enableSelfRepayLoan, rewards go to that address
-     *      Otherwise, rewards are sent to the veNFT owner
-     *      Updates lastEarnTime for each claimed token to track future reward accruals
+     * @dev Calculates earned rewards for each specified token using epoch-based accounting and transfers them
+     *      to the appropriate recipient. Emits a ClaimRewards event per token. If a reward receiver is configured
+     *      via enableSelfRepayLoan, rewards go to that address; otherwise, rewards are sent to the veNFT owner.
+     *      Updates lastEarnTime for claimed tokens with positive rewards to track future accruals.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      */
@@ -150,12 +148,11 @@ interface IRevenueReward {
 
     /**
      * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens up to a specified timestamp
-     * @dev Similar to getReward, but allows specifying a custom end timestamp for the reward calculation period
-     *      This enables partial claiming of rewards up to a specific point in time rather than up to the current block timestamp
-     *      Calculates earned rewards for each specified token and transfers them to the appropriate recipient
-     *      If a reward receiver is configured via enableSelfRepayLoan, rewards go to that address
-     *      Otherwise, rewards are sent to the veNFT owner
-     *      Updates lastEarnTime for each claimed token to track future reward accruals
+     * @dev Similar to getReward, but allows specifying a custom end timestamp for the reward calculation period.
+     *      Calculates earned rewards for each specified token using epoch-based accounting and transfers them to the
+     *      appropriate recipient. Emits a ClaimRewards event per token. If a reward receiver is configured via
+     *      enableSelfRepayLoan, rewards go to that address; otherwise, rewards are sent to the veNFT owner.
+     *      Updates lastEarnTime to rewardPeriodEndTs for claimed tokens with positive rewards.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
@@ -183,30 +180,30 @@ interface IRevenueReward {
     function disableSelfRepayLoan(uint256 tokenId) external;
 
     /**
-     * @notice Handles necessary operations before a veNFT token is transferred
-     * @dev This function is called by the DustLock contract just before transferring a token
+     * @notice Handles necessary operations after a veNFT token is transferred
+     * @dev This function is called by the DustLock contract just after transferring a token
      *      It performs two main actions:
      *      1. Claims all pending rewards for the token being transferred
      *      2. Removes the token from the self-repaying loan tracking if enabled
      *      Can only be called by the DustLock contract
      *      Throws NotDustLock error if called by any other address
-     * @param _tokenId The ID of the veNFT token that is about to be transferred
-     * @param _from The address of the current token owner (sender of the transfer)
+     * @param _tokenId The ID of the veNFT token that was transferred
+     * @param _from The address of the previous token owner (sender of the transfer)
      */
-    function _notifyBeforeTokenTransferred(uint256 _tokenId, address _from) external;
+    function _notifyAfterTokenTransferred(uint256 _tokenId, address _from) external;
 
     /**
-     * @notice Handles necessary operations before a veNFT token is burned
-     * @dev This function is called by the DustLock contract just before burning a token
+     * @notice Handles necessary operations after a veNFT token is burned
+     * @dev This function is called by the DustLock contract just after burning a token
      *      It performs two main actions:
      *      1. Claims all pending rewards for the token being burned
      *      2. Removes the token from the self-repaying loan tracking if enabled
      *      Can only be called by the DustLock contract
      *      Throws NotDustLock error if called by any other address
-     * @param _tokenId The ID of the veNFT token that is about to be burned
-     * @param _from The address of the current token owner
+     * @param _tokenId The ID of the veNFT token that was burned
+     * @param _from The address of the previous token owner
      */
-    function _notifyBeforeTokenBurned(uint256 _tokenId, address _from) external;
+    function _notifyAfterTokenBurned(uint256 _tokenId, address _from) external;
 
     /**
      * @notice Returns a list of user addresses with at least one active self-repaying loan within a given range.
@@ -255,11 +252,11 @@ interface IRevenueReward {
     function setRewardDistributor(address newRewardDistributor) external;
 
     /**
-     * @notice Recovers tokens that were directly transferred to the contract without using notifyRewardAmount
+     * @notice Recovers unnotified balances of registered reward tokens
      * @dev Can only be called by the reward distributor
-     *      This is a safety feature to recover tokens that might be accidentally sent to the contract
-     *      Recovered tokens are returned to the current reward distributor address
-     *      Only operates on tokens that have not been properly registered through notifyRewardAmount
+     *      For each registered reward token, if the contract's token balance exceeds the credited amount
+     *      tracked by totalRewardsPerToken[token], transfers the excess to the reward distributor and emits
+     *      a RecoverTokens event.
      */
     function recoverTokens() external;
 }

@@ -23,9 +23,6 @@ interface IDustRewardsController is IRewardsDistributor {
     /// @notice Error thrown when a user is not authorized to claim rewards on behalf of another user
     error ClaimerUnauthorized();
 
-    /// @notice Error thrown when the to address is invalid
-    error InvalidToAddress();
-
     /// @notice Error thrown when the user address is invalid
     error InvalidUserAddress();
 

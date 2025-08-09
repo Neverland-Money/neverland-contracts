@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
+import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-
-import {AddressZero, ZeroAmount, SameAddress, ZeroBalance, InvalidTokenId} from "../_shared/CommonErrors.sol";
 
 import {IRevenueReward} from "./IRevenueReward.sol";
 
@@ -77,9 +75,6 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
         INCREASE_UNLOCK_TIME
     }
 
-    /// @notice Error thrown when a user tries to vote multiple times in the same period
-    error AlreadyVoted();
-
     /// @notice Error thrown when the locked amount is less than minLockAmount
     error AmountTooSmall();
 
@@ -92,20 +87,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when transferring to an address that doesn't implement ERC721Receiver
     error ERC721TransferToNonERC721ReceiverImplementer();
 
-    /// @notice Error thrown when a signature uses an invalid nonce
-    error InvalidNonce();
-
-    /// @notice Error thrown when a provided signature is invalid
-    error InvalidSignature();
-
-    /// @notice Error thrown when a signature's S value is invalid per EIP-2
-    error InvalidSignatureS();
-
     /// @notice Error thrown when an early withdraw penalty value is invalid (>=10000)
     error InvalidWithdrawPenalty();
-
-    /// @notice Error thrown when a zero address is provided where not allowed
-    error InvalidAddress();
 
     /// @notice Error thrown when the lock duration doesn't extend beyond the current time
     error LockDurationNotInFuture();
@@ -125,26 +108,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when no lock is found for the specified token ID
     error NoLockFound();
 
-    /// @notice Error thrown when attempting to operate on a token that doesn't exist
-    error NonExistentToken();
-
     /// @notice Error thrown when the caller is neither the owner nor approved for the token
     error NotApprovedOrOwner();
-
-    /// @notice Error thrown when a non-distributor address attempts a distributor action
-    error NotDistributor();
-
-    /// @notice Error thrown when a restricted function is called by someone other than the emergency council or governor
-    error NotEmergencyCouncilOrGovernor();
-
-    /// @notice Error thrown when a governor-only function is called by a non-governor address
-    error NotGovernor();
-
-    /// @notice Error thrown when trying to perform a locked NFT operation on a normal NFT
-    error NotLockedNFT();
-
-    /// @notice Error thrown when trying to perform a normal NFT operation on a locked NFT
-    error NotNormalNFT();
 
     /// @notice Error thrown when trying to unlock a non-permanent lock using unlockPermanent
     error NotPermanentLock();
@@ -161,9 +126,6 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when trying to cancel a team proposal but no proposal exists
     error NoPendingTeam();
 
-    /// @notice Error thrown when a voter-only function is called by a non-voter address
-    error NotVoter();
-
     /// @notice Error thrown when ownership changes during an operation
     error OwnershipChange();
 
@@ -173,20 +135,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when attempting to merge a veNFT with itself
     error SameNFT();
 
-    /// @notice Error thrown when attempting to change state to the same value
-    error SameState();
-
-    /// @notice Error thrown when trying to split a veNFT with no owner
-    error SplitNoOwner();
-
     /// @notice Error thrown when splitting is not allowed for the user
     error SplitNotAllowed();
-
-    /// @notice Error thrown when a signature has expired (beyond the deadline)
-    error SignatureExpired();
-
-    /// @notice Error thrown when too many token IDs are provided in a batch operation
-    error TooManyTokenIDs();
 
     /// @notice Error thrown when trying to add a token that already has an owner
     error AlreadyOwned();
