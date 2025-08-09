@@ -588,7 +588,7 @@ contract DustLockTests is BaseTest {
 
         // Test cancelling when no pending team
         emit log("[team] Expect revert: cancel without pending team");
-        vm.expectRevert(IDustLock.NoPendingTeam.selector);
+        vm.expectRevert(CommonChecksLibrary.AddressZero.selector);
         dustLock.cancelTeamProposal();
 
         // Propose team
@@ -854,7 +854,7 @@ contract DustLockTests is BaseTest {
 
         // New team tries to cancel when no pending (should fail)
         vm.startPrank(newTeam);
-        vm.expectRevert(IDustLock.NoPendingTeam.selector);
+        vm.expectRevert(CommonChecksLibrary.AddressZero.selector);
         dustLock.cancelTeamProposal();
         vm.stopPrank();
     }

@@ -101,6 +101,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         uint256 tokenId
     ) external override returns (uint256) {
         CommonChecksLibrary.revertIfInvalidToAddress(to);
+
         return _claimRewards(assets, amount, msg.sender, msg.sender, to, reward, lockTime, tokenId);
     }
 
@@ -116,6 +117,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     ) external override onlyAuthorizedClaimers(msg.sender, user) returns (uint256) {
         CommonChecksLibrary.revertIfInvalidToAddress(to);
         if (user == address(0)) revert InvalidUserAddress();
+
         return _claimRewards(assets, amount, msg.sender, user, to, reward, lockTime, tokenId);
     }
 
@@ -137,6 +139,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         returns (address[] memory rewardsList, uint256[] memory claimedAmounts)
     {
         CommonChecksLibrary.revertIfInvalidToAddress(to);
+
         return _claimAllRewards(assets, msg.sender, msg.sender, to, lockTime, tokenId);
     }
 
@@ -155,6 +158,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     {
         CommonChecksLibrary.revertIfInvalidToAddress(to);
         if (user == address(0)) revert InvalidUserAddress();
+
         return _claimAllRewards(assets, msg.sender, user, to, lockTime, tokenId);
     }
 

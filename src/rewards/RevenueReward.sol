@@ -32,6 +32,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         CommonChecksLibrary.revertIfZeroAddress(_forwarder);
         CommonChecksLibrary.revertIfZeroAddress(_dustLock);
         CommonChecksLibrary.revertIfZeroAddress(_rewardDistributor);
+
         dustLock = IDustLock(_dustLock);
         rewardDistributor = _rewardDistributor;
     }
@@ -189,6 +190,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function setRewardDistributor(address newRewardDistributor) external {
         CommonChecksLibrary.revertIfZeroAddress(newRewardDistributor);
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
+
         rewardDistributor = newRewardDistributor;
     }
 

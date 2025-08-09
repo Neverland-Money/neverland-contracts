@@ -24,6 +24,7 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
     constructor(address incentivesController, address rewardsAdmin) {
         CommonChecksLibrary.revertIfZeroAddress(incentivesController);
         CommonChecksLibrary.revertIfZeroAddress(rewardsAdmin);
+
         INCENTIVES_CONTROLLER = incentivesController;
         REWARDS_ADMIN = rewardsAdmin;
     }

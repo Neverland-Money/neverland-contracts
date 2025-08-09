@@ -69,6 +69,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     constructor(address _forwarder, address _token, string memory _baseURI) ERC2771Context(_forwarder) {
         CommonChecksLibrary.revertIfZeroAddress(_forwarder);
         CommonChecksLibrary.revertIfZeroAddress(_token);
+
         forwarder = _forwarder;
         token = _token;
         team = _msgSender();
@@ -97,6 +98,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAddress(_newTeam);
         CommonChecksLibrary.revertIfSameAddress(_newTeam, team);
+
         pendingTeam = _newTeam;
         emit TeamProposed(team, _newTeam);
     }
@@ -113,7 +115,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function cancelTeamProposal() external {
         if (_msgSender() != team) revert NotTeam();
-        if (pendingTeam == address(0)) revert NoPendingTeam();
+        CommonChecksLibrary.revertIfZeroAddress(pendingTeam);
+
         address cancelledTeam = pendingTeam;
         pendingTeam = address(0);
         emit TeamProposalCancelled(team, cancelledTeam);
@@ -215,10 +218,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         address owner = _ownerOfOrRevert(_tokenId);
         // Throws if `_approved` is the current owner
         CommonChecksLibrary.revertIfSameAddress(owner, _approved);
+
         // Check requirements
         bool senderIsOwner = (_ownerOf(_tokenId) == sender);
         bool senderIsApprovedForAll = (ownerToOperators[owner])[sender];
         if (!senderIsOwner && !senderIsApprovedForAll) revert NotApprovedOrOwner();
+
         // Set the approval
         idToApprovals[_tokenId] = _approved;
         emit Approval(owner, _approved, _tokenId);
@@ -229,6 +234,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         address sender = _msgSender();
         // Throws if `_operator` is the `msg.sender`
         CommonChecksLibrary.revertIfSameAddress(_operator, sender);
+
         ownerToOperators[sender][_operator] = _approved;
         emit ApprovalForAll(sender, _operator, _approved);
     }
@@ -241,6 +247,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (!_isApprovedOrOwner(_sender, _tokenId)) revert NotApprovedOrOwner();
         // Clear approval. Throws if `_from` is not the current owner
         if (_ownerOf(_tokenId) != _from) revert NotOwner();
+
         delete idToApprovals[_tokenId];
         // Remove NFT. Throws if `_tokenId` is not a valid NFT
         _removeTokenFrom(_from, _tokenId);
@@ -359,6 +366,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function _mint(address _to, uint256 _tokenId) internal returns (bool) {
         // Throws if `_to` is zero address
         CommonChecksLibrary.revertIfZeroAddress(_to);
+
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
@@ -897,6 +905,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setEarlyWithdrawTreasury(address _account) external nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAddress(_account);
+
         earlyWithdrawTreasury = _account;
     }
 
@@ -1104,6 +1113,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setMinLockAmount(uint256 newMinLockAmount) public {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAmount(newMinLockAmount);
+
         minLockAmount = newMinLockAmount;
     }
 

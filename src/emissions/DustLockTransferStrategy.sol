@@ -50,6 +50,7 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
         CommonChecksLibrary.revertIfZeroAddress(rewardsAdmin);
         CommonChecksLibrary.revertIfZeroAddress(dustVault);
         CommonChecksLibrary.revertIfZeroAddress(dustLock);
+
         DUST_VAULT = dustVault;
         DUST_LOCK = IDustLock(dustLock);
         DUST = DUST_LOCK.token();
@@ -66,6 +67,7 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
         if (amount == 0) return true;
         CommonChecksLibrary.revertIfInvalidToAddress(to);
         if (reward != DUST) revert InvalidRewardAddress();
+
         IERC20(reward).safeTransferFrom(DUST_VAULT, address(this), amount);
         // If tokenId is greater than 0, it means we are merging emissions with an existing lock
         // If tokenId is 0, it means we are creating a new lock or performing an early withdrawal

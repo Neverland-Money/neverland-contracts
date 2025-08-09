@@ -123,9 +123,6 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when a pending team function is called by a non-pending team address
     error NotPendingTeam();
 
-    /// @notice Error thrown when trying to cancel a team proposal but no proposal exists
-    error NoPendingTeam();
-
     /// @notice Error thrown when ownership changes during an operation
     error OwnershipChange();
 
