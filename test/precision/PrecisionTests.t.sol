@@ -24,9 +24,6 @@ import "../BaseTest.sol";
  * - Ensures our PRB Math implementation matches theoretical calculations
  */
 contract PrecisionTests is BaseTest {
-    // Test constants for precise calculations
-    uint256 constant PRECISION_TOLERANCE = 1; // 1 wei tolerance for rounding
-
     function _setUp() internal override {
         // Initial time => 1 sec after the start of week1
         assertEq(block.timestamp, 1 weeks + 1);
@@ -34,6 +31,171 @@ contract PrecisionTests is BaseTest {
         mintErc20Token(address(DUST), user, TOKEN_100M);
         mintErc20Token(address(DUST), user1, TOKEN_100M);
         mintErc20Token(address(DUST), user2, TOKEN_100M);
+    }
+
+    // ============================================
+    // LINEAR DECAY: HARDCODED FIGURES
+    // ============================================
+
+    /**
+     * @notice For a 1 DUST lock, voting power decays linearly with remaining time.
+     *         At remaining = MAXTIME/2 -> 0.5 veDUST
+     *         At remaining = MAXTIME/4 -> 0.25 veDUST
+     *         At remaining = MAXTIME/5 (73 days) -> 0.2 veDUST
+     *         At remaining = 0 -> 0
+     * @dev We warp to end - fraction*MAXTIME to avoid week-rounding at creation.
+     */
+    function testLinearDecayHardcodedFractionsOneDust() public {
+        uint256 amount = TOKEN_1; // 1 DUST = 1e18
+        uint256 duration = 52 weeks; // Long enough so the checkpoints exist well before end
+
+        vm.startPrank(user);
+        DUST.approve(address(dustLock), amount);
+        uint256 tokenId = dustLock.createLock(amount, duration);
+        IDustLock.LockedBalance memory li = dustLock.locked(tokenId);
+        uint256 end = li.end;
+        vm.stopPrank();
+
+        // 1) Half remaining time => 0.5e18
+        skipToAndLog(end - (MAXTIME / 2), "Half remaining");
+        uint256 vpHalf = dustLock.balanceOfNFT(tokenId);
+        /*
+         Calculations (Half remaining):
+         - Amount: 1 DUST   = 1e18 wei
+         - Remaining time   = MAXTIME/2
+         - Voting power     = floor(1e18 * (MAXTIME/2) / MAXTIME)
+                            = 0.5e18 = 500,000,000,000,000,000 wei
+         */
+        assertEq(vpHalf, 500000000000000000, "Half remaining must be 0.5e18 veDUST");
+        logWithTs("Half remaining - passed");
+
+        // 2) Quarter remaining time => 0.25e18
+        skipToAndLog(end - (MAXTIME / 4), "Quarter remaining");
+        uint256 vpQuarter = dustLock.balanceOfNFT(tokenId);
+        /*
+         Calculations (Quarter remaining):
+         - Amount: 1 DUST   = 1e18 wei
+         - Remaining time   = MAXTIME/4
+         - Voting power     = floor(1e18 * (MAXTIME/4) / MAXTIME)
+                            = 0.25e18 = 250,000,000,000,000,000 wei
+         */
+        assertEq(vpQuarter, 250000000000000000, "Quarter remaining must be 0.25e18 veDUST");
+        logWithTs("Quarter remaining - passed");
+
+        // 3) 73 days remaining (MAXTIME/5) => 0.2e18
+        skipToAndLog(end - ((365 days) / 5), "73 days remaining"); // 73 days exactly
+        uint256 vpFifth = dustLock.balanceOfNFT(tokenId);
+        /*
+         Calculations (73 days remaining):
+         - Amount: 1 DUST   = 1e18 wei
+         - Remaining time   = MAXTIME/5 = 73 days
+         - Voting power     = floor(1e18 * ((365 days)/5) / MAXTIME)
+                            = 0.2e18 = 200,000,000,000,000,000 wei
+         */
+        assertEq(vpFifth, 200000000000000000, "73 days remaining must be 0.2e18 veDUST");
+        logWithTs("73 days remaining - passed");
+
+        // 4) At expiry => 0
+        skipToAndLog(end, "Expiry");
+        assertEq(dustLock.balanceOfNFT(tokenId), 0, "At expiry voting power is zero");
+        logWithTs("Expiry - passed");
+
+        // reset
+        skipToAndLog(1 weeks + 1, "Reset");
+    }
+
+    // ============================================
+    // PERMANENT LOCK BEHAVIOR: HARDCODED FIGURES
+    // ============================================
+
+    /**
+     * @notice Permanent lock holds full voting power over time.
+     *         For 1 DUST permanent lock -> exactly 1e18 veDUST at all times.
+     */
+    function testPermanentLockHoldsFullPowerOneDust() public {
+        uint256 amount = TOKEN_1; // 1 DUST
+
+        vm.startPrank(user);
+        DUST.approve(address(dustLock), amount);
+        uint256 tokenId = dustLock.createLock(amount, 26 weeks);
+        dustLock.lockPermanent(tokenId);
+        vm.stopPrank();
+
+        // Immediately and over time stays at 1e18
+        assertEq(dustLock.balanceOfNFT(tokenId), 1000000000000000000, "Permanent lock must be exactly 1e18");
+        logWithTs("Permanent initial - passed");
+        skipToAndLog(block.timestamp + 90 days, "Permanent +90d");
+        assertEq(dustLock.balanceOfNFT(tokenId), 1000000000000000000, "Permanent lock must remain 1e18");
+        logWithTs("Permanent +90d - passed");
+        skipToAndLog(block.timestamp + 365 days, "Permanent +365d");
+        assertEq(dustLock.balanceOfNFT(tokenId), 1000000000000000000, "Permanent lock must remain 1e18");
+        logWithTs("Permanent +365d - passed");
+
+        // reset
+        skipToAndLog(1 weeks + 1, "Reset");
+    }
+
+    /**
+     * @notice Breaking a permanent lock starts linear decay from near-maximum.
+     *         If we break at an exact week boundary, the initial voting power is:
+     *         amount * (MAXTIME - (MAXTIME % WEEK)) / MAXTIME = amount * (364/365)
+     *         For 1 DUST this equals 997260273972602739 (hardcoded below).
+     */
+    function testUnlockPermanentWeekBoundaryStartsDecayHardcoded() public {
+        uint256 amount = TOKEN_1; // 1 DUST
+
+        vm.startPrank(user);
+        DUST.approve(address(dustLock), amount);
+        uint256 tokenId = dustLock.createLock(amount, 26 weeks);
+        dustLock.lockPermanent(tokenId);
+
+        // Align timestamp to exact week boundary to make end-now = MAXTIME - 1 day
+        skipToNextEpoch(0);
+
+        // Break permanent lock -> decay starts
+        dustLock.unlockPermanent(tokenId);
+
+        // Immediately after unlock at week boundary, voting power is 364/365 of 1e18
+        uint256 vpInitial = dustLock.balanceOfNFT(tokenId);
+        /*
+         Calculations (immediately after unlock at a week boundary):
+         - Amount: 1 DUST   = 1e18 wei
+         - Remaining time   = MAXTIME - (MAXTIME % WEEK) = 365d - 1d = 364 days
+         - Voting power     = floor(1e18 * 364 / 365)
+                            = 997,260,273,972,602,739 wei
+         */
+        emit log_named_uint("Expected post-unlock voting power", 997260273972602739);
+        emit log_named_uint("Actual post-unlock voting power", vpInitial);
+        assertEq(vpInitial, 997260273972602739, "Post-unlock initial should be 364/365 of 1e18");
+        logWithTs("Post-unlock - passed");
+
+        // Read new end and validate linearity at half remaining -> 0.5e18
+        IDustLock.LockedBalance memory li = dustLock.locked(tokenId);
+        uint256 end = li.end;
+        skipToAndLog(end - (MAXTIME / 2), "Half remaining after unlock");
+        uint256 vpHalf = dustLock.balanceOfNFT(tokenId);
+        /*
+         Calculations (Half remaining after unlock):
+         - Remaining time   = MAXTIME/2
+         - Voting power     = 0.5e18 = 500,000,000,000,000,000 wei
+         */
+        emit log_named_uint("Expected half-remaining voting power", 500000000000000000);
+        emit log_named_uint("Actual half-remaining voting power", vpHalf);
+        assertEq(vpHalf, 500000000000000000, "Half remaining must be 0.5e18");
+        logWithTs("Half remaining after unlock - passed");
+
+        // At expiry => 0
+        skipToAndLog(end, "Expiry after unlock");
+        uint256 vpEnd = dustLock.balanceOfNFT(tokenId);
+        emit log_named_uint("Expected expiry voting power", 0);
+        emit log_named_uint("Actual expiry voting power", vpEnd);
+        assertEq(vpEnd, 0, "At expiry voting power is zero");
+        logWithTs("Expiry after unlock - passed");
+
+        vm.stopPrank();
+
+        // reset
+        skipToAndLog(1 weeks + 1, "Reset");
     }
 
     // ============================================
@@ -47,7 +209,7 @@ contract PrecisionTests is BaseTest {
         uint256 lockDuration = 26 weeks; // Half year lock
 
         // Test amounts across different ranges (all >= minimum lock amount)
-        uint256[] memory testAmounts = new uint256[](8);
+        uint256[] memory testAmounts = new uint256[](13);
         testAmounts[0] = TOKEN_1; // 1 DUST (minimum)
         testAmounts[1] = TOKEN_1 * 2; // 2 DUST
         testAmounts[2] = TOKEN_1 * 5; // 5 DUST
@@ -56,13 +218,17 @@ contract PrecisionTests is BaseTest {
         testAmounts[5] = TOKEN_1 * 100; // 100 DUST
         testAmounts[6] = TOKEN_1 * 500; // 500 DUST
         testAmounts[7] = TOKEN_1K; // 1000 DUST
+        testAmounts[8] = TOKEN_10K; // 10000 DUST
+        testAmounts[9] = TOKEN_100K; // 100000 DUST
+        testAmounts[10] = TOKEN_1M; // 1000000 DUST
+        testAmounts[11] = TOKEN_10M; // 10000000 DUST
+        testAmounts[12] = TOKEN_50M; // 50000000 DUST
 
         emit log_named_uint("Lock duration (weeks)", lockDuration / 1 weeks);
         emit log_named_uint("Total test amounts", testAmounts.length);
 
         for (uint256 i = 0; i < testAmounts.length; i++) {
             uint256 amount = testAmounts[i];
-            emit log_named_uint("Testing amount (DUST)", amount / 1e18);
             _testSingleAmount(amount, lockDuration);
         }
     }
@@ -71,7 +237,7 @@ contract PrecisionTests is BaseTest {
      * @notice Test checkpoint behavior with precision calculations
      */
     function testCheckpointBehavior() public {
-        uint256 amount = TOKEN_1 * 10; // 10 DUST (above minimum)
+        uint256 amount = TOKEN_1 * 10; // 10 DUST
         uint256 lockDuration = 26 weeks;
 
         vm.startPrank(user);
@@ -85,60 +251,144 @@ contract PrecisionTests is BaseTest {
         emit log_named_uint("Lock duration (weeks)", lockDuration / 1 weeks);
         emit log_named_uint("Initial voting power", initialVotingPower);
 
-        // Force checkpoint
+        // Force checkpoint and verify via historical query at the same timestamp
+        uint256 t0 = block.timestamp;
         dustLock.checkpoint();
-        uint256 votingPowerAfterCheckpoint = dustLock.balanceOfNFT(tokenId);
+        uint256 votingPowerAfterCheckpoint = dustLock.balanceOfNFTAt(tokenId, t0);
 
-        // Should be the same immediately after checkpoint
+        // Sanity Check - Should be the same immediately after checkpoint
         emit log_named_uint("Voting power after checkpoint", votingPowerAfterCheckpoint);
         assertEq(initialVotingPower, votingPowerAfterCheckpoint);
+        logWithTs("Checkpoint - immediate - passed");
 
         // Advance time and checkpoint again
-        vm.warp(block.timestamp + 1 weeks);
+        skipToAndLog(block.timestamp + 1 weeks, "Checkpoint +1w");
+        uint256 t1 = block.timestamp;
         dustLock.checkpoint();
-        uint256 votingPowerAfterWeek = dustLock.balanceOfNFT(tokenId);
+        uint256 votingPowerAfterWeek = dustLock.balanceOfNFTAt(tokenId, t1);
+
+        // Exact expectation after 1 week
+        /*
+         Calculations for expected voting power after 1 week:
+         - Amount: 10 DUST = 10e18 wei
+         - Initial effective duration at creation: 26w - 1s
+             Reason: `_createLock` rounds unlock time down to whole weeks and our start ts%WEEK == 1,
+             so end = floor((ts + 26w) / WEEK) * WEEK => effectively (26w - 1s).
+         - After advancing 1 week: remaining = (26w - 1s) - 1w = 25w - 1s
+             25w = 25 * 604,800 = 15,120,000 seconds -> 25w - 1s = 15,119,999 seconds
+         - MAXTIME      = 365 days = 31,536,000 seconds
+         - Voting power = floor(10e18 * 15,119,999 / 31,536,000)
+                        = 4,794,520,230,847,285,641 wei
+         */
+        uint256 expectedVotingPowerAfterWeek = 4794520230847285641; // 10 DUST, (26w - 1s) - 1w
+        emit log_named_uint("Expected voting power after 1 week", expectedVotingPowerAfterWeek);
+        emit log_named_uint("Actual voting power after 1 week", votingPowerAfterWeek);
+        assertEq(votingPowerAfterWeek, expectedVotingPowerAfterWeek, "Voting power after 1 week must equal expected");
+        logWithTs("Checkpoint +1w - passed");
+
+        // Advance time again and checkpoint
+        skipToAndLog(block.timestamp + 20 weeks, "Checkpoint +20w");
+        uint256 t2 = block.timestamp;
+        dustLock.checkpoint();
+        uint256 votingPowerAfterTwentyWeeks = dustLock.balanceOfNFT(tokenId);
+
+        // Exact expectation after 20 weeks
+        /*
+         Calculations for expected voting power after 20 weeks:
+         - Amount: 10 DUST = 10e18 wei
+         - Initial effective duration at creation: 26w - 1s
+         - After advancing 20 weeks: remaining = (26w - 1s) - (1w -1s) - 20w = 5w - 1s
+             5w = 5 * 604,800 = 3,024,000 seconds -> 5w - 1s = 3,023,999 seconds
+         - MAXTIME      = 365 days = 31,536,000 seconds
+         - Voting power = floor(10e18 * 3,023,999 / 31,536,000)
+                        = 958903792491121258 wei
+         */
+        uint256 expectedVotingPowerAfterTwentyWeeks = 958903792491121258; // 10 DUST, (26w - 1s) - 20w
+        emit log_named_uint("Expected voting power after 20 weeks", expectedVotingPowerAfterTwentyWeeks);
+        emit log_named_uint("Actual voting power after 20 weeks", votingPowerAfterTwentyWeeks);
+        assertEq(
+            votingPowerAfterTwentyWeeks,
+            expectedVotingPowerAfterTwentyWeeks,
+            "Voting power after 20 weeks must equal expected"
+        );
+        logWithTs("Checkpoint +20w - passed");
 
         // Calculate decay metrics
         uint256 weeklyDecay = initialVotingPower - votingPowerAfterWeek;
         uint256 decayPercentage = (weeklyDecay * 100) / initialVotingPower;
 
         // Log decay information
-        emit log_named_uint("Voting power after 1 week", votingPowerAfterWeek);
         emit log_named_uint("Weekly decay amount", weeklyDecay);
         emit log_named_uint("Weekly decay percentage", decayPercentage);
 
         // Should have decayed
         assertLt(votingPowerAfterWeek, initialVotingPower);
+        logWithTs("Checkpoint - decayed - passed");
+
+        // Verify backwards to old checkpoints by using balanceOfNFTAt
+        emit log_named_uint("Initial voting power", initialVotingPower);
+        assertEq(dustLock.balanceOfNFTAt(tokenId, t0), initialVotingPower);
+        emit log_named_uint("BalanceOfNFTAt at t0", dustLock.balanceOfNFTAt(tokenId, t0));
+
+        emit log_named_uint("Voting power after 1 week", votingPowerAfterWeek);
+        assertEq(dustLock.balanceOfNFTAt(tokenId, t1), votingPowerAfterWeek);
+        emit log_named_uint("BalanceOfNFTAt at t1", dustLock.balanceOfNFTAt(tokenId, t1));
+
+        emit log_named_uint("Voting power after 21 weeks", votingPowerAfterTwentyWeeks);
+        assertEq(dustLock.balanceOfNFTAt(tokenId, t2), votingPowerAfterTwentyWeeks);
+        emit log_named_uint("BalanceOfNFTAt at t2", dustLock.balanceOfNFTAt(tokenId, t2));
 
         vm.stopPrank();
     }
 
     /**
-     * @notice Test edge cases around precision boundaries
+     * @notice Lock 26 weeks, warp to last month, then verify historical balances via balanceOfNFTAt
      */
-    function testEdgeCasePrecisionLoss() public {
-        uint256 lockDuration = 26 weeks;
-
-        // Test amounts around various thresholds (all >= minimum lock amount)
-        uint256[] memory edgeAmounts = new uint256[](3);
-        edgeAmounts[0] = TOKEN_1; // Minimum lock amount
-        edgeAmounts[1] = TOKEN_1 * 100; // Medium amount
-        edgeAmounts[2] = TOKEN_1K; // Large amount
+    function testHistoricalBalancesLastMonthWindow() public {
+        uint256 amount = TOKEN_1; // 1 DUST
+        uint256 duration = 26 weeks;
 
         vm.startPrank(user);
+        DUST.approve(address(dustLock), amount);
+        uint256 tokenId = dustLock.createLock(amount, duration);
+        IDustLock.LockedBalance memory li = dustLock.locked(tokenId);
+        uint256 end = li.end;
+        vm.stopPrank();
 
-        for (uint256 i = 0; i < edgeAmounts.length; i++) {
-            uint256 amount = edgeAmounts[i];
-            DUST.approve(address(dustLock), amount);
-            uint256 tokenId = dustLock.createLock(amount, lockDuration);
-            uint256 votingPower = dustLock.balanceOfNFT(tokenId);
+        // Warp to start of last month (4 weeks remaining)
+        skipToAndLog(end - 4 weeks, "To last month");
+        emit log(string(abi.encodePacked(vm.toString(end), " TS - Lock end")));
 
-            // All amounts should produce non-zero voting power
-            assertGt(votingPower, 0, "Edge case should not result in zero voting power");
+        // Timestamps to check within the last month
+        uint256[] memory times = new uint256[](4);
+        times[0] = end - 4 weeks;
+        times[1] = end - 3 weeks;
+        times[2] = end - 2 weeks;
+        times[3] = end - 1 weeks;
+
+        for (uint256 i = 0; i < times.length; i++) {
+            uint256 t = times[i];
+            emit log(string(abi.encodePacked(vm.toString(t), " TS - Query [", vm.toString(i), "]")));
+            uint256 actual = dustLock.balanceOfNFTAt(tokenId, t);
+            uint256 expected = (amount * (end - t)) / MAXTIME;
+            emit log_named_uint("Expected", expected);
+            emit log_named_uint("Actual", actual);
+            assertEq(actual, expected, "Historical balance must equal expected");
+            logWithTs(string(abi.encodePacked("Historical [", vm.toString(i), "] - passed")));
         }
 
-        vm.stopPrank();
+        // Also validate current vp at the warped timestamp
+        uint256 expectedNow = (amount * (end - block.timestamp)) / MAXTIME;
+        assertEq(dustLock.balanceOfNFT(tokenId), expectedNow, "Current voting power must equal expected");
+        logWithTs("Current - passed");
+
+        // Reset
+        skipToAndLog(1 weeks + 1, "Reset");
     }
+
+    /**
+     * @notice Test edge cases around precision boundaries
+     */
 
     /**
      * @notice Test multiple small locks to verify consistent precision
@@ -164,13 +414,17 @@ contract PrecisionTests is BaseTest {
             uint256 votingPower = dustLock.balanceOfNFT(tokenId);
 
             totalActualVotingPower += votingPower;
-            totalExpectedVotingPower += (lockAmount * lockDuration) / MAXTIME;
+            {
+                IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
+                totalExpectedVotingPower += (lockAmount * (lockInfo.end - block.timestamp)) / MAXTIME;
+            }
 
             // Log individual lock details
             emit log_named_uint(string(abi.encodePacked("Lock ", vm.toString(i + 1), " voting power")), votingPower);
 
             // Each lock should have non-zero voting power
             assertGt(votingPower, 0, "Small lock should have non-zero voting power");
+            logWithTs(string(abi.encodePacked("Small lock [", vm.toString(i + 1), "] - >0 - passed")));
         }
 
         vm.stopPrank();
@@ -182,55 +436,18 @@ contract PrecisionTests is BaseTest {
         uint256 precisionBasisPoints = (totalActualVotingPower * 10000) / totalExpectedVotingPower;
         emit log_named_uint("Precision (basis points)", precisionBasisPoints);
 
+        // Totals must match exactly when summing per-lock expected values
+        assertEq(totalActualVotingPower, totalExpectedVotingPower, "Total voting power must equal expected total");
+        logWithTs("Total - equality - passed");
+
         // Total should be reasonable
         assertGt(totalActualVotingPower, 0, "Total voting power should be non-zero");
+        logWithTs("Total - >0 - passed");
     }
 
     // ============================================
     // SPECIFIC PRECISION SCENARIOS
     // ============================================
-
-    /**
-     * @notice Test Scenario 1: Exact 1 DUST for exactly 26 weeks
-     * @dev This scenario uses round numbers to validate precise calculations
-     *
-     * Expected calculation:
-     * - Amount: 1e18 wei (1 DUST)
-     * - Duration: 26 weeks = 15,724,800 seconds
-     * - MAXTIME: 365 days = 31,536,000 seconds
-     * - Expected voting power: (1e18 * 15,724,800) / 31,536,000 = 498,630,136,986,301,369 wei
-     */
-    function testScenario1_OneDustTwentySixWeeks() public {
-        uint256 lockAmount = 1e18; // Exactly 1 DUST
-        uint256 lockDuration = 26 weeks; // Exactly 26 weeks
-
-        vm.startPrank(user);
-        DUST.approve(address(dustLock), lockAmount);
-        uint256 tokenId = dustLock.createLock(lockAmount, lockDuration);
-        uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
-
-        // Get the actual lock duration after week rounding
-        IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
-        uint256 actualDuration = lockInfo.end - block.timestamp;
-        uint256 expectedVotingPower = (lockAmount * actualDuration) / MAXTIME;
-
-        vm.stopPrank();
-
-        // Demonstrate maximum precision: exact match
-        assertEq(actualVotingPower, expectedVotingPower, "Scenario 1: Voting power must equal expected calculation");
-
-        // Log values for verification
-        emit log_named_uint("Requested duration", lockDuration);
-        emit log_named_uint("Actual duration", actualDuration);
-        emit log_named_uint("Expected voting power", expectedVotingPower);
-        emit log_named_uint("Actual voting power", actualVotingPower);
-        emit log_named_uint(
-            "Absolute difference",
-            actualVotingPower > expectedVotingPower
-                ? actualVotingPower - expectedVotingPower
-                : expectedVotingPower - actualVotingPower
-        );
-    }
 
     /**
      * @notice Test Scenario 2: Exact 10 DUST for exactly 52 weeks (max time)
@@ -241,7 +458,7 @@ contract PrecisionTests is BaseTest {
      * - Duration: 52 weeks ≈ 365 days = 31,536,000 seconds (due to week rounding)
      * - Expected voting power: 10e18 wei (should be close to the lock amount)
      */
-    function testScenario2_TenDustFiftyTwoWeeks() public {
+    function testScenario2TenDustFiftyTwoWeeks() public {
         uint256 lockAmount = 10e18; // Exactly 10 DUST
         uint256 lockDuration = 52 weeks; // Maximum duration
 
@@ -253,24 +470,72 @@ contract PrecisionTests is BaseTest {
         // Get the actual lock end time to calculate precise expected value
         IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
         uint256 actualDuration = lockInfo.end - block.timestamp;
-        uint256 expectedVotingPower = (lockAmount * actualDuration) / MAXTIME;
+        // Deterministic hardcoded constant for 10 DUST, 52w (effective 52w - 1s)
+        // Note: For 1 DUST this is 997,260,242,262,810,755 wei; scaling to 10 DUST yields +9 wei due to rounding in internal math
+        /*
+         Calculations for expected voting power (52w):
+         - Amount: 10 DUST   = 10e18 wei
+         - Effective duration: 52 weeks - 1 second (ts % WEEK == 1)
+             52w = 31,449,600 seconds -> 52w - 1s = 31,449,599 seconds
+         - MAXTIME      = 365 days = 31,536,000 seconds
+         - Voting power = floor(10e18 * 31,449,599 / 31,536,000)
+                        = 9,972,602,422,628,107,559 wei
+           (Slightly higher than 10 × 997,260,242,262,810,755 due to internal rounding)
+         */
+        uint256 expectedVotingPower = 9972602422628107559;
 
         vm.stopPrank();
 
         // Demonstrate maximum precision: exact match
+        emit log_named_uint("Lock amount", lockAmount);
+        emit log_named_uint("Actual duration (seconds)", actualDuration);
+        emit log_named_uint("Expected voting power", expectedVotingPower);
+        emit log_named_uint("Actual voting power", actualVotingPower);
         assertEq(
             actualVotingPower,
             expectedVotingPower,
             "Scenario 2: Max duration voting power must equal expected calculation"
         );
+        logWithTs("Scenario2 - initial - passed");
 
         // Verify it's close to the lock amount (should be ~99.7% due to 365 days vs 52 weeks)
         assertGt(actualVotingPower, (lockAmount * 99) / 100, "Should be >99% of lock amount");
+        logWithTs("Scenario2 - >99% - passed");
 
         emit log_named_uint("Lock amount", lockAmount);
         emit log_named_uint("Actual duration (seconds)", actualDuration);
         emit log_named_uint("Expected voting power", expectedVotingPower);
         emit log_named_uint("Actual voting power", actualVotingPower);
+
+        // ======================================================
+        // Also test 52 weeks + 1 day (should round to same week)
+        // ======================================================
+        uint256 lockDurationPlus1D = lockDuration + 1 days;
+
+        vm.startPrank(user);
+        DUST.approve(address(dustLock), lockAmount);
+        uint256 tokenId2 = dustLock.createLock(lockAmount, lockDurationPlus1D);
+        uint256 actualVotingPower2 = dustLock.balanceOfNFT(tokenId2);
+        IDustLock.LockedBalance memory lockInfo2 = dustLock.locked(tokenId2);
+        uint256 actualDuration2 = lockInfo2.end - block.timestamp;
+        // Semi-hardcoded expected: with ts%WEEK == 1, effective duration is (52w - 1s)
+        uint256 expectedDuration2 = 52 weeks - 1;
+        uint256 expectedVotingPower2 = (lockAmount * expectedDuration2) / MAXTIME;
+        vm.stopPrank();
+
+        // Logs and assertion for +1 day case
+        emit log_named_uint("Requested duration (seconds) - base", lockDuration);
+        emit log_named_uint("Requested duration (seconds) - +1d", lockDurationPlus1D);
+        emit log_named_uint("Expected effective duration (seconds)", expectedDuration2);
+        emit log_named_uint("Actual duration (seconds) - +1d", actualDuration2);
+        emit log_named_uint("Expected voting power - +1d", expectedVotingPower2);
+        emit log_named_uint("Actual voting power - +1d", actualVotingPower2);
+        assertEq(
+            actualVotingPower2,
+            expectedVotingPower2,
+            "Scenario 2 (+1d): Voting power must equal semi-hardcoded expected calculation"
+        );
+        logWithTs("Scenario2 (+1d) - initial - passed");
     }
 
     /**
@@ -279,7 +544,7 @@ contract PrecisionTests is BaseTest {
      *
      * Scenario: 5 DUST locked for 26 weeks, check decay at specific intervals
      */
-    function testScenario3_PreciseDecayCalculation() public {
+    function testScenario3PreciseDecayCalculation() public {
         uint256 lockAmount = 5e18; // 5 DUST
         uint256 lockDuration = 26 weeks;
 
@@ -302,12 +567,47 @@ contract PrecisionTests is BaseTest {
         for (uint256 i = 0; i < remainingTimes.length; i++) {
             if (remainingTimes[i] == 0) continue;
             uint256 testTime = lockEnd - remainingTimes[i];
-            vm.warp(testTime);
+            skipToAndLog(testTime, "Scenario3 sample");
             uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
 
-            // Calculate expected voting power at this time
-            uint256 remainingTime = lockEnd - testTime;
-            uint256 expectedVotingPower = (lockAmount * remainingTime) / MAXTIME;
+            // Hardcoded expected voting power for 5 DUST at selected remaining weeks
+            uint256 remainingWeeks = remainingTimes[i] / 1 weeks;
+            uint256 expectedVotingPower;
+            if (remainingWeeks == 25) {
+                /*
+                 Calculations (5 DUST, remaining 25 weeks):
+                 - 25w = 25 × 604,800   = 15,120,000 seconds
+                 - Voting power         = floor(5e18 * 15,120,000 / 31,536,000)
+                                        = 2,397,260,273,972,602,739 wei
+                 */
+                expectedVotingPower = 2397260273972602739;
+            } else if (remainingWeeks == 22) {
+                /*
+                 Calculations (5 DUST, remaining 22 weeks):
+                 - 22w = 22 × 604,800   = 13,305,600 seconds
+                 - Voting power         = floor(5e18 * 13,305,600 / 31,536,000)
+                                        = 2,109,589,041,095,890,410 wei
+                 */
+                expectedVotingPower = 2109589041095890410;
+            } else if (remainingWeeks == 13) {
+                /*
+                 Calculations (5 DUST, remaining 13 weeks):
+                 - 13w = 13 × 604,800   = 7,862,400 seconds
+                 - Voting power         = floor(5e18 * 7,862,400 / 31,536,000)
+                                        = 1,246,575,342,465,753,424 wei
+                 */
+                expectedVotingPower = 1246575342465753424;
+            } else if (remainingWeeks == 1) {
+                /*
+                 Calculations (5 DUST, remaining 1 week):
+                 - 1w = 604,800 seconds (7 days)
+                 - Voting power         = floor(5e18 * 604,800 / 31,536,000)
+                                        = 95,890,410,958,904,109 wei
+                 */
+                expectedVotingPower = 95890410958904109;
+            } else {
+                revert("Unexpected remaining weeks");
+            }
 
             // Demonstrate maximum precision at sampled points
             assertEq(
@@ -315,14 +615,21 @@ contract PrecisionTests is BaseTest {
                 expectedVotingPower,
                 string(abi.encodePacked("Decay at remaining weeks ", vm.toString(remainingTimes[i] / 1 weeks)))
             );
+            logWithTs(
+                string(
+                    abi.encodePacked(
+                        "Scenario3 - remaining weeks ", vm.toString(remainingTimes[i] / 1 weeks), " - passed"
+                    )
+                )
+            );
 
-            emit log_named_uint("Remaining weeks - Expected", remainingTimes[i] / 1 weeks);
+            emit log_named_uint("Remaining weeks", remainingTimes[i] / 1 weeks);
             emit log_named_uint("Voting power - Expected", expectedVotingPower);
             emit log_named_uint("Voting power - Actual", actualVotingPower);
         }
 
         // Reset time for cleanup
-        vm.warp(1 weeks + 1);
+        skipToAndLog(1 weeks + 1, "Reset");
     }
 
     /**
@@ -331,7 +638,7 @@ contract PrecisionTests is BaseTest {
      *
      * Scenario: Exactly 1 DUST (minimum) for various durations
      */
-    function testScenario4_MinimumAmountPrecision() public {
+    function testScenario4MinimumAmountPrecision() public {
         uint256 lockAmount = 1e18; // Minimum lock amount
 
         // Test different durations
@@ -348,21 +655,48 @@ contract PrecisionTests is BaseTest {
             DUST.approve(address(dustLock), lockAmount);
             uint256 tokenId = dustLock.createLock(lockAmount, duration);
 
-            IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
-            uint256 actualDuration = lockInfo.end - block.timestamp;
-            uint256 expectedVotingPower = (lockAmount * actualDuration) / MAXTIME;
+            uint256 expectedVotingPower;
+            if (duration == 5 weeks) {
+                /*
+                 Calculations (1 DUST, 5 weeks):
+                 - Effective duration: 5w - 1s (ts % WEEK == 1)
+                     5w = 3,024,000 seconds -> 5w - 1s = 3,023,999 seconds
+                 - Voting power     = floor(1e18 * 3,023,999 / 31,536,000)
+                                    = 95,890,379,249,112,125 wei
+                 */
+                expectedVotingPower = 95890379249112125; // 1 DUST, 5w - 1s
+            } else if (duration == 26 weeks) {
+                /*
+                 Calculations (1 DUST, 26 weeks):
+                 - Effective duration: 26w - 1s = 15,724,799 seconds
+                 - Voting power     = floor(1e18 * 15,724,799 / 31,536,000)
+                                    = 498,630,105,276,509,386 wei
+                 */
+                expectedVotingPower = 498630105276509386; // 1 DUST, 26w - 1s
+            } else if (duration == 52 weeks) {
+                /*
+                 Calculations (1 DUST, 52 weeks):
+                 - Effective duration: 52w - 1s = 31,449,599 seconds
+                 - Voting power     = floor(1e18 * 31,449,599 / 31,536,000)
+                                    = 997,260,242,262,810,755 wei
+                 */
+                expectedVotingPower = 997260242262810755; // 1 DUST, 52w - 1s
+            } else {
+                revert("Unexpected duration");
+            }
             uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
 
-            // Even minimum amounts should have precise calculations
-            assertApproxEqAbs(
+            // Even minimum amounts should have precise calculations exactly
+            assertEq(
                 actualVotingPower,
                 expectedVotingPower,
-                PRECISION_TOLERANCE,
                 string(abi.encodePacked("Min amount precision - ", vm.toString(duration / 1 weeks), " weeks"))
             );
+            logWithTs(string(abi.encodePacked("Scenario4 - ", vm.toString(duration / 1 weeks), "w - initial - passed")));
 
             // Ensure no precision loss to zero
             assertGt(actualVotingPower, 0, "Minimum amount should never result in zero voting power");
+            logWithTs(string(abi.encodePacked("Scenario4 - ", vm.toString(duration / 1 weeks), "w - >0 - passed")));
 
             emit log_named_uint(
                 string(abi.encodePacked("Duration ", vm.toString(duration / 1 weeks), "w - Expected")),
@@ -382,7 +716,7 @@ contract PrecisionTests is BaseTest {
      *
      * Scenario: 100,000 DUST for 26 weeks
      */
-    function testScenario5_LargeAmountPrecision() public {
+    function testScenario5LargeAmountPrecision() public {
         uint256 lockAmount = 100_000e18; // 100,000 DUST
         uint256 lockDuration = 26 weeks;
 
@@ -390,24 +724,29 @@ contract PrecisionTests is BaseTest {
         DUST.approve(address(dustLock), lockAmount);
         uint256 tokenId = dustLock.createLock(lockAmount, lockDuration);
 
-        IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
-        uint256 actualDuration = lockInfo.end - block.timestamp;
-        uint256 expectedVotingPower = (lockAmount * actualDuration) / MAXTIME;
+        // Hardcoded expectation:
+        // lockAmount           = 100_000e18
+        // effectiveDuration    = 26 weeks - 1 second (block.timestamp % WEEK == 1) => 15,724,799s
+        // MAXTIME              = 365 days = 31,536,000s
+        // expected             = floor(lockAmount * effectiveDuration / MAXTIME)
+        //                      = 49,863,010,527,650,938,609,842 wei
+        uint256 expectedVotingPower = 49863010527650938609842;
         uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
 
         vm.stopPrank();
 
-        // Large amounts should maintain precision
-        assertApproxEqAbs(
-            actualVotingPower, expectedVotingPower, PRECISION_TOLERANCE, "Large amount precision should be maintained"
-        );
+        // Large amounts should maintain precision exactly
+        assertEq(actualVotingPower, expectedVotingPower, "Large amount precision should be maintained");
+        logWithTs("Scenario5 - initial - passed");
 
         // Calculate precision as percentage
         uint256 precisionBasisPoints = (actualVotingPower * 10000) / expectedVotingPower;
 
         // Should be very close to 100% (10000 basis points)
         assertGe(precisionBasisPoints, 9999, "Precision should be >= 99.99%");
+        logWithTs("Scenario5 - precision >= 99.99% - passed");
         assertLe(precisionBasisPoints, 10001, "Precision should be <= 100.01%");
+        logWithTs("Scenario5 - precision <= 100.01% - passed");
 
         emit log_named_uint("Expected voting power", expectedVotingPower);
         emit log_named_uint("Actual voting power", actualVotingPower);
@@ -420,7 +759,7 @@ contract PrecisionTests is BaseTest {
      *
      * Scenario: Test lock durations that cross week boundaries
      */
-    function testScenario6_WeekBoundaryRounding() public {
+    function testScenario6WeekBoundaryRounding() public {
         uint256 lockAmount = 10e18; // 10 DUST
 
         // Test durations that will be rounded to week boundaries
@@ -443,12 +782,15 @@ contract PrecisionTests is BaseTest {
             uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
 
             // Verify precision is maintained despite rounding
-            assertApproxEqAbs(
+            emit log_named_uint(
+                string(abi.encodePacked("Test ", vm.toString(i), " - Expected voting power")), expectedVotingPower
+            );
+            assertEq(
                 actualVotingPower,
                 expectedVotingPower,
-                PRECISION_TOLERANCE,
                 string(abi.encodePacked("Week boundary rounding test ", vm.toString(i)))
             );
+            logWithTs(string(abi.encodePacked("Scenario6 - test ", vm.toString(i), " - passed")));
 
             emit log_named_uint(string(abi.encodePacked("Test ", vm.toString(i), " - Raw duration")), rawDuration);
             emit log_named_uint(string(abi.encodePacked("Test ", vm.toString(i), " - Actual duration")), actualDuration);
@@ -485,19 +827,18 @@ contract PrecisionTests is BaseTest {
         emit log_named_uint("Expected voting power", expectedVotingPower);
         emit log_named_uint("Actual voting power", actualVotingPower);
 
+        // Initial voting power must match exact expectation
+        assertEq(actualVotingPower, expectedVotingPower, "Initial voting power must equal expected");
+        logWithTs("Initial - passed");
+
         // Calculate precision metrics
         if (expectedVotingPower > 0) {
             uint256 precisionBasisPoints = (actualVotingPower * 10000) / expectedVotingPower;
             emit log_named_uint("Precision (basis points)", precisionBasisPoints);
         }
 
-        // Verify precision - should be close to expected for non-zero amounts
-        if (expectedVotingPower > 0) {
-            assertGt(actualVotingPower, 0, "Should not have zero voting power for non-zero amounts");
-        }
-
         // Test voting power decay over time
-        vm.warp(lockInfo.end - 1 weeks);
+        skipToAndLog(lockInfo.end - 1 weeks, "Near end (-1w)");
         uint256 votingPowerNearEnd = dustLock.balanceOfNFT(tokenId);
 
         // Log decay information
@@ -509,13 +850,19 @@ contract PrecisionTests is BaseTest {
             emit log_named_uint("Decay percentage", decayPercentage);
         }
 
+        // Exact expectation near end (1 week remaining)
+        uint256 expectedNearEnd = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
+        assertEq(votingPowerNearEnd, expectedNearEnd, "Voting power near end must equal expected");
+        logWithTs("Near end (-1w) - passed");
+
         // Verify decay occurred (unless it was already 0)
         if (actualVotingPower > 0) {
             assertLt(votingPowerNearEnd, actualVotingPower, "Voting power should decay over time");
+            logWithTs("Decay occurred - passed");
         }
 
         // Reset time for next test
-        vm.warp(1 weeks + 1);
+        skipToAndLog(1 weeks + 1, "Reset");
     }
 
     // ============================================
@@ -545,6 +892,7 @@ contract PrecisionTests is BaseTest {
         vm.stopPrank();
 
         assertEq(actualVotingPower, expectedVotingPower, "Fuzz: initial voting power must equal expected");
+        logWithTs("Fuzz - initial - passed");
     }
 
     /**
@@ -582,5 +930,6 @@ contract PrecisionTests is BaseTest {
         } else {
             assertLe(vpSum - vpTwo, 1, "Linearity: single lock vs two locks must be within 1 wei");
         }
+        logWithTs("Linearity - within 1 wei - passed");
     }
 }

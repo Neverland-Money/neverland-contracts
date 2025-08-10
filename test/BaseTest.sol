@@ -33,8 +33,8 @@ abstract contract BaseTest is Script, Test {
     uint256 constant TOKEN_100K = 1e23; // 1e5 = 100K tokens with 18 decimals
     uint256 constant TOKEN_1M = 1e24; // 1e6 = 1M tokens with 18 decimals
     uint256 constant TOKEN_10M = 1e25; // 1e7 = 10M tokens with 18 decimals
+    uint256 constant TOKEN_50M = 5e25; // 5e7 = 50M tokens with 18 decimals
     uint256 constant TOKEN_100M = 1e26; // 1e8 = 100M tokens with 18 decimals
-    uint256 constant TOKEN_10B = 1e28; // 1e10 = 10B tokens with 18 decimals
 
     address internal ZERO_ADDRESS = address(0);
 
@@ -49,6 +49,8 @@ abstract contract BaseTest is Script, Test {
     uint256 constant MINTIME = 4 weeks;
     uint256 constant MAXTIME = 1 * 365 * 86400;
     uint256 constant WEEK = 1 weeks;
+
+    uint256 constant PRECISION_TOLERANCE = 1; // 1 wei tolerance for rounding
 
     function setUp() public virtual {
         _testSetup();
@@ -111,6 +113,10 @@ abstract contract BaseTest is Script, Test {
         }
     }
 
+    function logWithTs(string memory label) internal {
+        emit log(string(abi.encodePacked("TS - ", vm.toString(block.timestamp), " - ", label)));
+    }
+
     /// @dev Forwards time to next week
     ///      note epoch requires at least one second to have passed into the new epoch
     function skipToNextEpoch(uint256 offset) internal {
@@ -118,6 +124,11 @@ abstract contract BaseTest is Script, Test {
         uint256 nextEpoch = ts - (ts % (1 weeks)) + (1 weeks);
         vm.warp(nextEpoch + offset);
         vm.roll(block.number + 1);
+    }
+
+    function skipToAndLog(uint256 to, string memory label) internal {
+        vm.warp(to);
+        emit log(string(abi.encodePacked("Wrap to ", vm.toString(to), " TS - ", label)));
     }
 
     function skipAndRoll(uint256 timeOffset) internal {
