@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "../BaseTest.sol";
+import "forge-std/console2.sol";
 
 /**
  * @title DustLockFlow
@@ -192,37 +193,33 @@ contract DustLockFlow is BaseTest {
     }
 
     // ============================================
-    // GENERAL PRECISION TESTS
+    // GENERAL TESTS
     // ============================================
 
-    /**
-     * @notice Test precision in voting power calculations across different amounts
-     */
-    function testActualContractPrecisionLoss() public {
-        uint256 lockDuration = 26 weeks; // Half year lock
+    function testFuzz_createLockValuesAndDecay(uint256 amount, uint256 lockDuration) public {
+        // --- 1. Constrain Inputs ---
+        uint256 MAX_LOCK_AMOUNT = 1_000_000e18;
+        amount = bound(amount, MIN_LOCK_AMOUNT, MAX_LOCK_AMOUNT);
 
-        // Test amounts across different ranges (all >= minimum lock amount)
-        uint256[] memory testAmounts = new uint256[](13);
-        testAmounts[0] = TOKEN_1; // 1 DUST (minimum)
-        testAmounts[1] = TOKEN_1 * 2; // 2 DUST
-        testAmounts[2] = TOKEN_1 * 5; // 5 DUST
-        testAmounts[3] = TOKEN_1 * 10; // 10 DUST
-        testAmounts[4] = TOKEN_1 * 50; // 50 DUST
-        testAmounts[5] = TOKEN_1 * 100; // 100 DUST
-        testAmounts[6] = TOKEN_1 * 500; // 500 DUST
-        testAmounts[7] = TOKEN_1K; // 1000 DUST
-        testAmounts[8] = TOKEN_10K; // 10000 DUST
-        testAmounts[9] = TOKEN_100K; // 100000 DUST
-        testAmounts[10] = TOKEN_1M; // 1000000 DUST
-        testAmounts[11] = TOKEN_10M; // 10000000 DUST
-        testAmounts[12] = TOKEN_50M; // 50000000 DUST
+        lockDuration = bound(lockDuration, MINTIME + 1 weeks, MAXTIME);
 
-        emit log_named_uint("Lock duration (weeks)", lockDuration / 1 weeks);
-        emit log_named_uint("Total test amounts", testAmounts.length);
+        // --- 2. Execute Action ---
+        DUST.approve(address(dustLock), amount);
+        uint256 tokenId = dustLock.createLock(amount, lockDuration);
 
-        for (uint256 i = 0; i < testAmounts.length; i++) {
-            uint256 amount = testAmounts[i];
-            _testSingleAmount(amount, lockDuration);
+        // --- 3. Verify Initial State ---
+        uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
+        IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
+        uint256 expectedVotingPower = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
+        assertEq(actualVotingPower, expectedVotingPower, "Initial voting power mismatch");
+
+        // --- 4. Verify State After Time Passes (Decay) ---
+        if (lockInfo.end > block.timestamp + 1 weeks) {
+            vm.warp(lockInfo.end - 1 weeks);
+            uint256 votingPowerNearEnd = dustLock.balanceOfNFT(tokenId);
+            uint256 expectedNearEnd = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
+            assertEq(votingPowerNearEnd, expectedNearEnd, "Voting power near end mismatch");
+            assertLt(votingPowerNearEnd, actualVotingPower, "Voting power should decay over time");
         }
     }
 
@@ -847,68 +844,6 @@ contract DustLockFlow is BaseTest {
             emit log_named_uint(string(abi.encodePacked("Test ", vm.toString(i), " - Actual duration")), actualDuration);
             emit log_named_uint(string(abi.encodePacked("Test ", vm.toString(i), " - Voting power")), actualVotingPower);
         }
-    }
-
-    // ============================================
-    // HELPER FUNCTIONS
-    // ============================================
-
-    /**
-     * @notice Test a single amount by creating an actual lock
-     */
-    function _testSingleAmount(uint256 amount, uint256 duration) internal {
-        DUST.approve(address(dustLock), amount);
-        uint256 tokenId = dustLock.createLock(amount, duration);
-
-        // Get the actual voting power from the contract
-        uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
-
-        // Get lock details for verification
-        IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
-        // Use actualDuration (post week-rounding) for exact expectation
-        uint256 expectedVotingPower = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
-
-        // Log test details
-        emit log_named_uint("Test amount (DUST)", amount / 1e18);
-        emit log_named_uint("Expected voting power", expectedVotingPower);
-        emit log_named_uint("Actual voting power", actualVotingPower);
-
-        // Initial voting power must match exact expectation
-        assertEq(actualVotingPower, expectedVotingPower, "Initial voting power must equal expected");
-        logWithTs("Initial - passed");
-
-        // Calculate precision metrics
-        if (expectedVotingPower > 0) {
-            uint256 precisionBasisPoints = (actualVotingPower * 10000) / expectedVotingPower;
-            emit log_named_uint("Precision (basis points)", precisionBasisPoints);
-        }
-
-        // Test voting power decay over time
-        skipToAndLog(lockInfo.end - 1 weeks, "Near end (-1w)");
-        uint256 votingPowerNearEnd = dustLock.balanceOfNFT(tokenId);
-
-        // Log decay information
-        if (actualVotingPower > 0) {
-            uint256 decayAmount = actualVotingPower - votingPowerNearEnd;
-            uint256 decayPercentage = (decayAmount * 100) / actualVotingPower;
-            emit log_named_uint("Voting power near end", votingPowerNearEnd);
-            emit log_named_uint("Decay amount", decayAmount);
-            emit log_named_uint("Decay percentage", decayPercentage);
-        }
-
-        // Exact expectation near end (1 week remaining)
-        uint256 expectedNearEnd = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
-        assertEq(votingPowerNearEnd, expectedNearEnd, "Voting power near end must equal expected");
-        logWithTs("Near end (-1w) - passed");
-
-        // Verify decay occurred (unless it was already 0)
-        if (actualVotingPower > 0) {
-            assertLt(votingPowerNearEnd, actualVotingPower, "Voting power should decay over time");
-            logWithTs("Decay occurred - passed");
-        }
-
-        // Reset time for next test
-        skipToAndLog(1 weeks + 1, "Reset");
     }
 
     // ============================================

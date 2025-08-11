@@ -50,6 +50,8 @@ abstract contract BaseTest is Script, Test {
     uint256 constant MAXTIME = 1 * 365 * 86400;
     uint256 constant WEEK = 1 weeks;
 
+    uint256 constant MIN_LOCK_AMOUNT = 1e18;
+
     uint256 constant PRECISION_TOLERANCE = 1; // 1 wei tolerance for rounding
 
     function setUp() public virtual {
