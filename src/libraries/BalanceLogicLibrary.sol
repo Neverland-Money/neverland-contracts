@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
+import {ud60x18, convert} from "@prb/math/src/UD60x18.sol";
 
 import {SafeCastLibrary} from "./SafeCastLibrary.sol";
 
@@ -116,8 +117,8 @@ library BalanceLogicLibrary {
             if (lastPoint.bias < 0) {
                 lastPoint.bias = 0;
             }
-            // Convert from WAD (18 decimals) back to token units with proper rounding
-            return uint256(lastPoint.bias) / 1e18;
+            // Convert from WAD (18 decimals) back to token units
+            return convert(ud60x18(uint256(lastPoint.bias)));
         }
     }
 
@@ -163,7 +164,7 @@ library BalanceLogicLibrary {
         if (bias < 0) {
             bias = 0;
         }
-        // Convert from WAD (18 decimals) back to token units with proper rounding
-        return uint256(bias) / 1e18 + _point.permanentLockBalance;
+        // Convert from WAD (18 decimals) back to token units
+        return convert(ud60x18(uint256(bias))) + _point.permanentLockBalance;
     }
 }

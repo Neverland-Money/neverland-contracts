@@ -7,7 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
+import {UD60x18, convert} from "@prb/math/src/UD60x18.sol";
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
@@ -519,10 +519,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                 uint256 maxTime = MAXTIME;
 
                 // Use PRB Math UD60x18 for 18 decimal precision
-                // Convert inputs to WAD format first, then do calculations
-                UD60x18 amountWAD = ud(amount * 1e18);
-                UD60x18 timeDiffWAD = ud(timeDiff * 1e18);
-                UD60x18 maxTimeWAD = ud(maxTime * 1e18);
+                // Convert inputs to WAD
+                UD60x18 amountWAD = convert(amount);
+                UD60x18 timeDiffWAD = convert(timeDiff);
+                UD60x18 maxTimeWAD = convert(maxTime);
 
                 UD60x18 biasResult = amountWAD.mul(timeDiffWAD).div(maxTimeWAD);
                 uOld.bias = int256(biasResult.intoUint256());
@@ -537,10 +537,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                 uint256 maxTime = MAXTIME;
 
                 // Use PRB Math UD60x18 for 18 decimal precision
-                // Convert inputs to WAD format first, then do calculations
-                UD60x18 amountWAD = ud(amount * 1e18);
-                UD60x18 timeDiffWAD = ud(timeDiff * 1e18);
-                UD60x18 maxTimeWAD = ud(maxTime * 1e18);
+                // Convert inputs to WAD
+                UD60x18 amountWAD = convert(amount);
+                UD60x18 timeDiffWAD = convert(timeDiff);
+                UD60x18 maxTimeWAD = convert(maxTime);
 
                 UD60x18 biasResult = amountWAD.mul(timeDiffWAD).div(maxTimeWAD);
                 uNew.bias = int256(biasResult.intoUint256());
