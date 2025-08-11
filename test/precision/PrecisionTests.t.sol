@@ -341,6 +341,90 @@ contract PrecisionTests is BaseTest {
         vm.stopPrank();
     }
 
+    // ============================================
+    // CHECKPOINT INTERNAL INVARIANTS (MINIMAL)
+    // ============================================
+    function testCheckpointInternalInvariantsMinimal() public {
+        // Create 1 DUST lock at MAXTIME; ts%WEEK == 1 => deterministic rounding
+        deal(address(DUST), address(this), TOKEN_1 * 2);
+        DUST.approve(address(dustLock), type(uint256).max);
+        dustLock.createLock(TOKEN_1, MAXTIME); // tokenId = 1
+
+        // Locked end rounds to week boundary
+        IDustLock.LockedBalance memory locked = dustLock.locked(1);
+        uint256 expectedEnd = 32054400; // floor((ts + MAXTIME)/WEEK)*WEEK for ts=1w+1
+        emit log_named_uint("Expected locked.end", expectedEnd);
+        emit log_named_uint("Actual locked.end", locked.end);
+        assertEq(locked.end, expectedEnd, "locked.end mismatch");
+
+        // Expected slope and bias (UD60x18 math)
+        int256 expectedSlopeWAD = 31709791983764586504312531709; // floor(1e36 / 31,536,000)
+        int256 expectedBiasWAD = 997260242262810755961440892947742262; // floor((1e36 * 31,449,599e18) / (31,536,000e18))
+
+        // slopeChanges at end
+        emit log_named_int("Expected slopeChanges", -expectedSlopeWAD);
+        emit log_named_int("Actual slopeChanges", dustLock.slopeChanges(expectedEnd));
+        assertEq(dustLock.slopeChanges(expectedEnd), -expectedSlopeWAD, "slopeChanges must match exactly");
+
+        // User and global points at epoch 1
+        emit log_named_uint("Expected userPointEpoch", 1);
+        emit log_named_uint("Actual userPointEpoch", dustLock.userPointEpoch(1));
+        IDustLock.UserPoint memory userPoint = dustLock.userPointHistory(1, 1);
+        emit log_named_int("Expected userPoint.bias", expectedBiasWAD);
+        emit log_named_int("Actual userPoint.bias", userPoint.bias);
+        assertEq(userPoint.bias, expectedBiasWAD, "user bias must match exactly");
+        emit log_named_int("Expected userPoint.slope", expectedSlopeWAD);
+        emit log_named_int("Actual userPoint.slope", userPoint.slope);
+        assertEq(userPoint.slope, expectedSlopeWAD, "user slope must match exactly");
+
+        emit log_named_uint("Expected dustLock.epoch", 1);
+        emit log_named_uint("Actual dustLock.epoch", dustLock.epoch());
+        IDustLock.GlobalPoint memory globalPoint = dustLock.pointHistory(1);
+        emit log_named_int("Expected globalPoint.bias", expectedBiasWAD);
+        emit log_named_int("Actual globalPoint.bias", globalPoint.bias);
+        assertEq(globalPoint.bias, expectedBiasWAD, "global bias must match exactly");
+        emit log_named_int("Expected globalPoint.slope", expectedSlopeWAD);
+        emit log_named_int("Actual globalPoint.slope", globalPoint.slope);
+        assertEq(globalPoint.slope, expectedSlopeWAD, "global slope must match exactly");
+
+        // Same-block checkpoint is a no-op for epoch/point
+        dustLock.checkpoint();
+        globalPoint = dustLock.pointHistory(1);
+        assertEq(globalPoint.bias, expectedBiasWAD, "global bias after checkpoint must match exactly");
+        assertEq(globalPoint.slope, expectedSlopeWAD, "global slope after checkpoint must match exactly");
+        logWithTs("Checkpoint invariants - initial - passed");
+
+        // Increase amount in same block -> 2x slope, bias = 2x + carry(=1)
+        dustLock.increaseAmount(1, TOKEN_1);
+
+        locked = dustLock.locked(1);
+        emit log_named_uint("Locked.amount (2x)", uint256(locked.amount));
+        int256 expectedSlopeWAD2x = 63419583967529173008625063419;
+        int256 expectedBiasWAD2x = 1994520484525621511922881785895484525;
+
+        // slopeChanges within 1 wei tolerance when aggregating
+        int256 sc = dustLock.slopeChanges(expectedEnd);
+        int256 scDiff = sc - (-expectedSlopeWAD2x);
+        if (scDiff < 0) scDiff = -scDiff;
+        assertLe(uint256(scDiff), 1, "slopeChanges (2x) must be within 1 wei");
+
+        userPoint = dustLock.userPointHistory(1, 1);
+        int256 userSlopeDiff = userPoint.slope - expectedSlopeWAD2x;
+        if (userSlopeDiff < 0) userSlopeDiff = -userSlopeDiff;
+        assertLe(uint256(userSlopeDiff), 1, "user slope (2x) must be within 1 wei");
+        assertEq(userPoint.bias, expectedBiasWAD2x, "user bias (2x) must match exactly");
+
+        globalPoint = dustLock.pointHistory(1);
+        int256 globalSlopeDiff = globalPoint.slope - expectedSlopeWAD2x;
+        if (globalSlopeDiff < 0) globalSlopeDiff = -globalSlopeDiff;
+        assertLe(uint256(globalSlopeDiff), 1, "global slope (2x) must be within 1 wei");
+        assertEq(globalPoint.bias, expectedBiasWAD2x, "global bias (2x) must match exactly");
+        logWithTs("Checkpoint invariants - 2x - passed");
+
+        // reset
+        skipToAndLog(1 weeks + 1, "Reset");
+    }
+
     /**
      * @notice Lock 26 weeks, warp to last month, then verify historical balances via balanceOfNFTAt
      */
