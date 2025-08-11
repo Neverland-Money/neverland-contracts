@@ -196,33 +196,6 @@ contract DustLockFlow is BaseTest {
     // GENERAL TESTS
     // ============================================
 
-    function testFuzz_createLockValuesAndDecay(uint256 amount, uint256 lockDuration) public {
-        // --- 1. Constrain Inputs ---
-        uint256 MAX_LOCK_AMOUNT = 1_000_000e18;
-        amount = bound(amount, MIN_LOCK_AMOUNT, MAX_LOCK_AMOUNT);
-
-        lockDuration = bound(lockDuration, MINTIME + 1 weeks, MAXTIME);
-
-        // --- 2. Execute Action ---
-        DUST.approve(address(dustLock), amount);
-        uint256 tokenId = dustLock.createLock(amount, lockDuration);
-
-        // --- 3. Verify Initial State ---
-        uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
-        IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
-        uint256 expectedVotingPower = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
-        assertEq(actualVotingPower, expectedVotingPower, "Initial voting power mismatch");
-
-        // --- 4. Verify State After Time Passes (Decay) ---
-        if (lockInfo.end > block.timestamp + 1 weeks) {
-            vm.warp(lockInfo.end - 1 weeks);
-            uint256 votingPowerNearEnd = dustLock.balanceOfNFT(tokenId);
-            uint256 expectedNearEnd = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
-            assertEq(votingPowerNearEnd, expectedNearEnd, "Voting power near end mismatch");
-            assertLt(votingPowerNearEnd, actualVotingPower, "Voting power should decay over time");
-        }
-    }
-
     /**
      * @notice Test checkpoint behavior with precision calculations
      */
@@ -454,10 +427,6 @@ contract DustLockFlow is BaseTest {
         // Reset
         skipToAndLog(1 weeks + 1, "Reset");
     }
-
-    /**
-     * @notice Test edge cases around precision boundaries
-     */
 
     /**
      * @notice Test multiple small locks to verify consistent precision
@@ -849,6 +818,33 @@ contract DustLockFlow is BaseTest {
     // ============================================
     // FUZZ / PROPERTY TESTS
     // ============================================
+
+    function testFuzzCreateLockValuesAndDecay(uint256 amount, uint256 lockDuration) public {
+        // --- 1. Constrain Inputs ---
+        uint256 MAX_LOCK_AMOUNT = 1_000_000e18;
+        amount = bound(amount, MIN_LOCK_AMOUNT, MAX_LOCK_AMOUNT);
+
+        lockDuration = bound(lockDuration, MINTIME + 1 weeks, MAXTIME);
+
+        // --- 2. Execute Action ---
+        DUST.approve(address(dustLock), amount);
+        uint256 tokenId = dustLock.createLock(amount, lockDuration);
+
+        // --- 3. Verify Initial State ---
+        uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
+        IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
+        uint256 expectedVotingPower = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
+        assertEq(actualVotingPower, expectedVotingPower, "Initial voting power mismatch");
+
+        // --- 4. Verify State After Time Passes (Decay) ---
+        if (lockInfo.end > block.timestamp + 1 weeks) {
+            vm.warp(lockInfo.end - 1 weeks);
+            uint256 votingPowerNearEnd = dustLock.balanceOfNFT(tokenId);
+            uint256 expectedNearEnd = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
+            assertEq(votingPowerNearEnd, expectedNearEnd, "Voting power near end mismatch");
+            assertLt(votingPowerNearEnd, actualVotingPower, "Voting power should decay over time");
+        }
+    }
 
     /**
      * @notice Fuzz: for a wide range of amounts/durations, initial voting power equals (amount * actualDuration) / MAXTIME
