@@ -49,12 +49,10 @@ contract PrecisionTests is BaseTest {
         uint256 amount = TOKEN_1; // 1 DUST = 1e18
         uint256 duration = 52 weeks; // Long enough so the checkpoints exist well before end
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), amount);
         uint256 tokenId = dustLock.createLock(amount, duration);
         IDustLock.LockedBalance memory li = dustLock.locked(tokenId);
         uint256 end = li.end;
-        vm.stopPrank();
 
         // 1) Half remaining time => 0.5e18
         skipToAndLog(end - (MAXTIME / 2), "Half remaining");
@@ -115,11 +113,9 @@ contract PrecisionTests is BaseTest {
     function testPermanentLockHoldsFullPowerOneDust() public {
         uint256 amount = TOKEN_1; // 1 DUST
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), amount);
         uint256 tokenId = dustLock.createLock(amount, 26 weeks);
         dustLock.lockPermanent(tokenId);
-        vm.stopPrank();
 
         // Immediately and over time stays at 1e18
         assertEq(dustLock.balanceOfNFT(tokenId), 1000000000000000000, "Permanent lock must be exactly 1e18");
@@ -144,7 +140,6 @@ contract PrecisionTests is BaseTest {
     function testUnlockPermanentWeekBoundaryStartsDecayHardcoded() public {
         uint256 amount = TOKEN_1; // 1 DUST
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), amount);
         uint256 tokenId = dustLock.createLock(amount, 26 weeks);
         dustLock.lockPermanent(tokenId);
@@ -192,8 +187,6 @@ contract PrecisionTests is BaseTest {
         assertEq(vpEnd, 0, "At expiry voting power is zero");
         logWithTs("Expiry after unlock - passed");
 
-        vm.stopPrank();
-
         // reset
         skipToAndLog(1 weeks + 1, "Reset");
     }
@@ -240,7 +233,6 @@ contract PrecisionTests is BaseTest {
         uint256 amount = TOKEN_1 * 10; // 10 DUST
         uint256 lockDuration = 26 weeks;
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), amount);
         uint256 tokenId = dustLock.createLock(amount, lockDuration);
 
@@ -337,8 +329,6 @@ contract PrecisionTests is BaseTest {
         emit log_named_uint("Voting power after 21 weeks", votingPowerAfterTwentyWeeks);
         assertEq(dustLock.balanceOfNFTAt(tokenId, t2), votingPowerAfterTwentyWeeks);
         emit log_named_uint("BalanceOfNFTAt at t2", dustLock.balanceOfNFTAt(tokenId, t2));
-
-        vm.stopPrank();
     }
 
     // ============================================
@@ -432,12 +422,10 @@ contract PrecisionTests is BaseTest {
         uint256 amount = TOKEN_1; // 1 DUST
         uint256 duration = 26 weeks;
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), amount);
         uint256 tokenId = dustLock.createLock(amount, duration);
         IDustLock.LockedBalance memory li = dustLock.locked(tokenId);
         uint256 end = li.end;
-        vm.stopPrank();
 
         // Warp to start of last month (4 weeks remaining)
         skipToAndLog(end - 4 weeks, "To last month");
@@ -482,8 +470,6 @@ contract PrecisionTests is BaseTest {
         uint256 lockDuration = 26 weeks;
         uint256 numLocks = 5;
 
-        vm.startPrank(user);
-
         uint256 totalExpectedVotingPower = 0;
         uint256 totalActualVotingPower = 0;
 
@@ -510,8 +496,6 @@ contract PrecisionTests is BaseTest {
             assertGt(votingPower, 0, "Small lock should have non-zero voting power");
             logWithTs(string(abi.encodePacked("Small lock [", vm.toString(i + 1), "] - >0 - passed")));
         }
-
-        vm.stopPrank();
 
         // Log totals and precision
         emit log_named_uint("Total expected voting power", totalExpectedVotingPower);
@@ -546,7 +530,6 @@ contract PrecisionTests is BaseTest {
         uint256 lockAmount = 10e18; // Exactly 10 DUST
         uint256 lockDuration = 52 weeks; // Maximum duration
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), lockAmount);
         uint256 tokenId = dustLock.createLock(lockAmount, lockDuration);
         uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
@@ -567,8 +550,6 @@ contract PrecisionTests is BaseTest {
            (Slightly higher than 10 × 997,260,242,262,810,755 due to internal rounding)
          */
         uint256 expectedVotingPower = 9972602422628107559;
-
-        vm.stopPrank();
 
         // Demonstrate maximum precision: exact match
         emit log_named_uint("Lock amount", lockAmount);
@@ -596,7 +577,6 @@ contract PrecisionTests is BaseTest {
         // ======================================================
         uint256 lockDurationPlus1D = lockDuration + 1 days;
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), lockAmount);
         uint256 tokenId2 = dustLock.createLock(lockAmount, lockDurationPlus1D);
         uint256 actualVotingPower2 = dustLock.balanceOfNFT(tokenId2);
@@ -605,7 +585,6 @@ contract PrecisionTests is BaseTest {
         // Semi-hardcoded expected: with ts%WEEK == 1, effective duration is (52w - 1s)
         uint256 expectedDuration2 = 52 weeks - 1;
         uint256 expectedVotingPower2 = (lockAmount * expectedDuration2) / MAXTIME;
-        vm.stopPrank();
 
         // Logs and assertion for +1 day case
         emit log_named_uint("Requested duration (seconds) - base", lockDuration);
@@ -632,14 +611,11 @@ contract PrecisionTests is BaseTest {
         uint256 lockAmount = 5e18; // 5 DUST
         uint256 lockDuration = 26 weeks;
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), lockAmount);
         uint256 tokenId = dustLock.createLock(lockAmount, lockDuration);
 
         IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
         uint256 lockEnd = lockInfo.end;
-
-        vm.stopPrank();
 
         // Test decay at specific intervals using end-anchored sampling
         uint256[] memory remainingTimes = new uint256[](4);
@@ -731,8 +707,6 @@ contract PrecisionTests is BaseTest {
         durations[1] = 26 weeks; // Half year
         durations[2] = 52 weeks; // Max time
 
-        vm.startPrank(user);
-
         for (uint256 i = 0; i < durations.length; i++) {
             uint256 duration = durations[i];
 
@@ -790,8 +764,6 @@ contract PrecisionTests is BaseTest {
                 string(abi.encodePacked("Duration ", vm.toString(duration / 1 weeks), "w - Actual")), actualVotingPower
             );
         }
-
-        vm.stopPrank();
     }
 
     /**
@@ -804,7 +776,6 @@ contract PrecisionTests is BaseTest {
         uint256 lockAmount = 100_000e18; // 100,000 DUST
         uint256 lockDuration = 26 weeks;
 
-        vm.startPrank(user);
         DUST.approve(address(dustLock), lockAmount);
         uint256 tokenId = dustLock.createLock(lockAmount, lockDuration);
 
@@ -816,8 +787,6 @@ contract PrecisionTests is BaseTest {
         //                      = 49,863,010,527,650,938,609,842 wei
         uint256 expectedVotingPower = 49863010527650938609842;
         uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
-
-        vm.stopPrank();
 
         // Large amounts should maintain precision exactly
         assertEq(actualVotingPower, expectedVotingPower, "Large amount precision should be maintained");
@@ -852,8 +821,6 @@ contract PrecisionTests is BaseTest {
         rawDurations[1] = 26 weeks + 4 days; // Should round up to 27 weeks
         rawDurations[2] = 52 weeks - 1 days; // Should round down to 51 weeks
 
-        vm.startPrank(user);
-
         for (uint256 i = 0; i < rawDurations.length; i++) {
             uint256 rawDuration = rawDurations[i];
 
@@ -880,8 +847,6 @@ contract PrecisionTests is BaseTest {
             emit log_named_uint(string(abi.encodePacked("Test ", vm.toString(i), " - Actual duration")), actualDuration);
             emit log_named_uint(string(abi.encodePacked("Test ", vm.toString(i), " - Voting power")), actualVotingPower);
         }
-
-        vm.stopPrank();
     }
 
     // ============================================
@@ -892,7 +857,6 @@ contract PrecisionTests is BaseTest {
      * @notice Test a single amount by creating an actual lock
      */
     function _testSingleAmount(uint256 amount, uint256 duration) internal {
-        vm.startPrank(user);
         DUST.approve(address(dustLock), amount);
         uint256 tokenId = dustLock.createLock(amount, duration);
 
@@ -903,8 +867,6 @@ contract PrecisionTests is BaseTest {
         IDustLock.LockedBalance memory lockInfo = dustLock.locked(tokenId);
         // Use actualDuration (post week-rounding) for exact expectation
         uint256 expectedVotingPower = (amount * (lockInfo.end - block.timestamp)) / MAXTIME;
-
-        vm.stopPrank();
 
         // Log test details
         emit log_named_uint("Test amount (DUST)", amount / 1e18);
@@ -963,7 +925,6 @@ contract PrecisionTests is BaseTest {
         uint256 durationWeeks = (uint256(weeksDuration) % 48) + 5;
         uint256 duration = durationWeeks * 1 weeks;
 
-        vm.startPrank(user);
         deal(address(DUST), user, amount);
         DUST.approve(address(dustLock), amount);
         uint256 tokenId = dustLock.createLock(amount, duration);
@@ -972,8 +933,6 @@ contract PrecisionTests is BaseTest {
         uint256 actualDuration = lockInfo.end - block.timestamp;
         uint256 expectedVotingPower = (amount * actualDuration) / MAXTIME;
         uint256 actualVotingPower = dustLock.balanceOfNFT(tokenId);
-
-        vm.stopPrank();
 
         assertEq(actualVotingPower, expectedVotingPower, "Fuzz: initial voting power must equal expected");
         logWithTs("Fuzz - initial - passed");
@@ -988,7 +947,6 @@ contract PrecisionTests is BaseTest {
         uint256 amountA = 17e18;
         uint256 amountB = 29e18;
 
-        vm.startPrank(user);
         // Fund enough for two separate locks and one aggregated lock
         deal(address(DUST), user, 2 * (amountA + amountB));
 
@@ -1005,8 +963,6 @@ contract PrecisionTests is BaseTest {
         DUST.approve(address(dustLock), amountA + amountB);
         uint256 tokenSum = dustLock.createLock(amountA + amountB, duration);
         uint256 vpSum = dustLock.balanceOfNFT(tokenSum);
-
-        vm.stopPrank();
 
         uint256 vpTwo = vpA + vpB;
         if (vpTwo > vpSum) {
