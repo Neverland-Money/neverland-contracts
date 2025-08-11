@@ -1,15 +1,22 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "./ExtendedBaseTest.sol";
+import "../BaseTest.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDustLock} from "../../src/interfaces/IDustLock.sol";
+import {RevenueReward} from "../../src/rewards/RevenueReward.sol";
 
 /**
- * @title RewardTests
+ * @title RevenueRewardFlow
  * @notice Tests for reward distribution based on voting power precision
  * @dev Tests that rewards are distributed proportionally to voting power
  */
-contract RewardTests is ExtendedBaseTest {
+contract RevenueRewardFlow is BaseTest {
+    // RevenueReward instances for precision testing
+    RevenueReward internal testRevenueReward;
+    RevenueReward internal testRevenueReward2;
+    RevenueReward internal testRevenueReward3;
+
     function _claimAndLog(uint256 tokenId, address owner, address[] memory rewards, string memory label) internal {
         uint256 dustPre = DUST.balanceOf(owner);
         uint256 usdcPre = mockUSDC.balanceOf(owner);
@@ -26,9 +33,24 @@ contract RewardTests is ExtendedBaseTest {
         emit log_named_uint("actual", usdcReceived);
     }
 
+    function _createRewardWithAmount(RevenueReward _revenueReward, address _token, uint256 _amount) internal {
+        // Mint tokens directly to user (rewardDistributor) to avoid transfer issues
+        deal(_token, user, IERC20(_token).balanceOf(user) + _amount);
+
+        // user (address(this)) is the rewardDistributor, so we can call directly
+        IERC20(_token).approve(address(_revenueReward), _amount);
+        _revenueReward.notifyRewardAmount(address(_token), _amount);
+    }
+
     function _setUp() internal override {
         // Call parent setup first
         super._setUp();
+
+        // Initialize RevenueReward instances for precision testing
+        // Use user (address(this)) as rewardDistributor instead of admin (proxy admin)
+        testRevenueReward = new RevenueReward(address(0xF2), address(dustLock), user);
+        testRevenueReward2 = new RevenueReward(address(0xF3), address(dustLock), user);
+        testRevenueReward3 = new RevenueReward(address(0xF4), address(dustLock), user);
 
         skip(1 hours);
 

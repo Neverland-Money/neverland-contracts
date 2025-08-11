@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "../BaseTest.sol";
 
 /**
- * @title PrecisionTests
+ * @title DustLockFlow
  * @notice Comprehensive tests for voting power calculation precision in DustLock
  * @dev Tests precision across different amounts, durations, and scenarios
  *
@@ -23,7 +23,7 @@ import "../BaseTest.sol";
  * - Tests edge cases and boundary conditions with precise expectations
  * - Ensures our PRB Math implementation matches theoretical calculations
  */
-contract PrecisionTests is BaseTest {
+contract DustLockFlow is BaseTest {
     function _setUp() internal override {
         // Initial time => 1 sec after the start of week1
         assertEq(block.timestamp, 1 weeks + 1);
