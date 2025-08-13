@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IDustRewardsController} from "../src/interfaces/IDustRewardsController.sol";
+import {IDustRewardsController} from "../../src/interfaces/IDustRewardsController.sol";
 
-import {DustRewardsController} from "../src/emissions/DustRewardsController.sol";
-import "./BaseTest.sol";
+import {DustRewardsController} from "../../src/emissions/DustRewardsController.sol";
+import "../BaseTestLocal.sol";
 
-contract DustRewardsControllerTest is BaseTest {
+contract DustRewardsControllerTest is BaseTestLocal {
     DustRewardsController public rewardsController;
     address internal emissionsManager;
 

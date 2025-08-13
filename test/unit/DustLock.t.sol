@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {IDustLock} from "../../src/interfaces/IDustLock.sol";
 
-import {CommonChecksLibrary} from "../src/libraries/CommonChecksLibrary.sol";
+import {CommonChecksLibrary} from "../../src/libraries/CommonChecksLibrary.sol";
 
-import {RevenueReward} from "../src/rewards/RevenueReward.sol";
-import "./BaseTest.sol";
+import {RevenueReward} from "../../src/rewards/RevenueReward.sol";
+import "../BaseTestLocal.sol";
 
 contract MaliciousRevenueReward is RevenueReward {
     constructor(address _dustLock) RevenueReward(address(0xF1), _dustLock, msg.sender) {}
@@ -20,7 +20,7 @@ contract MaliciousRevenueReward is RevenueReward {
     }
 }
 
-contract DustLockTests is BaseTest {
+contract DustLockTests is BaseTestLocal {
     function _setUp() internal override {
         // Initial time => 1 sec after the start of week1
         assertEq(block.timestamp, 1 weeks + 1);

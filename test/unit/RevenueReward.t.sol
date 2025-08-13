@@ -3,11 +3,11 @@ pragma solidity 0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {IRevenueReward} from "../src/interfaces/IRevenueReward.sol";
+import {IRevenueReward} from "../../src/interfaces/IRevenueReward.sol";
 
-import "./BaseTest.sol";
+import "../BaseTestLocal.sol";
 
-contract RevenueRewardsTest is BaseTest {
+contract RevenueRewardsTest is BaseTestLocal {
     MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
 
     // Declare the event locally

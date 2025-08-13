@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "../BaseTest.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDustLock} from "../../src/interfaces/IDustLock.sol";
 import {RevenueReward} from "../../src/rewards/RevenueReward.sol";
+import "../BaseTestLocal.sol";
 
 /**
  * @title RevenueRewardFlow
  * @notice Tests for reward distribution based on voting power precision
  * @dev Tests that rewards are distributed proportionally to voting power
  */
-contract RevenueRewardFlow is BaseTest {
+contract RevenueRewardFlow is BaseTestLocal {
     // RevenueReward instances for precision testing
     RevenueReward internal testRevenueReward;
     RevenueReward internal testRevenueReward2;
