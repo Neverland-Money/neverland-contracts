@@ -409,7 +409,7 @@ contract RevenueRewardsTest is BaseTest {
         _createPermanentLock(user1, 80 * TOKEN_1M, MAXTIME);
 
         // epoch3
-        goToEpoch(3);
+        skipToNextEpoch(1);
 
         _addReward(admin, mockUSDC, USDC_1);
 
@@ -421,7 +421,7 @@ contract RevenueRewardsTest is BaseTest {
         _createPermanentLock(user3, TOKEN_1M, MAXTIME);
 
         // epoch4
-        goToEpoch(4);
+        skipToNextEpoch(1);
 
         _addReward(admin, mockUSDC, USDC_1);
 
@@ -433,7 +433,7 @@ contract RevenueRewardsTest is BaseTest {
         _createPermanentLock(user3, 50 * TOKEN_10K, MAXTIME);
 
         // epoch5
-        goToEpoch(5);
+        skipToNextEpoch(1);
 
         // 1e6 * 620e18 / (80e24 + 1e24 + 50e22 + 620e18)  = 7.607304091674394
         // 37499435 + 20986623 + 60730409 = 119216467
@@ -442,6 +442,50 @@ contract RevenueRewardsTest is BaseTest {
         revenueReward.getReward(userTokenId1, tokens);
         assertEq(mockUSDC.balanceOf(user), 2 + 3 + 7 + 1);
         assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 19216467);
+    }
+
+    function testRewardPrecisionLossAccumulationInMultipleEpochsInOneTx() public {
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // epoch2
+        goToEpoch(2);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        uint256 userTokenId1 = _createPermanentLock(user, 620 * TOKEN_1, MAXTIME); // 620
+        _createPermanentLock(user1, 80 * TOKEN_1M, MAXTIME);
+
+        // epoch3
+        skipToNextEpoch(1);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        // 1e6 * 620e18 / (80e24 + 620e18) = 7.749939937965481
+
+        _increaseAmount(user, userTokenId1, 240 * TOKEN_1); // 860
+        _createPermanentLock(user3, TOKEN_1M, MAXTIME);
+
+        // epoch4
+        skipToNextEpoch(1);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        // 1e6 * 860e18 / (80e24 + 1e24 + 860e18) = 10.617171225095634
+
+        _increaseAmount(user, userTokenId1, 340 * TOKEN_1); // 1200
+        _createPermanentLock(user3, 50 * TOKEN_10K, MAXTIME);
+
+        // epoch5
+        skipToNextEpoch(1);
+
+        // 1e6 * 1200e18 / (80e24 + 1e24 + 50e22 + 1200e18)  = 14.723709589552055
+        // 74993993 + 61717122 + 72370958 = 209082073
+        // extra reward: 209082073 // 1e8 = 2
+        // new remaining = 209082073 - 2*1e8 = 9082073
+        revenueReward.getReward(userTokenId1, tokens);
+        assertEq(mockUSDC.balanceOf(user), 7 + 10 + 14 + 2);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 9082073);
     }
 
     /* ========== TEST DUST LOCK INTERACTIONS ========== */
