@@ -396,7 +396,32 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(mockUSDC.balanceOf(user2), 999990);
     }
 
-    function testRewardPrecisionLossAccumulationInMultipleEpochs() public {
+    function testRewardPrecisionLossForMinimumLockedAmount() public {
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(mockUSDC);
+        tokens[1] = address(mockERC20);
+
+        // epoch2
+        goToEpoch(2);
+
+        _addReward(admin, mockUSDC, USDC_1);
+        _addReward(admin, mockERC20, TOKEN_1);
+
+        uint256 userTokenId1 = _createPermanentLock(user, TOKEN_1, MAXTIME);
+        _createPermanentLock(user1, TOKEN_100M - 2 * TOKEN_1, MAXTIME);
+
+        // epoch3
+        skipToNextEpoch(1);
+
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 1e18 / (1e26 - 1e18) = 0.0100000001
+        assertEq(mockUSDC.balanceOf(user), 0);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 1000000);
+
+        assertEq(mockERC20.balanceOf(user), 10000000100); // 1e18 * 1e18 / (1e26 - 1e18) = 10000000100.000001000001~
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockERC20), userTokenId1), 100);
+    }
+
+    function testRewardPrecisionLossAccumulationInMultipleEpochsForNonZeroRewardsPerEpoch() public {
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
 

@@ -16,6 +16,7 @@ abstract contract BaseTest is Script, Test {
     DustLock internal dustLock;
     RevenueReward internal revenueReward;
     MockERC20 internal mockUSDC;
+    MockERC20 internal mockERC20;
 
     uint256 constant USDC_1_UNIT = 1; // 1/100th of a cent
     uint256 constant USDC_1_CENT = 10000; // 0.01 USDC
@@ -74,6 +75,7 @@ abstract contract BaseTest is Script, Test {
 
         // deploy USDC
         mockUSDC = new MockERC20("USDC", "USDC", 6);
+        mockERC20 = new MockERC20("mERC20", "mERC20", 18);
 
         // deploy DustLock
         string memory baseUrl = "https://neverland.money/nfts/";
