@@ -145,8 +145,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         for (uint256 i = 0; i < _length; i++) {
             address token = tokens[i];
             uint256 _reward = _earned(token, tokenId, rewardPeriodEndTs);
+            lastEarnTime[token][tokenId] = rewardPeriodEndTs;
             if (_reward > 0) {
-                lastEarnTime[token][tokenId] = rewardPeriodEndTs;
                 IERC20(token).safeTransfer(receiver, _reward);
             }
             emit ClaimRewards(receiver, token, _reward);

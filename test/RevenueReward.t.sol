@@ -469,6 +469,54 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 19216467);
     }
 
+    function testRewardPrecisionLossAccumulationInMultipleEpochsForZeroRewardsPerEpoch() public {
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // epoch2
+        goToEpoch(2);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        uint256 userTokenId1 = _createPermanentLock(user, 10 * TOKEN_1, MAXTIME);
+        _createPermanentLock(user1, 80 * TOKEN_1M, MAXTIME);
+
+        // epoch3
+        skipToNextEpoch(1);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 10e18 / (80e24 + 10e18) = 0.12499998437500195
+        assertEq(mockUSDC.balanceOf(user), 0);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 12499998);
+
+        _increaseAmount(user, userTokenId1, 20 * TOKEN_1); // 30
+        _createPermanentLock(user3, TOKEN_1M, MAXTIME);
+
+        // epoch4
+        skipToNextEpoch(1);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 30e18 / (80e24 + 1e24 + 30e18) = 0.37037023319621
+        assertEq(mockUSDC.balanceOf(user), 0);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 12499998 + 37037023);
+
+        _increaseAmount(user, userTokenId1, 30 * TOKEN_1); // 60
+        _createPermanentLock(user3, 50 * TOKEN_10K, MAXTIME);
+
+        // epoch5
+        skipToNextEpoch(1);
+
+        // 1e6 * 60e18 / (80e24 + 1e24 + 50e22 + 60e18) = 0.7361957770337837
+        // 12499998 + 37037023 + 73619577 = 123156598
+        // extra reward: 119216467 // 1e8 = 1
+        // new remaining = 119216467 - 1e8 = 23156598
+        revenueReward.getReward(userTokenId1, tokens);
+        assertEq(mockUSDC.balanceOf(user), 1);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 23156598);
+    }
+
     function testRewardPrecisionLossAccumulationInMultipleEpochsInOneTx() public {
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
