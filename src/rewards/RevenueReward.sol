@@ -7,7 +7,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {ud} from "@prb/math/src/UD60x18.sol";
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
@@ -38,6 +37,12 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            CONSTANTS
+    //////////////////////////////////////////////////////////////*/
+
+    uint256 private constant REWARDS_REMAINING_SCALE = 1e8;
+
+    /*//////////////////////////////////////////////////////////////
                         STORAGE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
@@ -58,6 +63,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => uint256) public totalRewardsPerToken;
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsPerEpoch;
+    /// @inheritdoc IRevenueReward
+    mapping(address => mapping(uint256 => uint256)) public tokenRewardsRemainingAccScaled;
 
     /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
@@ -250,7 +257,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
      * @param endTs Timestamp of the end duration that token id rewards are calculated
      * @return Total unclaimed rewards accrued since last claim
      */
-    function _earned(address token, uint256 tokenId, uint256 endTs) internal view returns (uint256) {
+    function _earned(address token, uint256 tokenId, uint256 endTs) internal returns (uint256) {
         if (endTs > block.timestamp) {
             revert EndTimestampMoreThanCurrent();
         }
@@ -264,33 +271,32 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         // get epochs between last claimed staring epoch and current stating epoch
         uint256 _numEpochs = (_endTs - _startTs) / DURATION;
 
-        uint256 reward = 0;
+        uint256 accumulatedReward = 0;
         uint256 _currTs = _startTs;
+        uint256 numeratorCalcCache;
         for (uint256 i = 0; i <= _numEpochs; i++) {
             uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(_currTs);
             if (tokenSupplyBalanceCurrTs == 0) {
                 _currTs += DURATION;
                 continue;
             }
-            // totalRewardTokens * tokenBalance / tokenSupplyBalance
-            reward += _calculateReward(
-                tokenRewardsPerEpoch[token][_currTs],
-                dustLock.balanceOfNFTAt(tokenId, _currTs),
-                tokenSupplyBalanceCurrTs
-            );
+            numeratorCalcCache = tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs);
+
+            accumulatedReward += numeratorCalcCache / tokenSupplyBalanceCurrTs;
+
+            tokenRewardsRemainingAccScaled[token][tokenId] +=
+                numeratorCalcCache % tokenSupplyBalanceCurrTs * REWARDS_REMAINING_SCALE / tokenSupplyBalanceCurrTs;
 
             _currTs += DURATION;
         }
 
-        return reward;
-    }
+        uint256 rewardFromRemaining = 0;
+        if (tokenRewardsRemainingAccScaled[token][tokenId] >= REWARDS_REMAINING_SCALE) {
+            rewardFromRemaining = tokenRewardsRemainingAccScaled[token][tokenId] / REWARDS_REMAINING_SCALE;
+            tokenRewardsRemainingAccScaled[token][tokenId] -= rewardFromRemaining * REWARDS_REMAINING_SCALE;
+        }
 
-    function _calculateReward(uint256 totalRewardTokens, uint256 tokenBalance, uint256 tokenSupplyBalance)
-        internal
-        pure
-        returns (uint256)
-    {
-        return ud(totalRewardTokens).mul(ud(tokenBalance)).div(ud(tokenSupplyBalance)).unwrap();
+        return accumulatedReward + rewardFromRemaining;
     }
 
     /**

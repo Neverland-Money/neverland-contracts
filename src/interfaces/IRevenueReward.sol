@@ -127,6 +127,19 @@ interface IRevenueReward {
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);
 
     /**
+     * @notice Returns the accumulated fractional remainder of rewards for a veNFT and token, scaled by 1e8.
+     * @dev During per-epoch reward calculations, integer division can leave a remainder that cannot be paid out.
+     *      This function exposes the running sum of those remainders for the given (token, tokenId) pair,
+     *      scaled by a factor of 1e8 to preserve precision (i.e., value is remainder * 1e8 / totalSupplyAt(epoch)).
+     *      This value is informational and not directly claimable; it helps off-chain analytics understand
+     *      the uncredited fractional rewards that have accumulated over time due to rounding.
+     * @param token The address of the reward token being tracked.
+     * @param tokenId The ID of the veNFT whose fractional remainder is queried.
+     * @return scaledRemainder The accumulated fractional rewards remainder, scaled by 1e8.
+     */
+    function tokenRewardsRemainingAccScaled(address token, uint256 tokenId) external view returns (uint256);
+
+    /**
      * @notice Returns the configured reward recipient address for a specific veNFT
      * @dev When self-repaying loan functionality is enabled, rewards are sent to this address
      *      Returns address(0) if no special recipient is configured (rewards go to veNFT owner)

@@ -396,6 +396,54 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(mockUSDC.balanceOf(user2), 999990);
     }
 
+    function testRewardPrecisionLossAccumulationInMultipleEpochs() public {
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // epoch2
+        goToEpoch(2);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        uint256 userTokenId1 = _createPermanentLock(user, 190 * TOKEN_1, MAXTIME);
+        _createPermanentLock(user1, 80 * TOKEN_1M, MAXTIME);
+
+        // epoch3
+        goToEpoch(3);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 190e18 / (80e24 + 190e18) = 2.374994359388396
+        assertEq(mockUSDC.balanceOf(user), 2);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 37499435);
+
+        _increaseAmount(user, userTokenId1, 70 * TOKEN_1); // 260
+        _createPermanentLock(user3, TOKEN_1M, MAXTIME);
+
+        // epoch4
+        goToEpoch(4);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 260e18 / (80e24 + 1e24 + 260e18) = 3.209866239935526
+        assertEq(mockUSDC.balanceOf(user), 2 + 3);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 37499435 + 20986623);
+
+        _increaseAmount(user, userTokenId1, 360 * TOKEN_1); // 620
+        _createPermanentLock(user3, 50 * TOKEN_10K, MAXTIME);
+
+        // epoch5
+        goToEpoch(5);
+
+        // 1e6 * 620e18 / (80e24 + 1e24 + 50e22 + 620e18)  = 7.607304091674394
+        // 37499435 + 20986623 + 60730409 = 119216467
+        // extra reward: 119216467 // 1e8 = 1
+        // new remaining = 119216467 - 1e8 = 19216467
+        revenueReward.getReward(userTokenId1, tokens);
+        assertEq(mockUSDC.balanceOf(user), 2 + 3 + 7 + 1);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 19216467);
+    }
+
     /* ========== TEST DUST LOCK INTERACTIONS ========== */
 
     function testAutoClaimedRewardsForEarlyWithdrawnTokens() public {
@@ -699,12 +747,30 @@ contract RevenueRewardsTest is BaseTest {
 
     /* ========== HELPER FUNCTIONS ========== */
 
+    function _createPermanentLock(address _user, uint256 _amount, uint256 _duration)
+        private
+        returns (uint256 tokenId)
+    {
+        tokenId = _createLock(_user, _amount, _duration);
+        vm.prank(_user);
+        dustLock.lockPermanent(tokenId);
+    }
+
     function _createLock(address _user, uint256 _amount, uint256 _duration) private returns (uint256 tokenId) {
         mintErc20Token(address(DUST), _user, _amount);
 
         vm.startPrank(_user);
         DUST.approve(address(dustLock), _amount);
         tokenId = dustLock.createLock(_amount, _duration);
+        vm.stopPrank();
+    }
+
+    function _increaseAmount(address _user, uint256 _tokenId, uint256 _amount) private {
+        mintErc20Token(address(DUST), _user, _amount);
+
+        vm.startPrank(_user);
+        DUST.approve(address(dustLock), _amount);
+        dustLock.increaseAmount(_tokenId, _amount);
         vm.stopPrank();
     }
 
