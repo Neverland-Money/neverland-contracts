@@ -79,7 +79,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
-    function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual nonReentrant {
+    function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual override nonReentrant {
         CommonChecksLibrary.revertIfZeroAddress(rewardReceiver);
         address sender = _msgSender();
         if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
@@ -92,7 +92,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function disableSelfRepayLoan(uint256 tokenId) external virtual nonReentrant {
+    function disableSelfRepayLoan(uint256 tokenId) external virtual override nonReentrant {
         address sender = _msgSender();
         address tokenOwner = dustLock.ownerOf(tokenId);
         if (sender != tokenOwner) revert NotOwner();
@@ -103,23 +103,23 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function _notifyAfterTokenTransferred(uint256 _tokenId, address _from) public virtual nonReentrant {
+    function _notifyAfterTokenTransferred(uint256 tokenId, address from) public virtual override nonReentrant {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
-        _claimRewardsTo(_tokenId, _from);
-        _removeToken(_tokenId, _from);
+        _claimRewardsTo(tokenId, from);
+        _removeToken(tokenId, from);
     }
 
     /// @inheritdoc IRevenueReward
-    function _notifyAfterTokenBurned(uint256 _tokenId, address _from) public virtual nonReentrant {
+    function _notifyAfterTokenBurned(uint256 tokenId, address from) public virtual override nonReentrant {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
-        _claimRewardsTo(_tokenId, _from);
-        _removeToken(_tokenId, _from);
+        _claimRewardsTo(tokenId, from);
+        _removeToken(tokenId, from);
     }
 
     /**
      * @notice Claims accumulated rewards for a specific veNFT across all registered reward tokens up to the current timestamp
      * @dev Calculates earned rewards for each token using epoch-based accounting and transfers them to the provided receiver.
-     *      Emits a ClaimRewards event per token. Updates lastEarnTime to the current timestamp for tokens with positive rewards.
+     *      Emits a ClaimRewards event per token. Updates lastEarnTime to the current timestamp.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param receiver The address to receive the rewards
      */
@@ -131,7 +131,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /**
      * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens up to a specified timestamp
      * @dev Calculates earned rewards for each specified token using epoch-based accounting and transfers them to the provided receiver.
-     *      Emits a ClaimRewards event per token. Updates lastEarnTime to rewardPeriodEndTs for tokens with positive rewards.
+     *      Emits a ClaimRewards event per token. Updates lastEarnTime to rewardPeriodEndTs.
      *      Reverts if rewardPeriodEndTs is in the future (via _earned).
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param receiver The address to receive the rewards
@@ -141,8 +141,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function _claimRewardsUntilTs(uint256 tokenId, address receiver, address[] memory tokens, uint256 rewardPeriodEndTs)
         internal
     {
-        uint256 _length = tokens.length;
-        for (uint256 i = 0; i < _length; i++) {
+        uint256 length = tokens.length;
+        for (uint256 i = 0; i < length; i++) {
             address token = tokens[i];
             uint256 _reward = _earned(token, tokenId, rewardPeriodEndTs);
             lastEarnTime[token][tokenId] = rewardPeriodEndTs;
@@ -224,7 +224,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory) {
+    function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view override returns (address[] memory) {
         CommonChecksLibrary.revertIfInvalidRange(from, to);
         uint256 length = usersWithSelfRepayingLoan.length();
         if (from >= length) return new address[](0);
@@ -239,7 +239,12 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function getUserTokensWithSelfRepayingLoan(address user) external view returns (uint256[] memory tokenIds) {
+    function getUserTokensWithSelfRepayingLoan(address user)
+        external
+        view
+        override
+        returns (uint256[] memory tokenIds)
+    {
         uint256 len = userTokensWithSelfRepayingLoan[user].length();
         tokenIds = new uint256[](len);
         for (uint256 i = 0; i < len; i++) {
@@ -249,11 +254,11 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /* === helper functions === */
 
-    function _removeToken(uint256 _tokenId, address _tokenOwner) internal {
-        tokenRewardReceiver[_tokenId] = address(0);
-        userTokensWithSelfRepayingLoan[_tokenOwner].remove(_tokenId);
-        if (userTokensWithSelfRepayingLoan[_tokenOwner].length() <= 0) {
-            usersWithSelfRepayingLoan.remove(_tokenOwner);
+    function _removeToken(uint256 tokenId, address tokenOwner) internal {
+        tokenRewardReceiver[tokenId] = address(0);
+        userTokensWithSelfRepayingLoan[tokenOwner].remove(tokenId);
+        if (userTokensWithSelfRepayingLoan[tokenOwner].length() <= 0) {
+            usersWithSelfRepayingLoan.remove(tokenOwner);
         }
     }
 
@@ -262,7 +267,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
-    function setRewardDistributor(address newRewardDistributor) external {
+    function setRewardDistributor(address newRewardDistributor) external override {
         CommonChecksLibrary.revertIfZeroAddress(newRewardDistributor);
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
 
@@ -270,7 +275,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function getReward(uint256 tokenId, address[] memory tokens) public virtual {
+    function getReward(uint256 tokenId, address[] memory tokens) public virtual override {
         getRewardUntilTs(tokenId, tokens, block.timestamp);
     }
 
@@ -278,6 +283,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function getRewardUntilTs(uint256 tokenId, address[] memory tokens, uint256 rewardPeriodEndTs)
         public
         virtual
+        override
         nonReentrant
     {
         if (address(dustLock) != _msgSender()) {
@@ -289,7 +295,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function notifyRewardAmount(address token, uint256 amount) external nonReentrant {
+    function notifyRewardAmount(address token, uint256 amount) external override nonReentrant {
         CommonChecksLibrary.revertIfZeroAmount(amount);
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
         if (!isRewardToken[token]) {
@@ -309,9 +315,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function _notifyTokenMinted(uint256 _tokenId) public {
+    function _notifyTokenMinted(uint256 tokenId) public override {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
-        tokenMintTime[_tokenId] = block.timestamp;
+        tokenMintTime[tokenId] = block.timestamp;
     }
 
     /**
@@ -331,25 +337,25 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         }
 
         uint256 lastTokenEarnTime = Math.max(lastEarnTime[token][tokenId], tokenMintTime[tokenId]);
-        uint256 _startTs = EpochTimeLibrary.epochNext(lastTokenEarnTime);
-        uint256 _endTs = EpochTimeLibrary.epochStart(endTs);
+        uint256 startTs = EpochTimeLibrary.epochNext(lastTokenEarnTime);
+        uint256 endTsEpoch = EpochTimeLibrary.epochStart(endTs);
 
-        if (_startTs > _endTs) return 0;
+        if (startTs > endTsEpoch) return 0;
 
         // get epochs between last claimed staring epoch and current stating epoch
-        uint256 _numEpochs = (_endTs - _startTs) / DURATION;
+        uint256 numEpochs = (endTsEpoch - startTs) / DURATION;
 
         uint256 accumulatedReward = 0;
-        uint256 _currTs = _startTs;
-        for (uint256 i = 0; i <= _numEpochs; i++) {
-            uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(_currTs);
+        uint256 currTs = startTs;
+        for (uint256 i = 0; i <= numEpochs; i++) {
+            uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(currTs);
             if (tokenSupplyBalanceCurrTs == 0) {
-                _currTs += DURATION;
+                currTs += DURATION;
                 continue;
             }
 
-            accumulatedReward += _calculateEpochReward(token, tokenId, _currTs, tokenSupplyBalanceCurrTs);
-            _currTs += DURATION;
+            accumulatedReward += _calculateEpochReward(token, tokenId, currTs, tokenSupplyBalanceCurrTs);
+            currTs += DURATION;
         }
 
         uint256 rewardFromRemaining = 0;
@@ -402,7 +408,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
-    function recoverTokens() external {
+    function recoverTokens() external override {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
 
         for (uint256 i = 0; i < rewardTokens.length; i++) {

@@ -117,12 +117,11 @@ interface IRevenueReward {
     function totalRewardsPerToken(address token) external view returns (uint256);
 
     /**
-     * @notice Returns the amount of rewards allocated for a specific token in a given epoch
-     * @dev Rewards are distributed per epoch, with each epoch lasting for DURATION seconds
-     *      Used to calculate the reward rate for a particular token during a specific epoch
+     * @notice Returns the amount of rewards allocated for a specific token at a given epoch start
+     * @dev Rewards are tracked by epoch start timestamp (seconds), with each epoch lasting DURATION seconds.
      * @param token The address of the reward token
-     * @param epoch The epoch number to query
-     * @return The amount of rewards allocated for the specified token in the given epoch
+     * @param epoch The epoch start timestamp (i.e., start of the week)
+     * @return The amount of rewards allocated for the token at that epoch start
      */
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);
 
@@ -153,7 +152,7 @@ interface IRevenueReward {
      * @dev Calculates earned rewards for each specified token using epoch-based accounting and transfers them
      *      to the appropriate recipient. Emits a ClaimRewards event per token. If a reward receiver is configured
      *      via enableSelfRepayLoan, rewards go to that address; otherwise, rewards are sent to the veNFT owner.
-     *      Updates lastEarnTime for claimed tokens with positive rewards to track future accruals.
+     *      Updates lastEarnTime to track future accruals.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      */
@@ -165,7 +164,7 @@ interface IRevenueReward {
      *      Calculates earned rewards for each specified token using epoch-based accounting and transfers them to the
      *      appropriate recipient. Emits a ClaimRewards event per token. If a reward receiver is configured via
      *      enableSelfRepayLoan, rewards go to that address; otherwise, rewards are sent to the veNFT owner.
-     *      Updates lastEarnTime to rewardPeriodEndTs for claimed tokens with positive rewards.
+     *      Updates lastEarnTime to rewardPeriodEndTs to track future accruals.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
@@ -193,17 +192,27 @@ interface IRevenueReward {
     function disableSelfRepayLoan(uint256 tokenId) external;
 
     /**
+     * @notice Notifies the contract that a new token has been created
+     * @dev Intended to update internal state or trigger logic after a veNFT creation event
+     *      Can only be called by authorized contracts, typically after a creation operation
+     *      External but prefixed with `_` to signal system-only use.
+     *      Callable only by DustLock.
+     * @param tokenId The ID of the token (veNFT) that has been created
+     */
+    function _notifyTokenMinted(uint256 tokenId) external;
+
+    /**
      * @notice Handles necessary operations after a veNFT token is transferred
      * @dev This function is called by the DustLock contract just after transferring a token
      *      It performs two main actions:
      *      1. Claims all pending rewards for the token being transferred
      *      2. Removes the token from the self-repaying loan tracking if enabled
-     *      Can only be called by the DustLock contract
-     *      Throws NotDustLock error if called by any other address
-     * @param _tokenId The ID of the veNFT token that was transferred
-     * @param _from The address of the previous token owner (sender of the transfer)
+     *      External but prefixed with `_` to signal system-only use.
+     *      Callable only by DustLock.
+     * @param tokenId The ID of the veNFT token that was transferred
+     * @param from The address of the previous token owner (sender of the transfer)
      */
-    function _notifyAfterTokenTransferred(uint256 _tokenId, address _from) external;
+    function _notifyAfterTokenTransferred(uint256 tokenId, address from) external;
 
     /**
      * @notice Handles necessary operations after a veNFT token is burned
@@ -211,12 +220,12 @@ interface IRevenueReward {
      *      It performs two main actions:
      *      1. Claims all pending rewards for the token being burned
      *      2. Removes the token from the self-repaying loan tracking if enabled
-     *      Can only be called by the DustLock contract
-     *      Throws NotDustLock error if called by any other address
-     * @param _tokenId The ID of the veNFT token that was burned
-     * @param _from The address of the previous token owner
+     *      External but prefixed with `_` to signal system-only use.
+     *      Callable only by DustLock.
+     * @param tokenId The ID of the veNFT token that was burned
+     * @param from The address of the previous token owner
      */
-    function _notifyAfterTokenBurned(uint256 _tokenId, address _from) external;
+    function _notifyAfterTokenBurned(uint256 tokenId, address from) external;
 
     /**
      * @notice Preview unclaimed rewards for a single reward token up to a specific timestamp.
@@ -284,14 +293,6 @@ interface IRevenueReward {
      * @param amount The amount of rewards to add to the distribution pool
      */
     function notifyRewardAmount(address token, uint256 amount) external;
-
-    /**
-     * @notice Notifies the contract that a new token has been created
-     * @dev Intended to update internal state or trigger logic after a veNFT creation event
-     *      Can only be called by authorized contracts, typically after a creation operation
-     * @param _tokenId The ID of the token (veNFT) that has been created
-     */
-    function _notifyTokenMinted(uint256 _tokenId) external;
 
     /**
      * @notice Updates the address authorized to add rewards to the contract

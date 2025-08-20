@@ -869,62 +869,62 @@ contract RevenueRewardsTest is BaseTest {
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
         _addReward(admin, mockUSDC, USDC_10K);
         _addReward(admin, mockDAI, TOKEN_10K);
-        
+
         skipToNextEpoch(1);
         uint256 epoch2Start = block.timestamp;
-        
+
         skipToNextEpoch(1);
         _addReward(admin, mockUSDC, 2 * USDC_10K);
         _addReward(admin, mockDAI, 2 * TOKEN_10K);
-        
+
         skipToNextEpoch(1);
-        
+
         // Test 1: earnedRewards() single token
         uint256 earnedUSDC = revenueReward.earnedRewards(address(mockUSDC), tokenId, block.timestamp);
         uint256 earnedUSDCPartial = revenueReward.earnedRewards(address(mockUSDC), tokenId, epoch2Start);
-        
+
         emit log_named_uint("[view] earnedRewards USDC full", earnedUSDC);
         emit log_named_uint("[view] earnedRewards USDC partial", earnedUSDCPartial);
-        
+
         assertApproxEqAbs(earnedUSDC, 3 * USDC_10K, 3);
         assertEqApprThreeWei(earnedUSDCPartial, USDC_10K);
         assertGt(earnedUSDC, earnedUSDCPartial);
-        
+
         // Test 2: earnedRewardsAll() multi-token at current time
         address[] memory tokens = new address[](2);
         tokens[0] = address(mockUSDC);
         tokens[1] = address(mockDAI);
-        
+
         uint256[] memory earnedAll = revenueReward.earnedRewardsAll(tokens, tokenId);
-        
+
         emit log_named_uint("[view] earnedRewardsAll USDC", earnedAll[0]);
         emit log_named_uint("[view] earnedRewardsAll DAI", earnedAll[1]);
-        
+
         assertEq(earnedAll.length, 2);
         assertApproxEqAbs(earnedAll[0], 3 * USDC_10K, 3);
         assertApproxEqAbs(earnedAll[1], 3 * TOKEN_10K, 3);
-        
+
         // Test 3: earnedRewardsAllUntilTs() with custom timestamp
         uint256[] memory earnedPartial = revenueReward.earnedRewardsAllUntilTs(tokens, tokenId, epoch2Start);
-        
+
         emit log_named_uint("[view] earnedRewardsAllUntilTs USDC", earnedPartial[0]);
         emit log_named_uint("[view] earnedRewardsAllUntilTs DAI", earnedPartial[1]);
-        
+
         assertEq(earnedPartial.length, 2);
         assertEqApprThreeWei(earnedPartial[0], USDC_10K);
         assertEqApprThreeWei(earnedPartial[1], TOKEN_10K);
-        
+
         // Verify view functions match actual claims
         revenueReward.getReward(tokenId, tokens);
         uint256 actualUSDC = mockUSDC.balanceOf(user);
         uint256 actualDAI = mockDAI.balanceOf(user);
-        
+
         emit log_named_uint("[view] actual claimed USDC", actualUSDC);
         emit log_named_uint("[view] actual claimed DAI", actualDAI);
-        
+
         assertEqApprThreeWei(earnedAll[0], actualUSDC);
         assertEqApprThreeWei(earnedAll[1], actualDAI);
-        
+
         // Test error handling - future timestamp should revert
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.EndTimestampMoreThanCurrent.selector));
         revenueReward.earnedRewards(address(mockUSDC), tokenId, block.timestamp + 1 weeks);
