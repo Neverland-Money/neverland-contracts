@@ -228,6 +228,14 @@ interface IRevenueReward {
     function _notifyAfterTokenBurned(uint256 tokenId, address from) external;
 
     /**
+     * @notice Handles bookkeeping after two veNFTs are merged.
+     * @dev Callable only by the DustLock contract.
+     * @param fromToken The tokenId that was merged and is no longer active (source).
+     * @param toToken The tokenId that survives the merge and should receive consolidated accounting (destination).
+     */
+    function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken) external;
+
+    /**
      * @notice Preview unclaimed rewards for a single reward token up to a specific timestamp.
      * @dev Read-only mirror of claim math; does not mutate state, does not advance checkpoints.
      *      Reverts with EndTimestampMoreThanCurrent if `endTs` is in the future.

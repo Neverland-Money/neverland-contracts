@@ -72,7 +72,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     EnumerableSet.AddressSet private usersWithSelfRepayingLoan;
 
     /// tokenId -> block.timestamp of token_id minted
-    mapping(uint256 => uint256) tokenMintTime;
+    mapping(uint256 => uint256) public tokenMintTime;
 
     /*//////////////////////////////////////////////////////////////
                            SELF REPAYING LOANS
@@ -115,6 +115,20 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         _claimRewardsTo(tokenId, from);
         _removeToken(tokenId, from);
     }
+
+    /// @inheritdoc IRevenueReward
+    function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken) public override nonReentrant {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+
+        uint256 length = rewardTokens.length;
+        for (uint256 i = 0; i < length; i++) {
+            tokenRewardsRemainingAccScaled[rewardTokens[i]][toToken] +=
+                tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken];
+            tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] = 0;
+        }
+    }
+
+    function _notifyAfterTokenSplit() public nonReentrant {}
 
     /**
      * @notice Claims accumulated rewards for a specific veNFT across all registered reward tokens up to the current timestamp

@@ -645,6 +645,29 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
     }
 
+    function testMergedTokens() public {
+        // arrange
+        uint256 userTokenId1 = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        uint256 userTokenId2 = _createLock(user, 6 * TOKEN_1, MAXTIME);
+
+        uint256 user2TokenId1 = _createLock(user2, TOKEN_1M, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        // act
+        goToEpoch(2);
+
+        dustLock.merge(userTokenId1, userTokenId2);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        revenueReward.getReward(userTokenId2, tokens); // 14e18 * 1e6 / (1e24 + 14e18) =  13.999804002743963
+
+        // assert
+        assertEq(mockUSDC.balanceOf(user), 13);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId2), 99980400);
+    }
+
     /* ========== TEST GET REWARD GAS ========== */
 
     function testInitialGetRewardGasCosts() public {

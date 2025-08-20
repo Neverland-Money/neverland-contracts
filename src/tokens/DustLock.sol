@@ -436,8 +436,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         delete idToApprovals[_tokenId];
         // Remove token
         _removeTokenFrom(owner, _tokenId);
-        // notify other contracts
-        _notifyAfterTokenBurned(_tokenId, owner, sender);
         emit Transfer(owner, address(0), _tokenId);
     }
 
@@ -843,7 +841,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         uint256 value = oldLocked.amount.toUint256();
 
         // Burn the NFT
+        address owner = _ownerOf(_tokenId);
         _burn(_tokenId);
+        _notifyAfterTokenBurned(_tokenId, owner, sender);
+
         _locked[_tokenId] = LockedBalance(0, 0, false);
         uint256 supplyBefore = supply;
         supply = supplyBefore - value;
@@ -873,7 +874,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         uint256 userLockedAmount = oldLocked.amount.toUint256();
 
         // Burn the NFT
+        address owner = _ownerOf(_tokenId);
         _burn(_tokenId);
+        _notifyAfterTokenBurned(_tokenId, owner, sender);
+
         _locked[_tokenId] = LockedBalance(0, 0, false);
         uint256 supplyBefore = supply;
         supply = supplyBefore - userLockedAmount;
@@ -938,6 +942,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         }
         _checkpoint(_to, oldLockedTo, newLockedTo);
         _locked[_to] = newLockedTo;
+
+        _notifyAfterTokenMerged(_from, _to);
 
         emit Merge(
             sender,
@@ -1154,6 +1160,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function _notifyTokenMinted(uint256 _tokenId, address, /* _owner */ address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
             revenueReward._notifyTokenMinted(_tokenId);
+        }
+    }
+
+    function _notifyAfterTokenMerged(uint256 _fromToken, uint256 _toToken) internal {
+        if (address(revenueReward) != address(0)) {
+            revenueReward._notifyAfterTokenMerged(_fromToken, _toToken);
         }
     }
 }
