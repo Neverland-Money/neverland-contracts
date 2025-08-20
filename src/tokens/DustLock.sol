@@ -6,6 +6,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {UD60x18, convert} from "@prb/math/src/UD60x18.sol";
 
@@ -18,7 +19,7 @@ import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 
 /**
  * @title DustLock
- * @notice Stores ERC20 token rewards and provides them to veDUST owners
+ * @notice Vote-escrow (veNFT) contract for DUST; tracks locks and voting power
  */
 contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -30,16 +31,17 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    address public immutable forwarder;
+    /// @inheritdoc IDustLock
+    address public immutable override forwarder;
 
     /*//////////////////////////////////////////////////////////////
                            STORAGE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustLock
-    address public immutable token;
+    address public immutable override token;
     /// @inheritdoc IDustLock
-    address public team;
+    address public override team;
     /// @notice Pending team address for two-step ownership transfer
     address public pendingTeam;
 
@@ -60,7 +62,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     bytes4 internal constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
 
     /// @inheritdoc IDustLock
-    uint256 public tokenId;
+    uint256 public override tokenId;
 
     /**
      * @param _forwarder address of trusted forwarder
@@ -86,6 +88,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         supportedInterfaces[ERC4906_INTERFACE_ID] = true;
         supportedInterfaces[ERC6372_INTERFACE_ID] = true;
         supportedInterfaces[ERC721_METADATA_INTERFACE_ID] = true;
+        supportedInterfaces[type(IDustLock).interfaceId] = true;
 
         // mint-ish
         emit Transfer(address(0), address(this), tokenId);
@@ -94,7 +97,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function proposeTeam(address _newTeam) external {
+    function proposeTeam(address _newTeam) external override {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAddress(_newTeam);
         CommonChecksLibrary.revertIfSameAddress(_newTeam, team);
@@ -104,7 +107,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function acceptTeam() external {
+    function acceptTeam() external override {
         if (_msgSender() != pendingTeam) revert NotPendingTeam();
         address oldTeam = team;
         team = pendingTeam;
@@ -113,7 +116,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function cancelTeamProposal() external {
+    function cancelTeamProposal() external override {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAddress(pendingTeam);
 
@@ -132,13 +135,14 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     string internal baseURI;
 
-    function tokenURI(uint256 _tokenId) public view returns (string memory) {
+    /// @inheritdoc IERC721Metadata
+    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
         _ownerOfOrRevert(_tokenId);
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId.toString())) : "";
     }
 
     /// @inheritdoc IDustLock
-    function setBaseURI(string memory newBaseURI) external {
+    function setBaseURI(string memory newBaseURI) external override {
         if (_msgSender() != team) revert NotTeam();
         baseURI = newBaseURI;
     }
@@ -164,12 +168,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function ownerOf(uint256 _tokenId) external view returns (address) {
+    function ownerOf(uint256 _tokenId) external view override returns (address) {
         return _ownerOfOrRevert(_tokenId);
     }
 
     /// @inheritdoc IDustLock
-    function balanceOf(address _owner) external view returns (uint256) {
+    function balanceOf(address _owner) external view override returns (uint256) {
         return ownerToNFTokenCount[_owner];
     }
 
@@ -186,17 +190,17 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     mapping(uint256 => uint256) internal ownershipChange;
 
     /// @inheritdoc IDustLock
-    function getApproved(uint256 _tokenId) external view returns (address) {
+    function getApproved(uint256 _tokenId) external view override returns (address) {
         return idToApprovals[_tokenId];
     }
 
     /// @inheritdoc IDustLock
-    function isApprovedForAll(address _owner, address _operator) external view returns (bool) {
+    function isApprovedForAll(address _owner, address _operator) external view override returns (bool) {
         return (ownerToOperators[_owner])[_operator];
     }
 
     /// @inheritdoc IDustLock
-    function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool) {
+    function isApprovedOrOwner(address _spender, uint256 _tokenId) external view override returns (bool) {
         return _isApprovedOrOwner(_spender, _tokenId);
     }
 
@@ -213,7 +217,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustLock
-    function approve(address _approved, uint256 _tokenId) external {
+    function approve(address _approved, uint256 _tokenId) external override {
         address sender = _msgSender();
         address owner = _ownerOfOrRevert(_tokenId);
         // Throws if `_approved` is the current owner
@@ -230,7 +234,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function setApprovalForAll(address _operator, bool _approved) external {
+    function setApprovalForAll(address _operator, bool _approved) external override {
         address sender = _msgSender();
         // Throws if `_operator` is the `msg.sender`
         CommonChecksLibrary.revertIfSameAddress(_operator, sender);
@@ -262,28 +266,25 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function transferFrom(address _from, address _to, uint256 _tokenId) external nonReentrant {
+    function transferFrom(address _from, address _to, uint256 _tokenId) external override nonReentrant {
         _transferFrom(_from, _to, _tokenId, _msgSender());
     }
 
     /// @inheritdoc IDustLock
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external nonReentrant {
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external override nonReentrant {
         _safeTransferFrom(_from, _to, _tokenId, "", _msgSender());
     }
 
     function _isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
-        uint256 size;
-        assembly {
-            size := extcodesize(account)
-        }
-        return size > 0;
+        return account.code.length > 0;
     }
 
     /// @inheritdoc IDustLock
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory _data) external nonReentrant {
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory _data)
+        external
+        override
+        nonReentrant
+    {
         _safeTransferFrom(_from, _to, _tokenId, _data, _msgSender());
     }
 
@@ -315,7 +316,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustLock
-    function supportsInterface(bytes4 _interfaceID) external view returns (bool) {
+    function supportsInterface(bytes4 _interfaceID) external view override returns (bool) {
         return supportedInterfaces[_interfaceID];
     }
 
@@ -324,7 +325,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustLock
-    mapping(address => mapping(uint256 => uint256)) public ownerToNFTokenIdList;
+    mapping(address => mapping(uint256 => uint256)) public override ownerToNFTokenIdList;
 
     /// @dev Mapping from NFT ID to index of owner
     mapping(uint256 => uint256) internal tokenToOwnerIndex;
@@ -455,36 +456,36 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     uint256 internal constant DEFAULT_EARLY_WITHDRAW_PENALTY_BP = 5_000;
 
     /// @inheritdoc IDustLock
-    uint256 public epoch;
+    uint256 public override epoch;
     /// @inheritdoc IDustLock
-    uint256 public supply;
+    uint256 public override supply;
 
     mapping(uint256 => LockedBalance) internal _locked;
     mapping(uint256 => UserPoint[MAX_USER_POINTS]) internal _userPointHistory;
     mapping(uint256 => uint256) public userPointEpoch;
     /// @inheritdoc IDustLock
-    mapping(uint256 => int256) public slopeChanges;
+    mapping(uint256 => int256) public override slopeChanges;
     /// @inheritdoc IDustLock
-    mapping(address => bool) public canSplit;
+    mapping(address => bool) public override canSplit;
     /// @inheritdoc IDustLock
-    uint256 public permanentLockBalance;
+    uint256 public override permanentLockBalance;
     /// @inheritdoc IDustLock
-    uint256 public earlyWithdrawPenalty;
+    uint256 public override earlyWithdrawPenalty;
     /// @inheritdoc IDustLock
-    address public earlyWithdrawTreasury;
+    address public override earlyWithdrawTreasury;
 
     /// @inheritdoc IDustLock
-    function locked(uint256 _tokenId) external view returns (LockedBalance memory) {
+    function locked(uint256 _tokenId) external view override returns (LockedBalance memory) {
         return _locked[_tokenId];
     }
 
     /// @inheritdoc IDustLock
-    function userPointHistory(uint256 _tokenId, uint256 _loc) external view returns (UserPoint memory) {
+    function userPointHistory(uint256 _tokenId, uint256 _loc) external view override returns (UserPoint memory) {
         return _userPointHistory[_tokenId][_loc];
     }
 
     /// @inheritdoc IDustLock
-    function pointHistory(uint256 _loc) external view returns (GlobalPoint memory) {
+    function pointHistory(uint256 _loc) external view override returns (GlobalPoint memory) {
         return _pointHistory[_loc];
     }
 
@@ -743,12 +744,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function checkpoint() external nonReentrant {
+    function checkpoint() external override nonReentrant {
         _checkpoint(0, LockedBalance(0, 0, false), LockedBalance(0, 0, false));
     }
 
     /// @inheritdoc IDustLock
-    function depositFor(uint256 _tokenId, uint256 _value) external nonReentrant {
+    function depositFor(uint256 _tokenId, uint256 _value) external override nonReentrant {
         _increaseAmountFor(_tokenId, _value, DepositType.DEPOSIT_FOR_TYPE);
     }
 
@@ -778,13 +779,14 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function createLock(uint256 _value, uint256 _lockDuration) external nonReentrant returns (uint256) {
+    function createLock(uint256 _value, uint256 _lockDuration) external override nonReentrant returns (uint256) {
         return _createLock(_value, _lockDuration, _msgSender());
     }
 
     /// @inheritdoc IDustLock
     function createLockFor(uint256 _value, uint256 _lockDuration, address _to)
         external
+        override
         nonReentrant
         returns (uint256)
     {
@@ -807,13 +809,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function increaseAmount(uint256 _tokenId, uint256 _value) external nonReentrant {
+    function increaseAmount(uint256 _tokenId, uint256 _value) external override nonReentrant {
         if (!_isApprovedOrOwner(_msgSender(), _tokenId)) revert NotApprovedOrOwner();
         _increaseAmountFor(_tokenId, _value, DepositType.INCREASE_LOCK_AMOUNT);
     }
 
     /// @inheritdoc IDustLock
-    function increaseUnlockTime(uint256 _tokenId, uint256 _lockDuration) external nonReentrant {
+    function increaseUnlockTime(uint256 _tokenId, uint256 _lockDuration) external override nonReentrant {
         if (!_isApprovedOrOwner(_msgSender(), _tokenId)) revert NotApprovedOrOwner();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
@@ -831,7 +833,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function withdraw(uint256 _tokenId) public nonReentrant {
+    function withdraw(uint256 _tokenId) public override nonReentrant {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
@@ -858,7 +860,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function earlyWithdraw(uint256 _tokenId) external nonReentrant {
+    function earlyWithdraw(uint256 _tokenId) external override nonReentrant {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
@@ -894,7 +896,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function setEarlyWithdrawPenalty(uint256 _earlyWithdrawPenalty) external nonReentrant {
+    function setEarlyWithdrawPenalty(uint256 _earlyWithdrawPenalty) external override nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         if (_earlyWithdrawPenalty >= BASIS_POINTS) revert InvalidWithdrawPenalty();
 
@@ -902,7 +904,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function setEarlyWithdrawTreasury(address _account) external nonReentrant {
+    function setEarlyWithdrawTreasury(address _account) external override nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAddress(_account);
 
@@ -910,7 +912,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function merge(uint256 _from, uint256 _to) external nonReentrant {
+    function merge(uint256 _from, uint256 _to) external override nonReentrant {
         address sender = _msgSender();
         if (_from == _to) revert SameNFT();
         if (!_isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
@@ -953,6 +955,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function split(uint256 _from, uint256 _amount)
         external
+        override
         nonReentrant
         returns (uint256 _tokenId1, uint256 _tokenId2)
     {
@@ -977,6 +980,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _checkpoint(_from, newLocked, LockedBalance(0, 0, false));
 
         // Create new veNFT using old balance - amount
+        if (uint256(newLocked.amount - _splitAmount) < minLockAmount) revert AmountTooSmall();
         newLocked.amount -= _splitAmount;
         _tokenId1 = _createSplitNFT(owner, newLocked);
 
@@ -1015,13 +1019,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function toggleSplit(address _account, bool _bool) external {
+    function toggleSplit(address _account, bool _bool) external override {
         if (_msgSender() != team) revert NotTeam();
         canSplit[_account] = _bool;
     }
 
     /// @inheritdoc IDustLock
-    function lockPermanent(uint256 _tokenId) external {
+    function lockPermanent(uint256 _tokenId) external override {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
         LockedBalance memory _newLocked = _locked[_tokenId];
@@ -1041,7 +1045,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function unlockPermanent(uint256 _tokenId) public {
+    function unlockPermanent(uint256 _tokenId) public override {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
         LockedBalance memory _newLocked = _locked[_tokenId];
@@ -1071,23 +1075,23 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IDustLock
-    function balanceOfNFT(uint256 _tokenId) public view returns (uint256) {
+    function balanceOfNFT(uint256 _tokenId) public view override returns (uint256) {
         if (ownershipChange[_tokenId] == block.number) return 0;
         return _balanceOfNFTAt(_tokenId, block.timestamp);
     }
 
     /// @inheritdoc IDustLock
-    function balanceOfNFTAt(uint256 _tokenId, uint256 _t) external view returns (uint256) {
+    function balanceOfNFTAt(uint256 _tokenId, uint256 _t) external view override returns (uint256) {
         return _balanceOfNFTAt(_tokenId, _t);
     }
 
     /// @inheritdoc IDustLock
-    function totalSupply() external view returns (uint256) {
+    function totalSupply() external view override returns (uint256) {
         return _supplyAt(block.timestamp);
     }
 
     /// @inheritdoc IDustLock
-    function totalSupplyAt(uint256 _timestamp) external view returns (uint256) {
+    function totalSupplyAt(uint256 _timestamp) external view override returns (uint256) {
         return _supplyAt(_timestamp);
     }
 
@@ -1096,21 +1100,22 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustLock
-    function clock() external view returns (uint48) {
+    function clock() external view override returns (uint48) {
         return uint48(block.timestamp);
     }
 
     /// @inheritdoc IDustLock
-    function CLOCK_MODE() external pure returns (string memory) {
+    function CLOCK_MODE() external pure override returns (string memory) {
         return "mode=timestamp";
     }
 
     /*//////////////////////////////////////////////////////////////
                           MIN LOCK AMOUNT
     //////////////////////////////////////////////////////////////*/
-    uint256 public minLockAmount = 1e18;
+    uint256 public override minLockAmount = 1e18;
 
-    function setMinLockAmount(uint256 newMinLockAmount) public {
+    /// @inheritdoc IDustLock
+    function setMinLockAmount(uint256 newMinLockAmount) public override {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAmount(newMinLockAmount);
 
@@ -1121,9 +1126,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                           NOTIFY CONTRACTS
     //////////////////////////////////////////////////////////////*/
 
-    IRevenueReward public revenueReward;
+    IRevenueReward public override revenueReward;
 
-    function setRevenueReward(IRevenueReward _revenueReward) public {
+    /// @inheritdoc IDustLock
+    function setRevenueReward(IRevenueReward _revenueReward) public override {
         if (_msgSender() != team) revert NotTeam();
         revenueReward = _revenueReward;
     }
