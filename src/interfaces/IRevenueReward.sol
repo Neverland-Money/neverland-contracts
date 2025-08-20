@@ -232,8 +232,18 @@ interface IRevenueReward {
      * @dev Callable only by the DustLock contract.
      * @param fromToken The tokenId that was merged and is no longer active (source).
      * @param toToken The tokenId that survives the merge and should receive consolidated accounting (destination).
+     * @param toToken The tokens' owner.
      */
-    function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken) external;
+    function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) external;
+
+    function _notifyAfterTokenSplit(
+        uint256 fromToken,
+        uint256 tokenId1,
+        uint256 token1Amount,
+        uint256 tokenId2,
+        uint256 token2Amount,
+        address owner
+    ) external;
 
     /**
      * @notice Preview unclaimed rewards for a single reward token up to a specific timestamp.

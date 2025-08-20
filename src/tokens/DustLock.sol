@@ -371,7 +371,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
-        _notifyTokenMinted(_tokenId, _to, _msgSender());
         return true;
     }
 
@@ -771,6 +770,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         uint256 _tokenId = ++tokenId;
         _mint(_to, _tokenId);
+        _notifyTokenMinted(_tokenId, _to, _msgSender());
 
         _depositFor(_tokenId, _value, unlockTime, _locked[_tokenId], DepositType.CREATE_LOCK_TYPE);
         return _tokenId;
@@ -928,6 +928,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (oldLockedFrom.isPermanent) revert PermanentLock();
         uint256 end = oldLockedFrom.end >= oldLockedTo.end ? oldLockedFrom.end : oldLockedTo.end;
 
+        address owner = _ownerOf(_from);
         _burn(_from);
         _locked[_from] = LockedBalance(0, 0, false);
         _checkpoint(_from, oldLockedFrom, LockedBalance(0, 0, false));
@@ -943,7 +944,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _checkpoint(_to, oldLockedTo, newLockedTo);
         _locked[_to] = newLockedTo;
 
-        _notifyAfterTokenMerged(_from, _to);
+        _notifyAfterTokenMerged(_from, _to, owner);
 
         emit Merge(
             sender,
@@ -988,11 +989,14 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Create new veNFT using old balance - amount
         if (uint256(newLocked.amount - _splitAmount) < minLockAmount) revert AmountTooSmall();
         newLocked.amount -= _splitAmount;
+        uint256 token1Amount = newLocked.amount.toUint256();
         _tokenId1 = _createSplitNFT(owner, newLocked);
 
         // Create new veNFT using amount
         newLocked.amount = _splitAmount;
         _tokenId2 = _createSplitNFT(owner, newLocked);
+
+        _notifyAfterTokenSplit(_from, _tokenId1, token1Amount, _tokenId2, _amount, owner);
 
         emit Split(
             _from,
@@ -1163,9 +1167,22 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         }
     }
 
-    function _notifyAfterTokenMerged(uint256 _fromToken, uint256 _toToken) internal {
+    function _notifyAfterTokenMerged(uint256 _fromToken, uint256 _toToken, address owner) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyAfterTokenMerged(_fromToken, _toToken);
+            revenueReward._notifyAfterTokenMerged(_fromToken, _toToken, owner);
+        }
+    }
+
+    function _notifyAfterTokenSplit(
+        uint256 fromToken,
+        uint256 tokenId1,
+        uint256 token1Amount,
+        uint256 tokenId2,
+        uint256 token2Amount,
+        address owner
+    ) internal {
+        if (address(revenueReward) != address(0)) {
+            revenueReward._notifyAfterTokenSplit(fromToken, tokenId1, token1Amount, tokenId2, token2Amount, owner);
         }
     }
 }

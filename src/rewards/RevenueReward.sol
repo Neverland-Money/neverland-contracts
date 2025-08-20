@@ -117,7 +117,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken) public override nonReentrant {
+    function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) public override nonReentrant {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
 
         uint256 length = rewardTokens.length;
@@ -126,9 +126,21 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                 tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken];
             tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] = 0;
         }
+
+        _removeToken(fromToken, owner);
     }
 
-    function _notifyAfterTokenSplit() public nonReentrant {}
+    /// @inheritdoc IRevenueReward
+    function _notifyAfterTokenSplit(
+        uint256 fromToken,
+        uint256 tokenId1,
+        uint256 token1Amount,
+        uint256 tokenId2,
+        uint256 token2Amount,
+        address owner
+    ) public override nonReentrant {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+    }
 
     /**
      * @notice Claims accumulated rewards for a specific veNFT across all registered reward tokens up to the current timestamp

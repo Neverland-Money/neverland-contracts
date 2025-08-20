@@ -652,6 +652,8 @@ contract RevenueRewardsTest is BaseTest {
 
         uint256 user2TokenId1 = _createLock(user2, TOKEN_1M, MAXTIME);
 
+        revenueReward.enableSelfRepayLoan(userTokenId1, user5);
+
         _addReward(admin, mockUSDC, USDC_1);
 
         // act
@@ -666,6 +668,9 @@ contract RevenueRewardsTest is BaseTest {
         // assert
         assertEq(mockUSDC.balanceOf(user), 13);
         assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId2), 99980400);
+
+        assertEq(revenueReward.tokenRewardReceiver(userTokenId1), ZERO_ADDRESS);
+        assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user).length, 0);
     }
 
     /* ========== TEST GET REWARD GAS ========== */
