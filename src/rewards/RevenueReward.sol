@@ -156,6 +156,74 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /* === view functions === */
 
     /// @inheritdoc IRevenueReward
+    function earnedRewards(address token, uint256 tokenId, uint256 endTs) public view override returns (uint256) {
+        if (endTs > block.timestamp) {
+            revert EndTimestampMoreThanCurrent();
+        }
+
+        uint256 lastTokenEarnTime = Math.max(lastEarnTime[token][tokenId], tokenMintTime[tokenId]);
+        uint256 startTs = EpochTimeLibrary.epochNext(lastTokenEarnTime);
+        uint256 endEpochTs = EpochTimeLibrary.epochStart(endTs);
+
+        if (startTs > endEpochTs) return 0;
+
+        uint256 numEpochs = (endEpochTs - startTs) / DURATION;
+        uint256 accumulatedReward = 0;
+        uint256 currTs = startTs;
+
+        uint256 scaledRemainder = tokenRewardsRemainingAccScaled[token][tokenId];
+
+        for (uint256 i = 0; i <= numEpochs; i++) {
+            uint256 totalSupplyAtEpoch = dustLock.totalSupplyAt(currTs);
+            if (totalSupplyAtEpoch == 0) {
+                currTs += DURATION;
+                continue;
+            }
+
+            uint256 rewardsThisEpoch = tokenRewardsPerEpoch[token][currTs];
+            uint256 userBalanceAtEpoch = dustLock.balanceOfNFTAt(tokenId, currTs);
+
+            // whole payout (floor)
+            uint256 rewardAmount = Math.mulDiv(rewardsThisEpoch, userBalanceAtEpoch, totalSupplyAtEpoch);
+            accumulatedReward += rewardAmount;
+
+            // fractional remainder scaled
+            uint256 remainder = mulmod(rewardsThisEpoch, userBalanceAtEpoch, totalSupplyAtEpoch);
+            scaledRemainder += Math.mulDiv(remainder, REWARDS_REMAINING_SCALE, totalSupplyAtEpoch);
+
+            currTs += DURATION;
+        }
+
+        uint256 rewardFromRemaining = scaledRemainder / REWARDS_REMAINING_SCALE;
+        return accumulatedReward + rewardFromRemaining;
+    }
+
+    /// @inheritdoc IRevenueReward
+    function earnedRewardsAll(address[] memory tokens, uint256 tokenId)
+        external
+        view
+        override
+        returns (uint256[] memory rewards)
+    {
+        return earnedRewardsAllUntilTs(tokens, tokenId, block.timestamp);
+    }
+
+    /// @inheritdoc IRevenueReward
+    function earnedRewardsAllUntilTs(address[] memory tokens, uint256 tokenId, uint256 endTs)
+        public
+        view
+        override
+        returns (uint256[] memory rewards)
+    {
+        if (endTs > block.timestamp) revert EndTimestampMoreThanCurrent();
+        uint256 len = tokens.length;
+        rewards = new uint256[](len);
+        for (uint256 i = 0; i < len; i++) {
+            rewards[i] = earnedRewards(tokens[i], tokenId, endTs);
+        }
+    }
+
+    /// @inheritdoc IRevenueReward
     function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory) {
         CommonChecksLibrary.revertIfInvalidRange(from, to);
         uint256 length = usersWithSelfRepayingLoan.length();
@@ -273,20 +341,14 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         uint256 accumulatedReward = 0;
         uint256 _currTs = _startTs;
-        uint256 numeratorCalcCache;
         for (uint256 i = 0; i <= _numEpochs; i++) {
             uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(_currTs);
             if (tokenSupplyBalanceCurrTs == 0) {
                 _currTs += DURATION;
                 continue;
             }
-            numeratorCalcCache = tokenRewardsPerEpoch[token][_currTs] * dustLock.balanceOfNFTAt(tokenId, _currTs);
 
-            accumulatedReward += numeratorCalcCache / tokenSupplyBalanceCurrTs;
-
-            tokenRewardsRemainingAccScaled[token][tokenId] +=
-                numeratorCalcCache % tokenSupplyBalanceCurrTs * REWARDS_REMAINING_SCALE / tokenSupplyBalanceCurrTs;
-
+            accumulatedReward += _calculateEpochReward(token, tokenId, _currTs, tokenSupplyBalanceCurrTs);
             _currTs += DURATION;
         }
 
@@ -297,6 +359,31 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         }
 
         return accumulatedReward + rewardFromRemaining;
+    }
+
+    /**
+     * @notice Calculates reward for a single epoch with overflow protection
+     * @param token The reward token address
+     * @param tokenId The veNFT token ID
+     * @param epochTs The epoch timestamp
+     * @param totalSupply Total voting power supply at the epoch
+     * @return The reward amount for this epoch
+     */
+    function _calculateEpochReward(address token, uint256 tokenId, uint256 epochTs, uint256 totalSupply)
+        internal
+        returns (uint256)
+    {
+        uint256 rewardsThisEpoch = tokenRewardsPerEpoch[token][epochTs];
+        uint256 userBalanceThisEpoch = dustLock.balanceOfNFTAt(tokenId, epochTs);
+
+        // whole units: floor(rewardsThisEpoch * userBalanceThisEpoch / totalSupply)
+        uint256 rewardAmount = Math.mulDiv(rewardsThisEpoch, userBalanceThisEpoch, totalSupply);
+
+        // fractional remainder → scaled accumulator (overflow-safe)
+        uint256 remainder = mulmod(rewardsThisEpoch, userBalanceThisEpoch, totalSupply);
+        tokenRewardsRemainingAccScaled[token][tokenId] += Math.mulDiv(remainder, REWARDS_REMAINING_SCALE, totalSupply);
+
+        return rewardAmount;
     }
 
     /**

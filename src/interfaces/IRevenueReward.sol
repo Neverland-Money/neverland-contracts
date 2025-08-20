@@ -219,6 +219,43 @@ interface IRevenueReward {
     function _notifyAfterTokenBurned(uint256 _tokenId, address _from) external;
 
     /**
+     * @notice Preview unclaimed rewards for a single reward token up to a specific timestamp.
+     * @dev Read-only mirror of claim math; does not mutate state, does not advance checkpoints.
+     *      Reverts with EndTimestampMoreThanCurrent if `endTs` is in the future.
+     * @param token Reward token address to preview.
+     * @param tokenId veNFT id to preview for.
+     * @param endTs Timestamp (<= now) up to which to compute rewards.
+     * @return amount Total rewards that would be claimable if claimed up to `endTs`.
+     */
+    function earnedRewards(address token, uint256 tokenId, uint256 endTs) external view returns (uint256 amount);
+
+    /**
+     * @notice Preview unclaimed rewards for multiple tokens at the current timestamp.
+     * @dev Convenience wrapper that uses block.timestamp internally.
+     * @param tokens Array of reward token addresses.
+     * @param tokenId veNFT id to preview for.
+     * @return rewards Array of amounts in the same order as `tokens`.
+     */
+    function earnedRewardsAll(address[] memory tokens, uint256 tokenId)
+        external
+        view
+        returns (uint256[] memory rewards);
+
+    /**
+     * @notice Preview unclaimed rewards for multiple tokens up to a specific timestamp.
+     * @dev Read-only; does not mutate state, does not advance checkpoints.
+     *      Reverts with EndTimestampMoreThanCurrent if `endTs` is in the future.
+     * @param tokens Array of reward token addresses.
+     * @param tokenId veNFT id to preview for.
+     * @param endTs Timestamp (<= now) up to which to compute rewards.
+     * @return rewards Array of amounts in the same order as `tokens`.
+     */
+    function earnedRewardsAllUntilTs(address[] memory tokens, uint256 tokenId, uint256 endTs)
+        external
+        view
+        returns (uint256[] memory rewards);
+
+    /**
      * @notice Returns a list of user addresses with at least one active self-repaying loan within a given range.
      * @dev Iterates over the internal set of users who have enabled self-repaying loans,
      *      returning addresses from index `from` up to, but not including, index `to`.
