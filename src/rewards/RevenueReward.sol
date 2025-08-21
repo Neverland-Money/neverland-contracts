@@ -120,6 +120,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) public override nonReentrant {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
 
+        _claimRewardsTo(fromToken, owner);
+
         uint256 length = rewardTokens.length;
         for (uint256 i = 0; i < length; i++) {
             tokenRewardsRemainingAccScaled[rewardTokens[i]][toToken] +=
