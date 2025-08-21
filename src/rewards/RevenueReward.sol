@@ -140,6 +140,22 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         address owner
     ) public override nonReentrant {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
+
+        tokenMintTime[tokenId1] = block.timestamp;
+        tokenMintTime[tokenId2] = block.timestamp;
+
+        uint256 newTokenAmount = token1Amount + token2Amount;
+
+        uint256 length = rewardTokens.length;
+        for (uint256 i = 0; i < length; i++) {
+            tokenRewardsRemainingAccScaled[rewardTokens[i]][tokenId1] =
+                token1Amount * tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] / newTokenAmount;
+            tokenRewardsRemainingAccScaled[rewardTokens[i]][tokenId2] =
+                token2Amount * tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] / newTokenAmount;
+            tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] = 0;
+        }
+
+        _removeToken(fromToken, owner);
     }
 
     /**

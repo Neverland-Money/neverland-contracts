@@ -645,12 +645,12 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), block.timestamp);
     }
 
-    function testMergedTokens() public {
+    function testRewardsOnMergedTokens() public {
         // arrange
         uint256 userTokenId1 = _createLock(user, 8 * TOKEN_1, MAXTIME);
         uint256 userTokenId2 = _createLock(user, 6 * TOKEN_1, MAXTIME);
 
-        uint256 user2TokenId1 = _createLock(user2, TOKEN_1M, MAXTIME);
+        _createLock(user2, TOKEN_1M, MAXTIME);
 
         revenueReward.enableSelfRepayLoan(userTokenId1, user5);
 
@@ -663,6 +663,10 @@ contract RevenueRewardsTest is BaseTest {
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
+
+        vm.expectRevert();
+        revenueReward.getReward(userTokenId1, tokens);
+
         revenueReward.getReward(userTokenId2, tokens); // 14e18 * 1e6 / (1e24 + 14e18) =  13.999804002743963
 
         // assert
@@ -671,6 +675,75 @@ contract RevenueRewardsTest is BaseTest {
 
         assertEq(revenueReward.tokenRewardReceiver(userTokenId1), ZERO_ADDRESS);
         assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user).length, 0);
+    }
+
+    function testRewardsOnSplitTokens() public {
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // epoch1
+        uint256 userTokenId1 = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        dustLock.lockPermanent(userTokenId1);
+
+        uint256 userTokenId2 = _createLock(user2, TOKEN_1M, MAXTIME);
+        vm.prank(user2);
+        dustLock.lockPermanent(userTokenId2);
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        revenueReward.getReward(userTokenId1, tokens); // 8e18 * 1e6 / (1e24 + 8e18) = 7.999936000511997
+
+        assertEq(mockUSDC.balanceOf(user), 7);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 99993600);
+
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(userTokenId1);
+        (uint256 userTokenId1Split1, uint256 userTokenId1Split2) = dustLock.split(userTokenId1, 2 * TOKEN_1);
+
+        dustLock.lockPermanent(userTokenId1Split1);
+        dustLock.lockPermanent(userTokenId1Split2);
+
+        assertEq(dustLock.balanceOfNFT(userTokenId1Split1), 6 * TOKEN_1);
+        assertEq(dustLock.balanceOfNFT(userTokenId1Split2), 2 * TOKEN_1);
+
+        revenueReward.enableSelfRepayLoan(userTokenId1Split1, user5);
+
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split1), 74995200); // 6 * 99993600 / 8
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split2), 24998400); // 2 * 99993600 / 8
+
+        _addReward(admin, mockUSDC, USDC_1);
+
+        // epoch3
+        skipToNextEpoch(1);
+
+        // assert userTokenId1 burnt
+        vm.expectRevert();
+        revenueReward.getReward(userTokenId1, tokens);
+
+        assertEq(revenueReward.tokenRewardReceiver(userTokenId1), ZERO_ADDRESS);
+
+        // userTokenId1Split1 rewards
+        revenueReward.getReward(userTokenId1Split1, tokens); // 6e18 * 1e6 / (1e24 + 8e18) = 5.999952000383997
+
+        // 1 extra from remainder: 74995200 + 99995200 = 1_74990400
+        assertEq(mockUSDC.balanceOf(user5), 5 + 1);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split1), 74990400);
+
+        assertEq(revenueReward.tokenRewardReceiver(userTokenId1Split1), user5);
+        assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user).length, 1);
+        assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user)[0], userTokenId1Split1);
+
+        // userTokenId1Split2 rewards
+        revenueReward.getReward(userTokenId1Split2, tokens); // 2e18 * 1e6 / (1e24 + 8e18) = 1.9999840001279992
+
+        // 1 extra from remainder: 24998400 + 99998400 = 1_24996800
+        assertEq(mockUSDC.balanceOf(user), 7 + 1 + 1);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split2), 24996800);
+
+        assertEq(revenueReward.tokenRewardReceiver(userTokenId1Split2), ZERO_ADDRESS);
     }
 
     /* ========== TEST GET REWARD GAS ========== */
