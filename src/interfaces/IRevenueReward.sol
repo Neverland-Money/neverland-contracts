@@ -236,6 +236,21 @@ interface IRevenueReward {
      */
     function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) external;
 
+    /**
+     * @notice Handles bookkeeping after a veNFT is split into two new veNFTs.
+     * @dev Callable only by the DustLock contract.
+     *      - Initializes mint timestamps for the two new tokenIds.
+     *      - Proportionally splits the accumulated fractional rewards remainder (scaled by 1e8)
+     *        from `fromToken` between `tokenId1` and `tokenId2` using their provided amounts.
+     *      - Clears the remainder accumulator for `fromToken` and removes it from any self-repaying
+     *        loan tracking if applicable.
+     * @param fromToken The original tokenId that was split (source).
+     * @param tokenId1 The first resulting tokenId after the split.
+     * @param token1Amount The amount (voting power/shares) assigned to `tokenId1` in the split.
+     * @param tokenId2 The second resulting tokenId after the split.
+     * @param token2Amount The amount (voting power/shares) assigned to `tokenId2` in the split.
+     * @param owner The owner of the tokens involved in the split.
+     */
     function _notifyAfterTokenSplit(
         uint256 fromToken,
         uint256 tokenId1,
