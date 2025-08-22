@@ -2,13 +2,18 @@
 pragma solidity 0.8.19;
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
+import {ud60x18, convert} from "@prb/math/src/UD60x18.sol";
+
 import {SafeCastLibrary} from "./SafeCastLibrary.sol";
 
 library BalanceLogicLibrary {
     using SafeCastLibrary for uint256;
     using SafeCastLibrary for int128;
 
+    /// Constants
     uint256 internal constant WEEK = 1 weeks;
+    uint256 internal constant MAX_USER_POINTS = 1_000_000_000;
+    uint256 internal constant MAX_CHECKPOINT_ITERATIONS = 255;
 
     /**
      * @notice Binary search to get the user point index for a token id at or prior to a given timestamp
@@ -21,7 +26,7 @@ library BalanceLogicLibrary {
      */
     function getPastUserPointIndex(
         mapping(uint256 => uint256) storage _userPointEpoch,
-        mapping(uint256 => IDustLock.UserPoint[1000000000]) storage _userPointHistory,
+        mapping(uint256 => IDustLock.UserPoint[MAX_USER_POINTS]) storage _userPointHistory,
         uint256 _tokenId,
         uint256 _timestamp
     ) internal view returns (uint256) {
@@ -95,7 +100,7 @@ library BalanceLogicLibrary {
      */
     function balanceOfNFTAt(
         mapping(uint256 => uint256) storage _userPointEpoch,
-        mapping(uint256 => IDustLock.UserPoint[1000000000]) storage _userPointHistory,
+        mapping(uint256 => IDustLock.UserPoint[MAX_USER_POINTS]) storage _userPointHistory,
         uint256 _tokenId,
         uint256 _t
     ) external view returns (uint256) {
@@ -106,11 +111,14 @@ library BalanceLogicLibrary {
         if (lastPoint.permanent != 0) {
             return lastPoint.permanent;
         } else {
-            lastPoint.bias -= lastPoint.slope * (_t - lastPoint.ts).toInt128();
+            // Time difference in seconds, slope is in WAD format
+            // slope * time_seconds gives WAD result
+            lastPoint.bias -= lastPoint.slope * int256(_t - lastPoint.ts);
             if (lastPoint.bias < 0) {
                 lastPoint.bias = 0;
             }
-            return lastPoint.bias.toUint256();
+            // Convert from WAD (18 decimals) back to token units
+            return convert(ud60x18(uint256(lastPoint.bias)));
         }
     }
 
@@ -123,7 +131,7 @@ library BalanceLogicLibrary {
      * @return Total voting power at that time
      */
     function supplyAt(
-        mapping(uint256 => int128) storage _slopeChanges,
+        mapping(uint256 => int256) storage _slopeChanges,
         mapping(uint256 => IDustLock.GlobalPoint) storage _pointHistory,
         uint256 _epoch,
         uint256 _t
@@ -132,19 +140,20 @@ library BalanceLogicLibrary {
         // epoch 0 is an empty point
         if (epoch_ == 0) return 0;
         IDustLock.GlobalPoint memory _point = _pointHistory[epoch_];
-        int128 bias = _point.bias;
-        int128 slope = _point.slope;
+        int256 bias = _point.bias;
+        int256 slope = _point.slope;
         uint256 ts = _point.ts;
         uint256 t_i = (ts / WEEK) * WEEK;
-        for (uint256 i = 0; i < 255; ++i) {
+        for (uint256 i = 0; i < MAX_CHECKPOINT_ITERATIONS; ++i) {
             t_i += WEEK;
-            int128 dSlope = 0;
+            int256 dSlope = 0;
             if (t_i > _t) {
                 t_i = _t;
             } else {
                 dSlope = _slopeChanges[t_i];
             }
-            bias -= slope * (t_i - ts).toInt128();
+            // Time difference in seconds, slope is in WAD format
+            bias -= slope * int256(t_i - ts);
             if (t_i == _t) {
                 break;
             }
@@ -155,6 +164,7 @@ library BalanceLogicLibrary {
         if (bias < 0) {
             bias = 0;
         }
-        return bias.toUint256() + _point.permanentLockBalance;
+        // Convert from WAD (18 decimals) back to token units
+        return convert(ud60x18(uint256(bias))) + _point.permanentLockBalance;
     }
 }

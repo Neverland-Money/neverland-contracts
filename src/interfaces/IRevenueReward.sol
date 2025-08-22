@@ -9,6 +9,22 @@ import {IDustLock} from "../interfaces/IDustLock.sol";
  * @dev Handles reward epochs, claiming rewards, and self-repaying loan functionality
  */
 interface IRevenueReward {
+    /// Errors
+
+    /// @notice Error thrown when a non-distributor address attempts to notify rewards
+    error NotRewardDistributor();
+
+    /// @notice Error thrown when a non-owner address attempts a restricted operation
+    error NotOwner();
+
+    /// @notice Error thrown when a non-DustLock address attempts a restricted operation
+    error NotDustLock();
+
+    /// @notice Error thrown when end timestamp when calculating rewards is more that current
+    error EndTimestampMoreThanCurrent();
+
+    /// Events
+
     /**
      * @notice Emitted when rewards are claimed by a user
      * @param user Address that claimed the rewards
@@ -41,18 +57,10 @@ interface IRevenueReward {
      */
     event SelfRepayingLoanUpdate(uint256 indexed token, address rewardReceiver, bool isEnabled);
 
-    /// @notice Error thrown when attempting to notify or claim with a zero amount
-    error ZeroAmount();
-
-    /// @notice Error thrown when a non-distributor address attempts to notify rewards
-    error NotRewardDistributor();
-
-    /// @notice Error thrown when a non-owner address attempts a restricted operation
-    error NotOwner();
+    /// Functions
 
     /**
      * @notice The address of the DustLock contract that manages veNFTs
-     * @dev Used to verify ownership of veNFTs when claiming rewards and validate permissions
      * @return The IDustLock interface of the connected DustLock contract
      */
     function dustLock() external view returns (IDustLock);
@@ -109,14 +117,26 @@ interface IRevenueReward {
     function totalRewardsPerToken(address token) external view returns (uint256);
 
     /**
-     * @notice Returns the amount of rewards allocated for a specific token in a given epoch
-     * @dev Rewards are distributed per epoch, with each epoch lasting for DURATION seconds
-     *      Used to calculate the reward rate for a particular token during a specific epoch
+     * @notice Returns the amount of rewards allocated for a specific token at a given epoch start
+     * @dev Rewards are tracked by epoch start timestamp (seconds), with each epoch lasting DURATION seconds.
      * @param token The address of the reward token
-     * @param epoch The epoch number to query
-     * @return The amount of rewards allocated for the specified token in the given epoch
+     * @param epoch The epoch start timestamp (i.e., start of the week)
+     * @return The amount of rewards allocated for the token at that epoch start
      */
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);
+
+    /**
+     * @notice Returns the accumulated fractional remainder of rewards for a veNFT and token, scaled by 1e8.
+     * @dev During per-epoch reward calculations, integer division can leave a remainder that cannot be paid out.
+     *      This function exposes the running sum of those remainders for the given (token, tokenId) pair,
+     *      scaled by a factor of 1e8 to preserve precision (i.e., value is remainder * 1e8 / totalSupplyAt(epoch)).
+     *      This value is informational and not directly claimable; it helps off-chain analytics understand
+     *      the uncredited fractional rewards that have accumulated over time due to rounding.
+     * @param token The address of the reward token being tracked.
+     * @param tokenId The ID of the veNFT whose fractional remainder is queried.
+     * @return scaledRemainder The accumulated fractional rewards remainder, scaled by 1e8.
+     */
+    function tokenRewardsRemainingAccScaled(address token, uint256 tokenId) external view returns (uint256);
 
     /**
      * @notice Returns the configured reward recipient address for a specific veNFT
@@ -129,14 +149,27 @@ interface IRevenueReward {
 
     /**
      * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens
-     * @dev Calculates earned rewards for each specified token and transfers them to the appropriate recipient
-     *      If a reward receiver is configured via enableSelfRepayLoan, rewards go to that address
-     *      Otherwise, rewards are sent to the veNFT owner
-     *      Updates lastEarnTime for each claimed token to track future reward accruals
+     * @dev Calculates earned rewards for each specified token using epoch-based accounting and transfers them
+     *      to the appropriate recipient. Emits a ClaimRewards event per token. If a reward receiver is configured
+     *      via enableSelfRepayLoan, rewards go to that address; otherwise, rewards are sent to the veNFT owner.
+     *      Updates lastEarnTime to track future accruals.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      */
     function getReward(uint256 tokenId, address[] memory tokens) external;
+
+    /**
+     * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens up to a specified timestamp
+     * @dev Similar to getReward, but allows specifying a custom end timestamp for the reward calculation period.
+     *      Calculates earned rewards for each specified token using epoch-based accounting and transfers them to the
+     *      appropriate recipient. Emits a ClaimRewards event per token. If a reward receiver is configured via
+     *      enableSelfRepayLoan, rewards go to that address; otherwise, rewards are sent to the veNFT owner.
+     *      Updates lastEarnTime to rewardPeriodEndTs to track future accruals.
+     * @param tokenId The ID of the veNFT to claim rewards for
+     * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
+     * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
+     */
+    function getRewardUntilTs(uint256 tokenId, address[] memory tokens, uint256 rewardPeriodEndTs) external;
 
     /**
      * @notice Enables the self-repaying loan feature for a specific veNFT
@@ -159,6 +192,127 @@ interface IRevenueReward {
     function disableSelfRepayLoan(uint256 tokenId) external;
 
     /**
+     * @notice Notifies the contract that a new token has been created
+     * @dev Intended to update internal state or trigger logic after a veNFT creation event
+     *      Can only be called by the DustLock contract.
+     * @param tokenId The ID of the token (veNFT) that has been created
+     */
+    function notifyTokenMinted(uint256 tokenId) external;
+
+    /**
+     * @notice Handles necessary operations after a veNFT token is transferred
+     * @dev This function is called by the DustLock contract just after transferring a token
+     *      It performs two main actions:
+     *      1. Claims all pending rewards for the token being transferred
+     *      2. Removes the token from the self-repaying loan tracking if enabled
+     *      Can only be called by the DustLock contract.
+     * @param tokenId The ID of the veNFT token that was transferred
+     * @param from The address of the previous token owner (sender of the transfer)
+     */
+    function notifyAfterTokenTransferred(uint256 tokenId, address from) external;
+
+    /**
+     * @notice Handles necessary operations after a veNFT token is burned
+     * @dev This function is called by the DustLock contract just after burning a token
+     *      It performs two main actions:
+     *      1. Claims all pending rewards for the token being burned
+     *      2. Removes the token from the self-repaying loan tracking if enabled
+     *      Can only be called by the DustLock contract.
+     * @param tokenId The ID of the veNFT token that was burned
+     * @param from The address of the previous token owner
+     */
+    function notifyAfterTokenBurned(uint256 tokenId, address from) external;
+
+    /**
+     * @notice Handles bookkeeping after two veNFTs are merged.
+     * @dev Callable only by the DustLock contract.
+     * @param fromToken The tokenId that was merged and is no longer active (source).
+     * @param toToken The tokenId that survives the merge and should receive consolidated accounting (destination).
+     * @param owner The tokens' owner.
+     */
+    function notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) external;
+
+    /**
+     * @notice Handles bookkeeping after a veNFT is split into two new veNFTs.
+     * @dev Callable only by the DustLock contract.
+     *      - Initializes mint timestamps for the two new tokenIds.
+     *      - Proportionally splits the accumulated fractional rewards remainder (scaled by 1e8)
+     *        from `fromToken` between `tokenId1` and `tokenId2` using their provided amounts.
+     *      - Clears the remainder accumulator for `fromToken` and removes it from any self-repaying
+     *        loan tracking if applicable.
+     * @param fromToken The original tokenId that was split (source).
+     * @param tokenId1 The first resulting tokenId after the split.
+     * @param token1Amount The amount (voting power/shares) assigned to `tokenId1` in the split.
+     * @param tokenId2 The second resulting tokenId after the split.
+     * @param token2Amount The amount (voting power/shares) assigned to `tokenId2` in the split.
+     * @param owner The owner of the tokens involved in the split.
+     */
+    function notifyAfterTokenSplit(
+        uint256 fromToken,
+        uint256 tokenId1,
+        uint256 token1Amount,
+        uint256 tokenId2,
+        uint256 token2Amount,
+        address owner
+    ) external;
+
+    /**
+     * @notice Preview unclaimed rewards for a single reward token up to a specific timestamp.
+     * @dev Read-only mirror of claim math; does not mutate state, does not advance checkpoints.
+     *      Reverts with EndTimestampMoreThanCurrent if `endTs` is in the future.
+     * @param token Reward token address to preview.
+     * @param tokenId veNFT id to preview for.
+     * @param endTs Timestamp (<= now) up to which to compute rewards.
+     * @return amount Total rewards that would be claimable if claimed up to `endTs`.
+     */
+    function earnedRewards(address token, uint256 tokenId, uint256 endTs) external view returns (uint256 amount);
+
+    /**
+     * @notice Preview unclaimed rewards for multiple tokens at the current timestamp.
+     * @dev Convenience wrapper that uses block.timestamp internally.
+     * @param tokens Array of reward token addresses.
+     * @param tokenId veNFT id to preview for.
+     * @return rewards Array of amounts in the same order as `tokens`.
+     */
+    function earnedRewardsAll(address[] memory tokens, uint256 tokenId)
+        external
+        view
+        returns (uint256[] memory rewards);
+
+    /**
+     * @notice Preview unclaimed rewards for multiple tokens up to a specific timestamp.
+     * @dev Read-only; does not mutate state, does not advance checkpoints.
+     *      Reverts with EndTimestampMoreThanCurrent if `endTs` is in the future.
+     * @param tokens Array of reward token addresses.
+     * @param tokenId veNFT id to preview for.
+     * @param endTs Timestamp (<= now) up to which to compute rewards.
+     * @return rewards Array of amounts in the same order as `tokens`.
+     */
+    function earnedRewardsAllUntilTs(address[] memory tokens, uint256 tokenId, uint256 endTs)
+        external
+        view
+        returns (uint256[] memory rewards);
+
+    /**
+     * @notice Returns a list of user addresses with at least one active self-repaying loan within a given range.
+     * @dev Iterates over the internal set of users who have enabled self-repaying loans,
+     *      returning addresses from index `from` up to, but not including, index `to`.
+     *      If the specified range exceeds the number of users, the function adjusts accordingly.
+     * @param from The starting index (inclusive) in the user set.
+     * @param to The ending index (exclusive) in the user set.
+     * @return users An array of user addresses in the specified range who have self-repaying loans enabled.
+     */
+    function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view returns (address[] memory);
+
+    /**
+     * @notice Returns the list of token IDs for which the given user has enabled a self-repaying loan.
+     * @dev Checks the user's internal set of token IDs with self-repaying loans and returns them as an array.
+     * @param user The address of the user to query.
+     * @return tokenIds An array of token IDs currently associated with self-repaying loans for the user.
+     */
+    function getUserTokensWithSelfRepayingLoan(address user) external view returns (uint256[] memory tokenIds);
+
+    /**
      * @notice Adds new rewards to the distribution pool for the current epoch
      * @dev Can only be called by the authorized reward distributor address
      *      Automatically registers new tokens the first time they're used
@@ -178,11 +332,11 @@ interface IRevenueReward {
     function setRewardDistributor(address newRewardDistributor) external;
 
     /**
-     * @notice Recovers tokens that were directly transferred to the contract without using notifyRewardAmount
+     * @notice Recovers unnotified balances of registered reward tokens
      * @dev Can only be called by the reward distributor
-     *      This is a safety feature to recover tokens that might be accidentally sent to the contract
-     *      Recovered tokens are returned to the current reward distributor address
-     *      Only operates on tokens that have not been properly registered through notifyRewardAmount
+     *      For each registered reward token, if the contract's token balance exceeds the credited amount
+     *      tracked by totalRewardsPerToken[token], transfers the excess to the reward distributor and emits
+     *      a RecoverTokens event.
      */
     function recoverTokens() external;
 }

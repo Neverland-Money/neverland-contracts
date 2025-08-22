@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity 0.8.19;
 
-import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
+
+import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
+
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 /**
  * @title DustTransferStrategyBase
@@ -19,19 +22,22 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
     address internal immutable REWARDS_ADMIN;
 
     constructor(address incentivesController, address rewardsAdmin) {
+        CommonChecksLibrary.revertIfZeroAddress(incentivesController);
+        CommonChecksLibrary.revertIfZeroAddress(rewardsAdmin);
+
         INCENTIVES_CONTROLLER = incentivesController;
         REWARDS_ADMIN = rewardsAdmin;
     }
 
     /// @dev Modifier for incentives controller only functions
     modifier onlyIncentivesController() {
-        require(INCENTIVES_CONTROLLER == msg.sender, "CALLER_NOT_INCENTIVES_CONTROLLER");
+        if (INCENTIVES_CONTROLLER != msg.sender) revert CallerNotIncentivesController();
         _;
     }
 
     /// @dev Modifier for reward admin only functions
     modifier onlyRewardsAdmin() {
-        require(msg.sender == REWARDS_ADMIN, "ONLY_REWARDS_ADMIN");
+        if (msg.sender != REWARDS_ADMIN) revert OnlyRewardsAdmin();
         _;
     }
 

@@ -1,19 +1,21 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20PausableUpgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
 import {ERC20PermitUpgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 contract Dust is
     Initializable,
     ERC20Upgradeable,
     ERC20PausableUpgradeable,
-    OwnableUpgradeable,
+    Ownable2StepUpgradeable,
     ERC20PermitUpgradeable
 {
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -26,10 +28,12 @@ contract Dust is
      * @param initialOwner The address that will own the contract after initialization
      */
     function initialize(address initialOwner) public initializer {
+        CommonChecksLibrary.revertIfZeroAddress(initialOwner);
+
         __ERC20_init("Dust", "DUST");
         __ERC20Pausable_init();
         __ERC20Permit_init("Dust");
-        __Ownable_init();
+        __Ownable2Step_init();
         _transferOwnership(initialOwner);
     }
 
@@ -69,4 +73,10 @@ contract Dust is
     {
         super._beforeTokenTransfer(from, to, value);
     }
+
+    /**
+     * @dev Storage gap for upgrade-safe future upgrades.
+     *      Add new state variables above this line and reduce the gap length.
+     */
+    uint256[50] private __gap;
 }

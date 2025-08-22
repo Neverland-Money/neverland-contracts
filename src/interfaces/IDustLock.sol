@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.19;
 
+import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
+import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
-import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
+
+import {IRevenueReward} from "./IRevenueReward.sol";
 
 /**
  * @title IDustLock Interface
@@ -15,12 +17,12 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /**
      * @notice Structure representing a locked token position
      * @dev Used to track the amount of tokens locked, when they unlock, and if they're permanently locked
-     * @param amount Amount of tokens locked in int128 format
+     * @param amount Amount of tokens locked in int256 format for consistency with precision calculations
      * @param end Timestamp when tokens unlock (0 for permanent locks)
      * @param isPermanent Whether this is a permanent lock that cannot be withdrawn normally
      */
     struct LockedBalance {
-        int128 amount;
+        int256 amount;
         uint256 end;
         bool isPermanent;
     }
@@ -35,8 +37,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param permanent Amount of permanent (non-decaying) voting power
      */
     struct UserPoint {
-        int128 bias;
-        int128 slope; // # -dweight / dt
+        int256 bias; // WAD format (18 decimals) for precision
+        int256 slope; // WAD format (18 decimals) for precision # -dweight / dt
         uint256 ts;
         uint256 blk; // block
         uint256 permanent;
@@ -52,8 +54,8 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param permanentLockBalance Total amount of permanently locked tokens
      */
     struct GlobalPoint {
-        int128 bias;
-        int128 slope; // # -dweight / dt
+        int256 bias; // WAD format (18 decimals) for precision
+        int256 slope; // WAD format (18 decimals) for precision # -dweight / dt
         uint256 ts;
         uint256 blk; // block
         uint256 permanentLockBalance;
@@ -73,82 +75,68 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
         INCREASE_UNLOCK_TIME
     }
 
-    /// @notice Error thrown when a user tries to vote multiple times in the same period
-    error AlreadyVoted();
+    /// @notice Error thrown when the locked amount is less than minLockAmount
+    error AmountTooSmall();
+
     /// @notice Error thrown when the requested amount exceeds available balance
     error AmountTooBig();
+
     /// @notice Error thrown when an ERC721 receiver contract rejects the tokens
     error ERC721ReceiverRejectedTokens();
+
     /// @notice Error thrown when transferring to an address that doesn't implement ERC721Receiver
     error ERC721TransferToNonERC721ReceiverImplementer();
-    /// @notice Error thrown when a signature uses an invalid nonce
-    error InvalidNonce();
-    /// @notice Error thrown when a provided signature is invalid
-    error InvalidSignature();
-    /// @notice Error thrown when a signature's S value is invalid per EIP-2
-    error InvalidSignatureS();
+
     /// @notice Error thrown when an early withdraw penalty value is invalid (>=10000)
     error InvalidWithdrawPenalty();
-    /// @notice Error thrown when a zero address is provided where not allowed
-    error InvalidAddress();
+
     /// @notice Error thrown when the lock duration doesn't extend beyond the current time
     error LockDurationNotInFuture();
+
     /// @notice Error thrown when the lock duration exceeds the maximum allowed time
     error LockDurationTooLong();
+
     /// @notice Error thrown when the lock duration is less than the minimum required time
     error LockDurationTooShort();
+
     /// @notice Error thrown when trying to perform an operation on an expired lock
     error LockExpired();
+
     /// @notice Error thrown when trying to withdraw from a lock that hasn't expired yet
     error LockNotExpired();
+
     /// @notice Error thrown when no lock is found for the specified token ID
     error NoLockFound();
-    /// @notice Error thrown when attempting to operate on a token that doesn't exist
-    error NonExistentToken();
+
     /// @notice Error thrown when the caller is neither the owner nor approved for the token
     error NotApprovedOrOwner();
-    /// @notice Error thrown when a non-distributor address attempts a distributor action
-    error NotDistributor();
-    /// @notice Error thrown when a restricted function is called by someone other than the emergency council or governor
-    error NotEmergencyCouncilOrGovernor();
-    /// @notice Error thrown when a governor-only function is called by a non-governor address
-    error NotGovernor();
-    /// @notice Error thrown when trying to perform a locked NFT operation on a normal NFT
-    error NotLockedNFT();
-    /// @notice Error thrown when trying to perform a normal NFT operation on a locked NFT
-    error NotNormalNFT();
+
     /// @notice Error thrown when trying to unlock a non-permanent lock using unlockPermanent
     error NotPermanentLock();
+
     /// @notice Error thrown when the caller is not the owner of the token
     error NotOwner();
+
     /// @notice Error thrown when a team-only function is called by a non-team address
     error NotTeam();
-    /// @notice Error thrown when a voter-only function is called by a non-voter address
-    error NotVoter();
+
+    /// @notice Error thrown when a pending team function is called by a non-pending team address
+    error NotPendingTeam();
+
     /// @notice Error thrown when ownership changes during an operation
     error OwnershipChange();
+
     /// @notice Error thrown when trying to withdraw or modify a permanent lock
     error PermanentLock();
-    /// @notice Error thrown when source and destination addresses are the same
-    error SameAddress();
+
     /// @notice Error thrown when attempting to merge a veNFT with itself
     error SameNFT();
-    /// @notice Error thrown when attempting to change state to the same value
-    error SameState();
-    /// @notice Error thrown when trying to split a veNFT with no owner
-    error SplitNoOwner();
+
     /// @notice Error thrown when splitting is not allowed for the user
     error SplitNotAllowed();
-    /// @notice Error thrown when a signature has expired (beyond the deadline)
-    error SignatureExpired();
-    /// @notice Error thrown when too many token IDs are provided in a batch operation
-    error TooManyTokenIDs();
-    /// @notice Error thrown when a zero address is provided where not allowed
-    error ZeroAddress();
-    /// @notice Error thrown when a zero amount is provided where not allowed
-    error ZeroAmount();
-    /// @notice Error thrown when an operation requires a non-zero balance
-    error ZeroBalance();
+
+    /// @notice Error thrown when trying to add a token that already has an owner
+    error AlreadyOwned();
 
     /**
      * @notice Emitted when tokens are deposited into the veNFT system
@@ -251,6 +239,27 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
         uint256 _ts
     );
 
+    /**
+     * @notice Emitted when a new team address is proposed
+     * @param currentTeam The current team address that proposed the change
+     * @param proposedTeam The newly proposed team address
+     */
+    event TeamProposed(address indexed currentTeam, address indexed proposedTeam);
+
+    /**
+     * @notice Emitted when a proposed team address accepts ownership
+     * @param oldTeam The previous team address
+     * @param newTeam The new team address that accepted ownership
+     */
+    event TeamAccepted(address indexed oldTeam, address indexed newTeam);
+
+    /**
+     * @notice Emitted when a team proposal is cancelled
+     * @param currentTeam The current team address that cancelled the proposal
+     * @param cancelledTeam The proposed team address that was cancelled
+     */
+    event TeamProposalCancelled(address indexed currentTeam, address indexed cancelledTeam);
+
     // State variables
     /// @notice Address of Meta-tx Forwarder
     function forwarder() external view returns (address);
@@ -265,6 +274,12 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     function team() external view returns (address);
 
     /**
+     * @notice Address of pending team for two-step ownership transfer
+     * @return The address of the pending team, or address(0) if no proposal exists
+     */
+    function pendingTeam() external view returns (address);
+
+    /**
      * @notice Current total count of veNFT tokens
      * @dev Used as a counter for minting new tokens and assigning IDs
      * @return The current highest token ID value
@@ -272,11 +287,32 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     function tokenId() external view returns (uint256);
 
     /**
-     * @notice Updates the team multisig address
-     * @dev Can only be called by the current team address
-     * @param _team New team multisig address to set
+     * @notice Proposes a new team address for two-step ownership transfer
+     * @dev This is the first step of a two-step ownership transfer process.
+     *      Only the current team can propose a new team address.
+     *      The proposed address must accept ownership to complete the transfer.
+     *      This prevents accidental loss of admin control due to typos or wrong addresses.
+     * @param _newTeam The address of the proposed new team multisig
      */
-    function setTeam(address _team) external;
+    function proposeTeam(address _newTeam) external;
+
+    /**
+     * @notice Accepts the proposed team address to complete the ownership transfer
+     * @dev This is the second step of the two-step ownership transfer process.
+     *      Only the pending team address can call this function.
+     *      Once called, the caller becomes the new team and the pending team is cleared.
+     *      This ensures that the new team controls the proposed address.
+     */
+    function acceptTeam() external;
+
+    /**
+     * @notice Cancels the pending team proposal
+     * @dev Allows the current team to cancel a pending ownership transfer.
+     *      Only the current team can call this function.
+     *      This is useful if the team made an error in the proposed address.
+     *      After cancellation, a new proposal can be made.
+     */
+    function cancelTeamProposal() external;
 
     /*///////////////////////////////////////////////////////////////
                              METADATA STORAGE
@@ -299,12 +335,6 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @return The current version string of the contract
      */
     function version() external view returns (string memory);
-
-    /**
-     * @notice Returns the number of decimals used for user representation
-     * @return The number of decimals (typically 18)
-     */
-    function decimals() external view returns (uint8);
 
     /**
      * @notice Updates the base URI for computing tokenURI
@@ -341,7 +371,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param _spender The address to approve for the tokenId
      * @param _tokenId The ID of the veNFT to be approved
      */
-    function isApprovedOrOwner(address _spender, uint256 _tokenId) external returns (bool);
+    function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool);
 
     /*//////////////////////////////////////////////////////////////
                               ERC721 LOGIC
@@ -418,7 +448,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param _timestamp The timestamp to check for slope changes
      * @return The net change in slope (negative value means decrease in voting power)
      */
-    function slopeChanges(uint256 _timestamp) external view returns (int128);
+    function slopeChanges(uint256 _timestamp) external view returns (int256);
 
     /**
      * @notice Check if an account has permission to split veNFTs
@@ -672,4 +702,40 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
 
     /// @inheritdoc IERC6372
     function CLOCK_MODE() external view returns (string memory);
+
+    /*//////////////////////////////////////////////////////////////
+                          MIN LOCK AMOUNT
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Returns the minimum amount of tokens required to create a veNFT lock
+     * @dev This value is used to validate lock creation and prevent spam attacks
+     * @return The minimum lock amount in token units (with 18 decimals)
+     */
+    function minLockAmount() external view returns (uint256);
+
+    /**
+     * @notice Sets the minimum amount of tokens required to create a veNFT lock
+     * @dev Can only be called by the team address. This helps prevent spam and ensures meaningful lock amounts
+     * @param newMinLockAmount The new minimum lock amount in token units (with 18 decimals)
+     */
+    function setMinLockAmount(uint256 newMinLockAmount) external;
+
+    /*//////////////////////////////////////////////////////////////
+                      NOTIFY CONTRACTS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Returns the revenue reward contract
+     * @dev Returns address(0) if no revenue reward contract is set
+     * @return The revenue reward contract
+     */
+    function revenueReward() external view returns (IRevenueReward);
+
+    /**
+     * @notice Sets the revenue reward contract
+     * @dev Can only be called by the team address
+     * @param _revenueReward The new revenue reward contract
+     */
+    function setRevenueReward(IRevenueReward _revenueReward) external;
 }

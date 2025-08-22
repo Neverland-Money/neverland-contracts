@@ -2,8 +2,9 @@
 pragma solidity 0.8.19;
 
 import {IRewardsDistributor} from "@aave-v3-periphery/contracts/rewards/interfaces/IRewardsDistributor.sol";
-import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
+
+import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 
 /**
  * @title IDustRewardsController
@@ -17,6 +18,31 @@ import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/R
  *      enabling integration with Neverland's veNFT locking ecosystem
  */
 interface IDustRewardsController is IRewardsDistributor {
+    /// Errors
+
+    /// @notice Error thrown when a user is not authorized to claim rewards on behalf of another user
+    error ClaimerUnauthorized();
+
+    /// @notice Error thrown when the user address is invalid
+    error InvalidUserAddress();
+
+    /// @notice Error thrown when the caller is not the emission manager or self
+    error OnlyEmissionManagerOrSelf();
+
+    /// @notice Error thrown when a transfer error occurs
+    error TransferError();
+
+    /// @notice Error thrown when the strategy address is zero
+    error StrategyZeroAddress();
+
+    /// @notice Error thrown when the strategy is not a contract
+    error StrategyNotContract();
+
+    /// @notice Error thrown when a reward token address is invalid (zero)
+    error InvalidRewardAddress();
+
+    /// Events
+
     /**
      * @notice Emitted when a new address is whitelisted as claimer of rewards on behalf of a user
      * @param user The address of the user
@@ -42,6 +68,8 @@ interface IDustRewardsController is IRewardsDistributor {
      * @param transferStrategy The address of TransferStrategy contract
      */
     event TransferStrategyInstalled(address indexed reward, address indexed transferStrategy);
+
+    /// Functions
 
     /**
      * @notice Authorizes an address to claim rewards on behalf of another user

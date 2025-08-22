@@ -1,34 +1,44 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
-import {DustLock} from "../src/tokens/DustLock.sol";
-import {Dust} from "../src/tokens/Dust.sol";
-import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Script} from "forge-std/Script.sol";
 import {Test} from "forge-std/Test.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {MockERC20} from "./utils/MockERC20.sol";
+
+import {IDustLock} from "../src/interfaces/IDustLock.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
+import {Dust} from "../src/tokens/Dust.sol";
+import {DustLock} from "../src/tokens/DustLock.sol";
+import {MockERC20} from "./utils/MockERC20.sol";
 
 abstract contract BaseTest is Script, Test {
     Dust internal DUST;
     DustLock internal dustLock;
     RevenueReward internal revenueReward;
     MockERC20 internal mockUSDC;
+    MockERC20 internal mockERC20;
 
+    uint256 constant USDC_1_UNIT = 1; // 1/100th of a cent
+    uint256 constant USDC_1_CENT = 10000; // 0.01 USDC
     uint256 constant USDC_1 = 1e6;
+    uint256 constant USDC_1K = 1e9; // 1e3 = 10K tokens with 6 decimals
     uint256 constant USDC_10K = 1e10; // 1e4 = 10K tokens with 6 decimals
     uint256 constant USDC_100K = 1e11; // 1e5 = 100K tokens with 6 decimals
 
+    uint256 constant TOKEN_1_WEI = 1;
+    uint256 constant TOKEN_1_MWEI = 1e6;
+    uint256 constant TOKEN_1_GWEI = 1e9;
     uint256 constant TOKEN_1 = 1e18;
+    uint256 constant TOKEN_1K = 1e21; // 1e3 = 1K tokens with 18 decimals
     uint256 constant TOKEN_10K = 1e22; // 1e4 = 10K tokens with 18 decimals
     uint256 constant TOKEN_100K = 1e23; // 1e5 = 100K tokens with 18 decimals
     uint256 constant TOKEN_1M = 1e24; // 1e6 = 1M tokens with 18 decimals
     uint256 constant TOKEN_10M = 1e25; // 1e7 = 10M tokens with 18 decimals
+    uint256 constant TOKEN_50M = 5e25; // 5e7 = 50M tokens with 18 decimals
     uint256 constant TOKEN_100M = 1e26; // 1e8 = 100M tokens with 18 decimals
-    uint256 constant TOKEN_10B = 1e28; // 1e10 = 10B tokens with 18 decimals
 
     address internal ZERO_ADDRESS = address(0);
+
     address internal admin = address(0xad1);
     address internal user = address(this);
     address internal user1 = address(0x1);
@@ -41,7 +51,11 @@ abstract contract BaseTest is Script, Test {
     uint256 constant MAXTIME = 1 * 365 * 86400;
     uint256 constant WEEK = 1 weeks;
 
-    function setUp() public {
+    uint256 constant MIN_LOCK_AMOUNT = 1e18;
+
+    uint256 constant PRECISION_TOLERANCE = 1; // 1 wei tolerance for rounding
+
+    function setUp() public virtual {
         _testSetup();
         _setUp();
     }
@@ -61,13 +75,17 @@ abstract contract BaseTest is Script, Test {
 
         // deploy USDC
         mockUSDC = new MockERC20("USDC", "USDC", 6);
+        mockERC20 = new MockERC20("mERC20", "mERC20", 18);
 
         // deploy DustLock
         string memory baseUrl = "https://neverland.money/nfts/";
-        dustLock = new DustLock(ZERO_ADDRESS, address(DUST), baseUrl);
+        dustLock = new DustLock(address(0xF0), address(DUST), baseUrl);
 
         // deploy RevenueReward
-        revenueReward = new RevenueReward(ZERO_ADDRESS, address(dustLock), admin);
+        revenueReward = new RevenueReward(address(0xF1), address(dustLock), admin);
+
+        // set RevenueReward to DustLock
+        dustLock.setRevenueReward(revenueReward);
 
         // add log labels
         vm.label(address(admin), "admin");
@@ -99,6 +117,10 @@ abstract contract BaseTest is Script, Test {
         }
     }
 
+    function logWithTs(string memory label) internal {
+        emit log(string(abi.encodePacked("TS - ", vm.toString(block.timestamp), " - ", label)));
+    }
+
     /// @dev Forwards time to next week
     ///      note epoch requires at least one second to have passed into the new epoch
     function skipToNextEpoch(uint256 offset) internal {
@@ -108,9 +130,26 @@ abstract contract BaseTest is Script, Test {
         vm.roll(block.number + 1);
     }
 
+    function skipToAndLog(uint256 to, string memory label) internal {
+        vm.warp(to);
+        emit log(string(abi.encodePacked("Wrap to ", vm.toString(to), " TS - ", label)));
+    }
+
     function skipAndRoll(uint256 timeOffset) internal {
         skip(timeOffset);
         vm.roll(block.number + 1);
+    }
+
+    function skipNumberOfEpochs(uint256 epochs) internal {
+        for (uint256 i = 0; i < epochs; i++) {
+            skipToNextEpoch(0);
+        }
+    }
+
+    function goToEpoch(uint256 epochNumber) internal {
+        uint256 currentEpoch = block.timestamp / 1 weeks;
+        if (epochNumber <= currentEpoch) revert("goToEpoch less or equal than current");
+        skipNumberOfEpochs(epochNumber - currentEpoch);
     }
 
     /// @dev Get start of epoch based on timestamp
@@ -121,5 +160,33 @@ abstract contract BaseTest is Script, Test {
     /// @dev Converts int128s to uint256, values always positive
     function convert(int128 _amount) internal pure returns (uint256) {
         return uint256(uint128(_amount));
+    }
+
+    // assertion helpers
+
+    function assertArrayContainsUint(uint256[] memory array, uint256 value) internal pure {
+        bool found = false;
+        for (uint256 i = 0; i < array.length; i++) {
+            if (array[i] == value) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "Array does not contain expected value");
+    }
+
+    function assertArrayContainsAddr(address[] memory array, address value) internal pure {
+        bool found = false;
+        for (uint256 i = 0; i < array.length; i++) {
+            if (array[i] == value) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "Array does not contain expected value");
+    }
+
+    function assertEqApprThreeWei(uint256 actualAmount, uint256 expectedAmount) internal pure {
+        assertApproxEqAbs(actualAmount, expectedAmount, 3);
     }
 }

@@ -9,10 +9,24 @@ pragma solidity 0.8.19;
  *         and tokenId to the `performTransfer()` function.
  */
 interface IDustTransferStrategy {
+    /// Errors
+
+    /// @notice Error thrown when the caller is not the incentives controller
+    error CallerNotIncentivesController();
+
+    /// @notice Error thrown when the caller is not the rewards admin
+    error OnlyRewardsAdmin();
+
+    /// Events
+
+    /// @notice Emitted when an emergency withdrawal is performed
     event EmergencyWithdrawal(address indexed caller, address indexed token, address indexed to, uint256 amount);
+
+    /// Functions
 
     /**
      * @dev Perform custom transfer logic via delegate call from source contract to a TransferStrategy implementation
+     * @dev If `tokenId` is specified it's owner has to be `to`
      * @param to Account to transfer rewards
      * @param reward Address of the reward token
      * @param amount Amount to transfer to the "to" address parameter

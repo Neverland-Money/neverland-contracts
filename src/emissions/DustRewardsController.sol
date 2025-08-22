@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.10;
+pragma solidity 0.8.19;
 
+import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
+import {RewardsDistributor} from "@aave-v3-periphery/contracts/rewards/RewardsDistributor.sol";
+import {IScaledBalanceToken} from "@aave/core-v3/contracts/interfaces/IScaledBalanceToken.sol";
+import {SafeCast} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeCast.sol";
 import {VersionedInitializable} from
     "@aave/core-v3/contracts/protocol/libraries/aave-upgradeability/VersionedInitializable.sol";
-import {SafeCast} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeCast.sol";
-import {IScaledBalanceToken} from "@aave/core-v3/contracts/interfaces/IScaledBalanceToken.sol";
-import {RewardsDistributor} from "@aave-v3-periphery/contracts/rewards/RewardsDistributor.sol";
+
 import {IDustRewardsController} from "../interfaces/IDustRewardsController.sol";
 import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
-import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
+
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 /**
  * @title DustRewardsController
@@ -32,7 +35,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     mapping(address => IDustTransferStrategy) internal _transferStrategy;
 
     modifier onlyAuthorizedClaimers(address claimer, address user) {
-        require(_authorizedClaimers[user] == claimer, "CLAIMER_UNAUTHORIZED");
+        if (_authorizedClaimers[user] != claimer) revert ClaimerUnauthorized();
         _;
     }
 
@@ -97,7 +100,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         uint256 lockTime,
         uint256 tokenId
     ) external override returns (uint256) {
-        require(to != address(0), "INVALID_TO_ADDRESS");
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
+
         return _claimRewards(assets, amount, msg.sender, msg.sender, to, reward, lockTime, tokenId);
     }
 
@@ -111,8 +115,9 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         uint256 lockTime,
         uint256 tokenId
     ) external override onlyAuthorizedClaimers(msg.sender, user) returns (uint256) {
-        require(user != address(0), "INVALID_USER_ADDRESS");
-        require(to != address(0), "INVALID_TO_ADDRESS");
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
+        if (user == address(0)) revert InvalidUserAddress();
+
         return _claimRewards(assets, amount, msg.sender, user, to, reward, lockTime, tokenId);
     }
 
@@ -133,7 +138,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         override
         returns (address[] memory rewardsList, uint256[] memory claimedAmounts)
     {
-        require(to != address(0), "INVALID_TO_ADDRESS");
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
+
         return _claimAllRewards(assets, msg.sender, msg.sender, to, lockTime, tokenId);
     }
 
@@ -150,8 +156,9 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         onlyAuthorizedClaimers(msg.sender, user)
         returns (address[] memory rewardsList, uint256[] memory claimedAmounts)
     {
-        require(user != address(0), "INVALID_USER_ADDRESS");
-        require(to != address(0), "INVALID_TO_ADDRESS");
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
+        if (user == address(0)) revert InvalidUserAddress();
+
         return _claimAllRewards(assets, msg.sender, user, to, lockTime, tokenId);
     }
 
@@ -165,7 +172,11 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /// @inheritdoc IDustRewardsController
-    function setClaimer(address user, address caller) external override onlyEmissionManager {
+    function setClaimer(address user, address caller) external override {
+        if (msg.sender != user) {
+            // If not the user themselves, require admin permission
+            if (msg.sender != _emissionManager) revert OnlyEmissionManagerOrSelf();
+        }
         _authorizedClaimers[user] = caller;
         emit ClaimerSet(user, caller);
     }
@@ -304,7 +315,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
 
         bool success = transferStrategy.performTransfer(to, reward, amount, lockTime, tokenId);
 
-        require(success == true, "TRANSFER_ERROR");
+        if (!success) revert TransferError();
     }
 
     /**
@@ -331,8 +342,9 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
      * @param transferStrategy The address of the reward TransferStrategy
      */
     function _installTransferStrategy(address reward, IDustTransferStrategy transferStrategy) internal {
-        require(address(transferStrategy) != address(0), "STRATEGY_CAN_NOT_BE_ZERO");
-        require(_isContract(address(transferStrategy)) == true, "STRATEGY_MUST_BE_CONTRACT");
+        if (reward == address(0)) revert InvalidRewardAddress();
+        if (address(transferStrategy) == address(0)) revert StrategyZeroAddress();
+        if (_isContract(address(transferStrategy)) != true) revert StrategyNotContract();
 
         _transferStrategy[reward] = transferStrategy;
 

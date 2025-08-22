@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {DustTransferStrategyBase} from "./DustTransferStrategyBase.sol";
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
+import {SafeERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeERC20.sol";
+
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IDustLockTransferStrategy, IDustTransferStrategy} from "../interfaces/IDustLockTransferStrategy.sol";
+
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
+
+import {DustTransferStrategyBase} from "./DustTransferStrategyBase.sol";
 
 /**
  * @title DustLockTransferStrategy
@@ -16,6 +21,9 @@ import {IDustLockTransferStrategy, IDustTransferStrategy} from "../interfaces/ID
  */
 contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransferStrategy {
     using GPv2SafeERC20 for IERC20;
+
+    /// Constants
+    uint256 internal constant BASIS_POINTS = 10_000;
 
     /**
      * @notice The DustLock contract that manages veNFTs
@@ -38,6 +46,11 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
     constructor(address incentivesController, address rewardsAdmin, address dustVault, address dustLock)
         DustTransferStrategyBase(incentivesController, rewardsAdmin)
     {
+        CommonChecksLibrary.revertIfZeroAddress(incentivesController);
+        CommonChecksLibrary.revertIfZeroAddress(rewardsAdmin);
+        CommonChecksLibrary.revertIfZeroAddress(dustVault);
+        CommonChecksLibrary.revertIfZeroAddress(dustLock);
+
         DUST_VAULT = dustVault;
         DUST_LOCK = IDustLock(dustLock);
         DUST = DUST_LOCK.token();
@@ -52,23 +65,27 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
     {
         // Gracefully handle zero amount transfers
         if (amount == 0) return true;
-        if (to == address(0)) revert AddressZero();
+        CommonChecksLibrary.revertIfInvalidToAddress(to);
         if (reward != DUST) revert InvalidRewardAddress();
+
         IERC20(reward).safeTransferFrom(DUST_VAULT, address(this), amount);
         // If tokenId is greater than 0, it means we are merging emissions with an existing lock
         // If tokenId is 0, it means we are creating a new lock or performing an early withdrawal
         if (tokenId > 0) {
             // Add DUST to an existing lock
-            if (DUST_LOCK.ownerOf(tokenId) == address(0)) revert InvalidTokenId();
-            IERC20(reward).approve(address(DUST_LOCK), amount);
+            address owner = DUST_LOCK.ownerOf(tokenId); // reverts if token doesn't exist
+            if (owner != to) revert NotTokenOwner();
+            SafeERC20.safeIncreaseAllowance(IERC20(reward), address(DUST_LOCK), amount);
             DUST_LOCK.depositFor(tokenId, amount);
+            SafeERC20.safeApprove(IERC20(reward), address(DUST_LOCK), 0);
         } else if (lockTime > 0) {
             // Create a new lock
-            IERC20(reward).approve(address(DUST_LOCK), amount);
+            SafeERC20.safeIncreaseAllowance(IERC20(reward), address(DUST_LOCK), amount);
             DUST_LOCK.createLockFor(amount, lockTime, to);
+            SafeERC20.safeApprove(IERC20(reward), address(DUST_LOCK), 0);
         } else {
             // Early withdrawal w/ penalty
-            uint256 treasuryValue = (amount * DUST_LOCK.earlyWithdrawPenalty()) / 10_000;
+            uint256 treasuryValue = (amount * DUST_LOCK.earlyWithdrawPenalty()) / BASIS_POINTS;
             IERC20(reward).safeTransfer(to, amount - treasuryValue);
             IERC20(reward).safeTransfer(DUST_LOCK.earlyWithdrawTreasury(), treasuryValue);
         }

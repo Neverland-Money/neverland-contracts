@@ -10,12 +10,11 @@ import {IDustTransferStrategy} from "./IDustTransferStrategy.sol";
  * @dev Extends IDustTransferStrategy with specialized error handling for veNFT-related reward transfers
  */
 interface IDustLockTransferStrategy is IDustTransferStrategy {
-    /// @notice Error thrown when a zero address is provided where a valid address is required
-    error AddressZero();
+    /// Errors
 
     /// @notice Error thrown when an invalid reward token address is provided
     error InvalidRewardAddress();
 
-    /// @notice Error thrown when an invalid veNFT token ID is used
-    error InvalidTokenId();
+    /// @notice Error thrown when the caller is not the owner of the veNFT token
+    error NotTokenOwner();
 }
