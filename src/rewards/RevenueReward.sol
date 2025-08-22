@@ -75,6 +75,15 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(uint256 => uint256) public tokenMintTime;
 
     /*//////////////////////////////////////////////////////////////
+                            ACCESS CONTROL
+    //////////////////////////////////////////////////////////////*/
+
+    modifier onlyDustLock() {
+        if (_msgSender() != address(dustLock)) revert NotDustLock();
+        _;
+    }
+
+    /*//////////////////////////////////////////////////////////////
                            SELF REPAYING LOANS
     //////////////////////////////////////////////////////////////*/
 
@@ -103,23 +112,36 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function _notifyAfterTokenTransferred(uint256 tokenId, address from) public virtual override nonReentrant {
-        if (_msgSender() != address(dustLock)) revert NotDustLock();
+    function notifyAfterTokenTransferred(uint256 tokenId, address from)
+        external
+        virtual
+        override
+        nonReentrant
+        onlyDustLock
+    {
         _claimRewardsTo(tokenId, from);
         _removeToken(tokenId, from);
     }
 
     /// @inheritdoc IRevenueReward
-    function _notifyAfterTokenBurned(uint256 tokenId, address from) public virtual override nonReentrant {
-        if (_msgSender() != address(dustLock)) revert NotDustLock();
+    function notifyAfterTokenBurned(uint256 tokenId, address from)
+        external
+        virtual
+        override
+        nonReentrant
+        onlyDustLock
+    {
         _claimRewardsTo(tokenId, from);
         _removeToken(tokenId, from);
     }
 
     /// @inheritdoc IRevenueReward
-    function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) public override nonReentrant {
-        if (_msgSender() != address(dustLock)) revert NotDustLock();
-
+    function notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner)
+        external
+        override
+        nonReentrant
+        onlyDustLock
+    {
         _claimRewardsTo(fromToken, owner);
 
         uint256 length = rewardTokens.length;
@@ -133,16 +155,14 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function _notifyAfterTokenSplit(
+    function notifyAfterTokenSplit(
         uint256 fromToken,
         uint256 tokenId1,
         uint256 token1Amount,
         uint256 tokenId2,
         uint256 token2Amount,
         address owner
-    ) public override nonReentrant {
-        if (_msgSender() != address(dustLock)) revert NotDustLock();
-
+    ) external override nonReentrant onlyDustLock {
         _claimRewardsTo(fromToken, owner);
 
         tokenMintTime[tokenId1] = block.timestamp;
@@ -164,6 +184,11 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         }
 
         _removeToken(fromToken, owner);
+    }
+
+    /// @inheritdoc IRevenueReward
+    function notifyTokenMinted(uint256 tokenId) external override onlyDustLock {
+        tokenMintTime[tokenId] = block.timestamp;
     }
 
     /**
@@ -364,12 +389,6 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         tokenRewardsPerEpoch[token][epochNext] += amount;
 
         emit NotifyReward(sender, token, epochNext, amount);
-    }
-
-    /// @inheritdoc IRevenueReward
-    function _notifyTokenMinted(uint256 tokenId) public override {
-        if (_msgSender() != address(dustLock)) revert NotDustLock();
-        tokenMintTime[tokenId] = block.timestamp;
     }
 
     /**

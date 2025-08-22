@@ -1151,25 +1151,25 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         address /* _sender */
     ) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyAfterTokenTransferred(_tokenId, _previousOwner);
+            revenueReward.notifyAfterTokenTransferred(_tokenId, _previousOwner);
         }
     }
 
     function _notifyAfterTokenBurned(uint256 _tokenId, address _previousOwner, address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyAfterTokenBurned(_tokenId, _previousOwner);
+            revenueReward.notifyAfterTokenBurned(_tokenId, _previousOwner);
         }
     }
 
     function _notifyTokenMinted(uint256 _tokenId, address, /* _owner */ address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyTokenMinted(_tokenId);
+            revenueReward.notifyTokenMinted(_tokenId);
         }
     }
 
     function _notifyAfterTokenMerged(uint256 _fromToken, uint256 _toToken, address owner) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyAfterTokenMerged(_fromToken, _toToken, owner);
+            revenueReward.notifyAfterTokenMerged(_fromToken, _toToken, owner);
         }
     }
 
@@ -1182,7 +1182,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         address owner
     ) internal {
         if (address(revenueReward) != address(0)) {
-            revenueReward._notifyAfterTokenSplit(fromToken, tokenId1, token1Amount, tokenId2, token2Amount, owner);
+            revenueReward.notifyAfterTokenSplit(fromToken, tokenId1, token1Amount, tokenId2, token2Amount, owner);
         }
     }
 }

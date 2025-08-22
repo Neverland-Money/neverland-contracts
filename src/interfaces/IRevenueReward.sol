@@ -194,12 +194,10 @@ interface IRevenueReward {
     /**
      * @notice Notifies the contract that a new token has been created
      * @dev Intended to update internal state or trigger logic after a veNFT creation event
-     *      Can only be called by authorized contracts, typically after a creation operation
-     *      External but prefixed with `_` to signal system-only use.
-     *      Callable only by DustLock.
+     *      Can only be called by the DustLock contract.
      * @param tokenId The ID of the token (veNFT) that has been created
      */
-    function _notifyTokenMinted(uint256 tokenId) external;
+    function notifyTokenMinted(uint256 tokenId) external;
 
     /**
      * @notice Handles necessary operations after a veNFT token is transferred
@@ -207,12 +205,11 @@ interface IRevenueReward {
      *      It performs two main actions:
      *      1. Claims all pending rewards for the token being transferred
      *      2. Removes the token from the self-repaying loan tracking if enabled
-     *      External but prefixed with `_` to signal system-only use.
-     *      Callable only by DustLock.
+     *      Can only be called by the DustLock contract.
      * @param tokenId The ID of the veNFT token that was transferred
      * @param from The address of the previous token owner (sender of the transfer)
      */
-    function _notifyAfterTokenTransferred(uint256 tokenId, address from) external;
+    function notifyAfterTokenTransferred(uint256 tokenId, address from) external;
 
     /**
      * @notice Handles necessary operations after a veNFT token is burned
@@ -220,21 +217,20 @@ interface IRevenueReward {
      *      It performs two main actions:
      *      1. Claims all pending rewards for the token being burned
      *      2. Removes the token from the self-repaying loan tracking if enabled
-     *      External but prefixed with `_` to signal system-only use.
-     *      Callable only by DustLock.
+     *      Can only be called by the DustLock contract.
      * @param tokenId The ID of the veNFT token that was burned
      * @param from The address of the previous token owner
      */
-    function _notifyAfterTokenBurned(uint256 tokenId, address from) external;
+    function notifyAfterTokenBurned(uint256 tokenId, address from) external;
 
     /**
      * @notice Handles bookkeeping after two veNFTs are merged.
      * @dev Callable only by the DustLock contract.
      * @param fromToken The tokenId that was merged and is no longer active (source).
      * @param toToken The tokenId that survives the merge and should receive consolidated accounting (destination).
-     * @param toToken The tokens' owner.
+     * @param owner The tokens' owner.
      */
-    function _notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) external;
+    function notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) external;
 
     /**
      * @notice Handles bookkeeping after a veNFT is split into two new veNFTs.
@@ -251,7 +247,7 @@ interface IRevenueReward {
      * @param token2Amount The amount (voting power/shares) assigned to `tokenId2` in the split.
      * @param owner The owner of the tokens involved in the split.
      */
-    function _notifyAfterTokenSplit(
+    function notifyAfterTokenSplit(
         uint256 fromToken,
         uint256 tokenId1,
         uint256 token1Amount,
