@@ -373,14 +373,15 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @notice Calculates token's reward from last claimed start epoch until current start epoch
+     * @notice Calculates and accrues rewards from the last claim (or mint) up to `endTs`
      * @dev Uses epoch-based accounting to prevent reward manipulation:
-     *      1. Finds epochs between last claimed (or token mint time) and endTs
-     *      2. For each epoch, calculates proportion of rewards based on user's veNFT balance vs total supply
-     *      3. Accumulates rewards across all epochs
+     *      1. Iterates all epochs between the last processed time and `endTs`
+     *      2. For each epoch, computes whole-token rewards and fractional remainders
+     *      3. Accumulates whole rewards immediately and carries fractional remainders
+     *         forward in a scaled accumulator for future realization
      * @param token The reward token address to calculate earnings for
      * @param tokenId The ID of the veNFT to calculate earnings for
-     * @param endTs Timestamp of the end duration that token id rewards are calculated
+     * @param endTs Timestamp of the end duration that token rewards are calculated up to
      * @return Total unclaimed rewards accrued since last claim
      */
     function _earned(address token, uint256 tokenId, uint256 endTs) internal returns (uint256) {
@@ -394,11 +395,13 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         if (startTs > endTsEpoch) return 0;
 
-        // get epochs between last claimed staring epoch and current stating epoch
         uint256 numEpochs = (endTsEpoch - startTs) / DURATION;
 
         uint256 accumulatedReward = 0;
         uint256 currTs = startTs;
+
+        uint256 accumulatedRemainder = tokenRewardsRemainingAccScaled[token][tokenId];
+
         for (uint256 i = 0; i <= numEpochs; i++) {
             uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(currTs);
             if (tokenSupplyBalanceCurrTs == 0) {
@@ -406,15 +409,18 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                 continue;
             }
 
-            accumulatedReward += _calculateEpochReward(token, tokenId, currTs, tokenSupplyBalanceCurrTs);
+            (uint256 rewardAmount, uint256 scaledRemainder) =
+                _calculateEpochReward(token, tokenId, currTs, tokenSupplyBalanceCurrTs);
+
+            accumulatedReward += rewardAmount;
+            accumulatedRemainder += scaledRemainder;
+
             currTs += DURATION;
         }
 
-        uint256 rewardFromRemaining = 0;
-        if (tokenRewardsRemainingAccScaled[token][tokenId] >= REWARDS_REMAINING_SCALE) {
-            rewardFromRemaining = tokenRewardsRemainingAccScaled[token][tokenId] / REWARDS_REMAINING_SCALE;
-            tokenRewardsRemainingAccScaled[token][tokenId] -= rewardFromRemaining * REWARDS_REMAINING_SCALE;
-        }
+        uint256 rewardFromRemaining = accumulatedRemainder / REWARDS_REMAINING_SCALE;
+        uint256 newRemainder = accumulatedRemainder - rewardFromRemaining * REWARDS_REMAINING_SCALE;
+        tokenRewardsRemainingAccScaled[token][tokenId] = newRemainder;
 
         return accumulatedReward + rewardFromRemaining;
     }
@@ -425,23 +431,23 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
      * @param tokenId The veNFT token ID
      * @param epochTs The epoch timestamp
      * @param totalSupply Total voting power supply at the epoch
-     * @return The reward amount for this epoch
+     * @return rewardAmount The whole-token reward amount for this epoch
+     * @return scaledRemainder The scaled fractional remainder to accumulate
      */
     function _calculateEpochReward(address token, uint256 tokenId, uint256 epochTs, uint256 totalSupply)
         internal
-        returns (uint256)
+        view
+        returns (uint256 rewardAmount, uint256 scaledRemainder)
     {
         uint256 rewardsThisEpoch = tokenRewardsPerEpoch[token][epochTs];
         uint256 userBalanceThisEpoch = dustLock.balanceOfNFTAt(tokenId, epochTs);
 
         // whole units: floor(rewardsThisEpoch * userBalanceThisEpoch / totalSupply)
-        uint256 rewardAmount = Math.mulDiv(rewardsThisEpoch, userBalanceThisEpoch, totalSupply);
+        rewardAmount = Math.mulDiv(rewardsThisEpoch, userBalanceThisEpoch, totalSupply);
 
-        // fractional remainder → scaled accumulator (overflow-safe)
+        // fractional remainder scaled
         uint256 remainder = mulmod(rewardsThisEpoch, userBalanceThisEpoch, totalSupply);
-        tokenRewardsRemainingAccScaled[token][tokenId] += Math.mulDiv(remainder, REWARDS_REMAINING_SCALE, totalSupply);
-
-        return rewardAmount;
+        scaledRemainder = Math.mulDiv(remainder, REWARDS_REMAINING_SCALE, totalSupply);
     }
 
     /**
