@@ -143,6 +143,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     ) public override nonReentrant {
         if (_msgSender() != address(dustLock)) revert NotDustLock();
 
+        _claimRewardsTo(fromToken, owner);
+
         tokenMintTime[tokenId1] = block.timestamp;
         tokenMintTime[tokenId2] = block.timestamp;
 
@@ -150,11 +152,15 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         uint256 length = rewardTokens.length;
         for (uint256 i = 0; i < length; i++) {
-            tokenRewardsRemainingAccScaled[rewardTokens[i]][tokenId1] =
-                token1Amount * tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] / newTokenAmount;
-            tokenRewardsRemainingAccScaled[rewardTokens[i]][tokenId2] =
-                token2Amount * tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] / newTokenAmount;
-            tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] = 0;
+            uint256 acc = tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken];
+            if (acc != 0) {
+                uint256 a1 = Math.mulDiv(token1Amount, acc, newTokenAmount);
+                uint256 a2 = acc - a1;
+
+                tokenRewardsRemainingAccScaled[rewardTokens[i]][tokenId1] = a1;
+                tokenRewardsRemainingAccScaled[rewardTokens[i]][tokenId2] = a2;
+                tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] = 0;
+            }
         }
 
         _removeToken(fromToken, owner);
@@ -341,6 +347,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     function notifyRewardAmount(address token, uint256 amount) external override nonReentrant {
         CommonChecksLibrary.revertIfZeroAmount(amount);
+        CommonChecksLibrary.revertIfZeroAddress(token);
+
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
         if (!isRewardToken[token]) {
             isRewardToken[token] = true;
