@@ -40,7 +40,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                             CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    uint256 private constant REWARDS_REMAINING_SCALE = 1e8;
+    uint256 private constant REWARDS_REMAINING_SCALE = 1e18;
 
     /*//////////////////////////////////////////////////////////////
                         STORAGE VARIABLES
