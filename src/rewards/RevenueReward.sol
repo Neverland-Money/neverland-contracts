@@ -226,10 +226,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                 tokenRewardsRemainingAccScaled[token][tokenId] = _earnedResult.rewardRemainders;
                 if (_earnedResult.unclaimedRewards > 0) {
                     IERC20(token).safeTransfer(receiver, _earnedResult.unclaimedRewards);
+                    emit ClaimRewards(receiver, token, _earnedResult.unclaimedRewards);
                 }
             }
-
-            emit ClaimRewards(receiver, token, _earnedResult.unclaimedRewards);
         }
     }
 
