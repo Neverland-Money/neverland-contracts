@@ -358,6 +358,12 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         emit NotifyReward(sender, token, epochNext, amount);
     }
 
+    /**
+     * @notice Result structure for reward calculations
+     * @param unclaimedRewards Total amount of rewards ready to be claimed by the user
+     * @param rewardRemainders Scaled fractional remainders carried forward for future accumulation
+     * @param success Flag indicating whether the reward calculation was successful
+     */
     struct EarnedResult {
         uint256 unclaimedRewards;
         uint256 rewardRemainders;
@@ -374,7 +380,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
      * @param token The reward token address to calculate earnings for
      * @param tokenId The ID of the veNFT to calculate earnings for
      * @param endTs Timestamp of the end duration that token rewards are calculated up to
-     * @return Total unclaimed rewards accrued since last claim
+     * @return EarnedResult struct containing unclaimedRewards, rewardRemainders, and success flag
      */
     function _earned(address token, uint256 tokenId, uint256 endTs) internal view returns (EarnedResult memory) {
         if (endTs > block.timestamp) {
