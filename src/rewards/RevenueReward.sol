@@ -40,7 +40,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                             CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    uint256 private constant REWARDS_REMAINING_SCALE = 1e8;
+    uint256 private constant REWARDS_REMAINING_SCALE = 1e18;
 
     /*//////////////////////////////////////////////////////////////
                         STORAGE VARIABLES
@@ -219,59 +219,20 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 length = tokens.length;
         for (uint256 i = 0; i < length; i++) {
             address token = tokens[i];
-            uint256 _reward = _earned(token, tokenId, rewardPeriodEndTs);
-            lastEarnTime[token][tokenId] = rewardPeriodEndTs;
-            if (_reward > 0) {
-                IERC20(token).safeTransfer(receiver, _reward);
+            EarnedResult memory _earnedResult = _earned(token, tokenId, rewardPeriodEndTs);
+
+            if (_earnedResult.success) {
+                lastEarnTime[token][tokenId] = rewardPeriodEndTs;
+                tokenRewardsRemainingAccScaled[token][tokenId] = _earnedResult.rewardRemainders;
+                if (_earnedResult.unclaimedRewards > 0) {
+                    IERC20(token).safeTransfer(receiver, _earnedResult.unclaimedRewards);
+                    emit ClaimRewards(receiver, token, _earnedResult.unclaimedRewards);
+                }
             }
-            emit ClaimRewards(receiver, token, _reward);
         }
     }
 
     /* === view functions === */
-
-    /// @inheritdoc IRevenueReward
-    function earnedRewards(address token, uint256 tokenId, uint256 endTs) public view override returns (uint256) {
-        if (endTs > block.timestamp) {
-            revert EndTimestampMoreThanCurrent();
-        }
-
-        uint256 lastTokenEarnTime = Math.max(lastEarnTime[token][tokenId], tokenMintTime[tokenId]);
-        uint256 startTs = EpochTimeLibrary.epochNext(lastTokenEarnTime);
-        uint256 endEpochTs = EpochTimeLibrary.epochStart(endTs);
-
-        if (startTs > endEpochTs) return 0;
-
-        uint256 numEpochs = (endEpochTs - startTs) / DURATION;
-        uint256 accumulatedReward = 0;
-        uint256 currTs = startTs;
-
-        uint256 scaledRemainder = tokenRewardsRemainingAccScaled[token][tokenId];
-
-        for (uint256 i = 0; i <= numEpochs; i++) {
-            uint256 totalSupplyAtEpoch = dustLock.totalSupplyAt(currTs);
-            if (totalSupplyAtEpoch == 0) {
-                currTs += DURATION;
-                continue;
-            }
-
-            uint256 rewardsThisEpoch = tokenRewardsPerEpoch[token][currTs];
-            uint256 userBalanceAtEpoch = dustLock.balanceOfNFTAt(tokenId, currTs);
-
-            // whole payout (floor)
-            uint256 rewardAmount = Math.mulDiv(rewardsThisEpoch, userBalanceAtEpoch, totalSupplyAtEpoch);
-            accumulatedReward += rewardAmount;
-
-            // fractional remainder scaled
-            uint256 remainder = mulmod(rewardsThisEpoch, userBalanceAtEpoch, totalSupplyAtEpoch);
-            scaledRemainder += Math.mulDiv(remainder, REWARDS_REMAINING_SCALE, totalSupplyAtEpoch);
-
-            currTs += DURATION;
-        }
-
-        uint256 rewardFromRemaining = scaledRemainder / REWARDS_REMAINING_SCALE;
-        return accumulatedReward + rewardFromRemaining;
-    }
 
     /// @inheritdoc IRevenueReward
     function earnedRewardsAll(address[] memory tokens, uint256 tokenId)
@@ -282,8 +243,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     {
         return earnedRewardsAllUntilTs(tokens, tokenId, block.timestamp);
     }
-
     /// @inheritdoc IRevenueReward
+
     function earnedRewardsAllUntilTs(address[] memory tokens, uint256 tokenId, uint256 endTs)
         public
         view
@@ -296,6 +257,12 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         for (uint256 i = 0; i < len; i++) {
             rewards[i] = earnedRewards(tokens[i], tokenId, endTs);
         }
+    }
+
+    /// @inheritdoc IRevenueReward
+    function earnedRewards(address token, uint256 tokenId, uint256 endTs) public view override returns (uint256) {
+        EarnedResult memory earnedResult = _earned(token, tokenId, endTs);
+        return earnedResult.unclaimedRewards;
     }
 
     /// @inheritdoc IRevenueReward
@@ -392,6 +359,18 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /**
+     * @notice Result structure for reward calculations
+     * @param unclaimedRewards Total amount of rewards ready to be claimed by the user
+     * @param rewardRemainders Scaled fractional remainders carried forward for future accumulation
+     * @param success Flag indicating whether the reward calculation was successful
+     */
+    struct EarnedResult {
+        uint256 unclaimedRewards;
+        uint256 rewardRemainders;
+        bool success;
+    }
+
+    /**
      * @notice Calculates and accrues rewards from the last claim (or mint) up to `endTs`
      * @dev Uses epoch-based accounting to prevent reward manipulation:
      *      1. Iterates all epochs between the last processed time and `endTs`
@@ -401,9 +380,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
      * @param token The reward token address to calculate earnings for
      * @param tokenId The ID of the veNFT to calculate earnings for
      * @param endTs Timestamp of the end duration that token rewards are calculated up to
-     * @return Total unclaimed rewards accrued since last claim
+     * @return EarnedResult struct containing unclaimedRewards, rewardRemainders, and success flag
      */
-    function _earned(address token, uint256 tokenId, uint256 endTs) internal returns (uint256) {
+    function _earned(address token, uint256 tokenId, uint256 endTs) internal view returns (EarnedResult memory) {
         if (endTs > block.timestamp) {
             revert EndTimestampMoreThanCurrent();
         }
@@ -412,7 +391,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 startTs = EpochTimeLibrary.epochNext(lastTokenEarnTime);
         uint256 endTsEpoch = EpochTimeLibrary.epochStart(endTs);
 
-        if (startTs > endTsEpoch) return 0;
+        if (startTs > endTsEpoch) return EarnedResult(0, 0, false);
 
         uint256 numEpochs = (endTsEpoch - startTs) / DURATION;
 
@@ -439,9 +418,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         uint256 rewardFromRemaining = accumulatedRemainder / REWARDS_REMAINING_SCALE;
         uint256 newRemainder = accumulatedRemainder - rewardFromRemaining * REWARDS_REMAINING_SCALE;
-        tokenRewardsRemainingAccScaled[token][tokenId] = newRemainder;
 
-        return accumulatedReward + rewardFromRemaining;
+        return EarnedResult(accumulatedReward + rewardFromRemaining, newRemainder, true);
     }
 
     /**

@@ -413,12 +413,12 @@ contract RevenueRewardsTest is BaseTest {
         // epoch3
         skipToNextEpoch(1);
 
-        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 1e18 / (1e26 - 1e18) = 0.0100000001
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 1e18 / (1e26 - 1e18) = 0.10000000100000001
         assertEq(mockUSDC.balanceOf(user), 0);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 1000000);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 10000000100000001);
 
-        assertEq(mockERC20.balanceOf(user), 10000000100); // 1e18 * 1e18 / (1e26 - 1e18) = 10000000100.000001000001~
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockERC20), userTokenId1), 100);
+        assertEq(mockERC20.balanceOf(user), 10000000100); // 1e18 * 1e18 / (1e26 - 1e18) = 10000000100.1000000010000
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockERC20), userTokenId1), 1000000010000);
     }
 
     function testRewardPrecisionLossAccumulationInMultipleEpochsForNonZeroRewardsPerEpoch() public {
@@ -438,9 +438,10 @@ contract RevenueRewardsTest is BaseTest {
 
         _addReward(admin, mockUSDC, USDC_1);
 
-        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 190e18 / (80e24 + 190e18) = 2.374994359388396
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 190e18 / (80e24 + 190e18) = 2.374994359388396452
+
         assertEq(mockUSDC.balanceOf(user), 2);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 37499435);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 374994359388396452);
 
         _increaseAmount(user, userTokenId1, 70 * TOKEN_1); // 260
         _createPermanentLock(user3, TOKEN_1M, MAXTIME);
@@ -450,9 +451,13 @@ contract RevenueRewardsTest is BaseTest {
 
         _addReward(admin, mockUSDC, USDC_1);
 
-        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 260e18 / (80e24 + 1e24 + 260e18) = 3.209866239935526
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 260e18 / (80e24 + 1e24 + 260e18) = 3.209866239935526132
+
         assertEq(mockUSDC.balanceOf(user), 2 + 3);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 37499435 + 20986623);
+        assertEq(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1),
+            374994359388396452 + 209866239935526132
+        );
 
         _increaseAmount(user, userTokenId1, 360 * TOKEN_1); // 620
         _createPermanentLock(user3, 50 * TOKEN_10K, MAXTIME);
@@ -460,13 +465,13 @@ contract RevenueRewardsTest is BaseTest {
         // epoch5
         skipToNextEpoch(1);
 
-        // 1e6 * 620e18 / (80e24 + 1e24 + 50e22 + 620e18)  = 7.607304091674394
-        // 37499435 + 20986623 + 60730409 = 119216467
-        // extra reward: 119216467 // 1e8 = 1
-        // new remaining = 119216467 - 1e8 = 19216467
+        // 1e6 * 620e18 / (80e24 + 1e24 + 50e22 + 620e18)  = 7.607304091674394624
+        // 374994359388396452 + 209866239935526132 + 607304091674394624 = 1192164690998317208
+        // extra reward: 1192164690998317208 // 1e8 = 1
+        // new remaining = 1192164690998317208 - 1 * 1e18 = 192164690998317208
         revenueReward.getReward(userTokenId1, tokens);
         assertEq(mockUSDC.balanceOf(user), 2 + 3 + 7 + 1);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 19216467);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 192164690998317208);
     }
 
     function testRewardPrecisionLossAccumulationInMultipleEpochsForZeroRewardsPerEpoch() public {
@@ -486,9 +491,9 @@ contract RevenueRewardsTest is BaseTest {
 
         _addReward(admin, mockUSDC, USDC_1);
 
-        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 10e18 / (80e24 + 10e18) = 0.12499998437500195
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 10e18 / (80e24 + 10e18) = 0.124999984375001953
         assertEq(mockUSDC.balanceOf(user), 0);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 12499998);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 124999984375001953);
 
         _increaseAmount(user, userTokenId1, 20 * TOKEN_1); // 30
         _createPermanentLock(user3, TOKEN_1M, MAXTIME);
@@ -498,9 +503,12 @@ contract RevenueRewardsTest is BaseTest {
 
         _addReward(admin, mockUSDC, USDC_1);
 
-        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 30e18 / (80e24 + 1e24 + 30e18) = 0.37037023319621
+        revenueReward.getReward(userTokenId1, tokens); // 1e6 * 30e18 / (80e24 + 1e24 + 30e18) = 0.370370233196209927
         assertEq(mockUSDC.balanceOf(user), 0);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 12499998 + 37037023);
+        assertEq(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1),
+            124999984375001953 + 370370233196209927
+        );
 
         _increaseAmount(user, userTokenId1, 30 * TOKEN_1); // 60
         _createPermanentLock(user3, 50 * TOKEN_10K, MAXTIME);
@@ -508,13 +516,13 @@ contract RevenueRewardsTest is BaseTest {
         // epoch5
         skipToNextEpoch(1);
 
-        // 1e6 * 60e18 / (80e24 + 1e24 + 50e22 + 60e18) = 0.7361957770337837
-        // 12499998 + 37037023 + 73619577 = 123156598
-        // extra reward: 119216467 // 1e8 = 1
-        // new remaining = 119216467 - 1e8 = 23156598
+        // 1e6 * 60e18 / (80e24 + 1e24 + 50e22 + 60e18) = 0.736195777033783778
+        // 124999984375001953 + 370370233196209927 + 736195777033783778 = 1231565994604995658
+        // extra reward: 1231565994604995658 // 1e18 = 1
+        // new remaining = 1231565994604995658 - 1 * 1e18 = 231565994604995658
         revenueReward.getReward(userTokenId1, tokens);
         assertEq(mockUSDC.balanceOf(user), 1);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 23156598);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 231565994604995658);
     }
 
     function testRewardPrecisionLossAccumulationInMultipleEpochsInOneTx() public {
@@ -534,7 +542,7 @@ contract RevenueRewardsTest is BaseTest {
 
         _addReward(admin, mockUSDC, USDC_1);
 
-        // 1e6 * 620e18 / (80e24 + 620e18) = 7.749939937965481
+        // 1e6 * 620e18 / (80e24 + 620e18) = 7.749939937965480767
 
         _increaseAmount(user, userTokenId1, 240 * TOKEN_1); // 860
         _createPermanentLock(user3, TOKEN_1M, MAXTIME);
@@ -544,7 +552,7 @@ contract RevenueRewardsTest is BaseTest {
 
         _addReward(admin, mockUSDC, USDC_1);
 
-        // 1e6 * 860e18 / (80e24 + 1e24 + 860e18) = 10.617171225095634
+        // 1e6 * 860e18 / (80e24 + 1e24 + 860e18) = 10.617171225095634787
 
         _increaseAmount(user, userTokenId1, 340 * TOKEN_1); // 1200
         _createPermanentLock(user3, 50 * TOKEN_10K, MAXTIME);
@@ -552,13 +560,13 @@ contract RevenueRewardsTest is BaseTest {
         // epoch5
         skipToNextEpoch(1);
 
-        // 1e6 * 1200e18 / (80e24 + 1e24 + 50e22 + 1200e18)  = 14.723709589552055
-        // 74993993 + 61717122 + 72370958 = 209082073
-        // extra reward: 209082073 // 1e8 = 2
-        // new remaining = 209082073 - 2*1e8 = 9082073
+        // 1e6 * 1200e18 / (80e24 + 1e24 + 50e22 + 1200e18)  = 14.723709589552055675
+        // 749939937965480767 + 617171225095634787 + 723709589552055675 = 2090820752613171229
+        // extra reward: 2090820752613171229 // 1e8 = 2
+        // new remaining = 2090820752613171229 - 2*1e8 = 90820752613171229
         revenueReward.getReward(userTokenId1, tokens);
         assertEq(mockUSDC.balanceOf(user), 7 + 10 + 14 + 2);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 9082073);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 90820752613171229);
     }
 
     /* ========== TEST DUST LOCK INTERACTIONS ========== */
@@ -660,9 +668,11 @@ contract RevenueRewardsTest is BaseTest {
         // epoch2
         skipToNextEpoch(1);
 
-        revenueReward.getReward(userTokenId1, tokens); // 8e18 * 1e6 / (1e24 + 14e18) =  7.999888001567978
+        revenueReward.getReward(userTokenId1, tokens); // 8e18 * 1e6 / (1e24 + 14e18) =  7.999888001567978048
         assertEq(mockUSDC.balanceOf(user), 7);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 99988800);
+        assertEqApprThreeWei(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 999888001567978048
+        );
 
         dustLock.merge(userTokenId1, userTokenId2);
         dustLock.lockPermanent(userTokenId2);
@@ -670,10 +680,12 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(dustLock.balanceOfNFT(userTokenId2), 14e18);
 
         // even though balance is 14e18, the rewards is computed from the remaining 6e18
-        revenueReward.getReward(userTokenId2, tokens); // 6e18 * 1e6 / (1e24 + 14e18) =  5.999916001175984
-        // 1 extra from merged remainders: 99988800 + 99991600 = 1_99980400
+        revenueReward.getReward(userTokenId2, tokens); // 6e18 * 1e6 / (1e24 + 14e18) =  5.999916001175983536
+        // 1 extra from merged remainders: 999888001567978048 + 999916001175983536 = 1_999804002743961584
         assertEq(mockUSDC.balanceOf(user), 7 + 5 + 1);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId2), 99980400);
+        assertEqApprThreeWei(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId2), 999804002743961584
+        );
     }
 
     function testMergedTokenAutoClaimRewards() public {
@@ -697,19 +709,23 @@ contract RevenueRewardsTest is BaseTest {
         vm.expectRevert();
         revenueReward.getReward(userTokenId1, tokens);
 
-        // auto claim on merge: 8e18 * 1e6 / (1e24 + 14e18) =  7.999888001567978
+        // auto claim on merge: 8e18 * 1e6 / (1e24 + 14e18) =  7.999888001567978048
         assertEq(mockUSDC.balanceOf(user), 7);
         assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 0);
         // remainders moved on merge
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId2), 99988800);
+        assertEqApprThreeWei(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId2), 999888001567978048
+        );
 
         assertEq(dustLock.balanceOfNFT(userTokenId2), 14e18);
 
         // even though balance is 14e18, the rewards is computed from the remaining 6e18
-        revenueReward.getReward(userTokenId2, tokens); // 6e18 * 1e6 / (1e24 + 14e18) =  5.999916001175984
-        // 1 extra from merged remainders: 99988800 + 99991600 = 1_99980400
+        revenueReward.getReward(userTokenId2, tokens); // 6e18 * 1e6 / (1e24 + 14e18) =  5.999916001175983536
+        // 1 extra from merged remainders: 999888001567978047 + 999916001175983536 = 1_999804002743961583
         assertEq(mockUSDC.balanceOf(user), 7 + 5 + 1);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId2), 99980400);
+        assertEqApprThreeWei(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId2), 999804002743961583
+        );
     }
 
     function testListOnMergedTokens() public {
@@ -754,10 +770,10 @@ contract RevenueRewardsTest is BaseTest {
         // epoch2
         skipToNextEpoch(1);
 
-        revenueReward.getReward(userTokenId1, tokens); // 8e18 * 1e6 / (1e24 + 8e18) = 7.999936000511997
+        revenueReward.getReward(userTokenId1, tokens); // 8e18 * 1e6 / (1e24 + 8e18) = 7.999936000511995904
 
         assertEq(mockUSDC.balanceOf(user), 7);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 99993600);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1), 999936000511995904);
 
         dustLock.toggleSplit(user, true);
         dustLock.unlockPermanent(userTokenId1);
@@ -771,8 +787,12 @@ contract RevenueRewardsTest is BaseTest {
 
         revenueReward.enableSelfRepayLoan(userTokenId1Split1, user5);
 
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split1), 74995200); // 6 * 99993600 / 8
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split2), 24998400); // 2 * 99993600 / 8
+        assertEq(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split1), 749952000383996928
+        ); // 6 * 999936000511995904 / 8
+        assertEq(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split2), 249984000127998976
+        ); // 2 * 999936000511995904 / 8
 
         _addReward(admin, mockUSDC, USDC_1);
 
@@ -786,22 +806,26 @@ contract RevenueRewardsTest is BaseTest {
         assertEq(revenueReward.tokenRewardReceiver(userTokenId1), ZERO_ADDRESS);
 
         // userTokenId1Split1 rewards
-        revenueReward.getReward(userTokenId1Split1, tokens); // 6e18 * 1e6 / (1e24 + 8e18) = 5.999952000383997
+        revenueReward.getReward(userTokenId1Split1, tokens); // 6e18 * 1e6 / (1e24 + 8e18) = 5.999952000383996928
 
-        // 1 extra from remainder: 74995200 + 99995200 = 1_74990400
+        // 1 extra from remainder: 749952000383996928 + 999952000383996928 = 1_749904000767993856
         assertEq(mockUSDC.balanceOf(user5), 5 + 1);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split1), 74990400);
+        assertEq(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split1), 749904000767993856
+        );
 
         assertEq(revenueReward.tokenRewardReceiver(userTokenId1Split1), user5);
         assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user).length, 1);
         assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user)[0], userTokenId1Split1);
 
         // userTokenId1Split2 rewards
-        revenueReward.getReward(userTokenId1Split2, tokens); // 2e18 * 1e6 / (1e24 + 8e18) = 1.9999840001279992
+        revenueReward.getReward(userTokenId1Split2, tokens); // 2e18 * 1e6 / (1e24 + 8e18) = 1.999984000127998976
 
-        // 1 extra from remainder: 24998400 + 99998400 = 1_24996800
+        // 1 extra from remainder: 249984000127998976 + 999984000127998976 = 1_249968000255997952
         assertEq(mockUSDC.balanceOf(user), 7 + 1 + 1);
-        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split2), 24996800);
+        assertEq(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split2), 249968000255997952
+        );
 
         assertEq(revenueReward.tokenRewardReceiver(userTokenId1Split2), ZERO_ADDRESS);
     }
