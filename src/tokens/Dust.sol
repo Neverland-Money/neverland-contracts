@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
@@ -73,4 +73,10 @@ contract Dust is
     {
         super._beforeTokenTransfer(from, to, value);
     }
+
+    /**
+     * @dev Storage gap for upgrade-safe future upgrades.
+     *      Add new state variables above this line and reduce the gap length.
+     */
+    uint256[50] private __gap;
 }

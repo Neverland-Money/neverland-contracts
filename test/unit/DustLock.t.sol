@@ -11,11 +11,11 @@ import "../BaseTestLocal.sol";
 contract MaliciousRevenueReward is RevenueReward {
     constructor(address _dustLock) RevenueReward(address(0xF1), _dustLock, msg.sender) {}
 
-    function _notifyAfterTokenTransferred(uint256 tokenId, address from) public override {
+    function notifyAfterTokenTransferred(uint256 tokenId, address from) public override onlyDustLock {
         dustLock.transferFrom(from, address(this), tokenId);
     }
 
-    function _notifyAfterTokenBurned(uint256 tokenId, address /* from */ ) public override {
+    function notifyAfterTokenBurned(uint256 tokenId, address /* from */ ) public override onlyDustLock {
         dustLock.earlyWithdraw(tokenId);
     }
 }

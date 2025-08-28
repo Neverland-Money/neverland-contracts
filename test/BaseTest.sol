@@ -92,7 +92,7 @@ abstract contract BaseTest is Script, Test {
     }
 
     function goToEpoch(uint256 epochNumber) internal {
-        uint256 currentEpoch = block.timestamp % 1 weeks;
+        uint256 currentEpoch = block.timestamp / 1 weeks;
         if (epochNumber <= currentEpoch) revert("goToEpoch less or equal than current");
         skipNumberOfEpochs(epochNumber - currentEpoch);
     }

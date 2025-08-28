@@ -371,7 +371,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param _spender The address to approve for the tokenId
      * @param _tokenId The ID of the veNFT to be approved
      */
-    function isApprovedOrOwner(address _spender, uint256 _tokenId) external returns (bool);
+    function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool);
 
     /*//////////////////////////////////////////////////////////////
                               ERC721 LOGIC
@@ -712,7 +712,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @dev This value is used to validate lock creation and prevent spam attacks
      * @return The minimum lock amount in token units (with 18 decimals)
      */
-    function minLockAmount() external returns (uint256);
+    function minLockAmount() external view returns (uint256);
 
     /**
      * @notice Sets the minimum amount of tokens required to create a veNFT lock
@@ -725,7 +725,17 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
                       NOTIFY CONTRACTS
     //////////////////////////////////////////////////////////////*/
 
-    function revenueReward() external returns (IRevenueReward);
+    /**
+     * @notice Returns the revenue reward contract
+     * @dev Returns address(0) if no revenue reward contract is set
+     * @return The revenue reward contract
+     */
+    function revenueReward() external view returns (IRevenueReward);
 
+    /**
+     * @notice Sets the revenue reward contract
+     * @dev Can only be called by the team address
+     * @param _revenueReward The new revenue reward contract
+     */
     function setRevenueReward(IRevenueReward _revenueReward) external;
 }

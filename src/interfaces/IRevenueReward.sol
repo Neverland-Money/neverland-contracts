@@ -117,14 +117,26 @@ interface IRevenueReward {
     function totalRewardsPerToken(address token) external view returns (uint256);
 
     /**
-     * @notice Returns the amount of rewards allocated for a specific token in a given epoch
-     * @dev Rewards are distributed per epoch, with each epoch lasting for DURATION seconds
-     *      Used to calculate the reward rate for a particular token during a specific epoch
+     * @notice Returns the amount of rewards allocated for a specific token at a given epoch start
+     * @dev Rewards are tracked by epoch start timestamp (seconds), with each epoch lasting DURATION seconds.
      * @param token The address of the reward token
-     * @param epoch The epoch number to query
-     * @return The amount of rewards allocated for the specified token in the given epoch
+     * @param epoch The epoch start timestamp (i.e., start of the week)
+     * @return The amount of rewards allocated for the token at that epoch start
      */
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);
+
+    /**
+     * @notice Returns the accumulated fractional remainder of rewards for a veNFT and token, scaled by 1e8.
+     * @dev During per-epoch reward calculations, integer division can leave a remainder that cannot be paid out.
+     *      This function exposes the running sum of those remainders for the given (token, tokenId) pair,
+     *      scaled by a factor of 1e8 to preserve precision (i.e., value is remainder * 1e8 / totalSupplyAt(epoch)).
+     *      This value is informational and not directly claimable; it helps off-chain analytics understand
+     *      the uncredited fractional rewards that have accumulated over time due to rounding.
+     * @param token The address of the reward token being tracked.
+     * @param tokenId The ID of the veNFT whose fractional remainder is queried.
+     * @return scaledRemainder The accumulated fractional rewards remainder, scaled by 1e8.
+     */
+    function tokenRewardsRemainingAccScaled(address token, uint256 tokenId) external view returns (uint256);
 
     /**
      * @notice Returns the configured reward recipient address for a specific veNFT
@@ -140,7 +152,7 @@ interface IRevenueReward {
      * @dev Calculates earned rewards for each specified token using epoch-based accounting and transfers them
      *      to the appropriate recipient. Emits a ClaimRewards event per token. If a reward receiver is configured
      *      via enableSelfRepayLoan, rewards go to that address; otherwise, rewards are sent to the veNFT owner.
-     *      Updates lastEarnTime for claimed tokens with positive rewards to track future accruals.
+     *      Updates lastEarnTime to track future accruals.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      */
@@ -152,7 +164,7 @@ interface IRevenueReward {
      *      Calculates earned rewards for each specified token using epoch-based accounting and transfers them to the
      *      appropriate recipient. Emits a ClaimRewards event per token. If a reward receiver is configured via
      *      enableSelfRepayLoan, rewards go to that address; otherwise, rewards are sent to the veNFT owner.
-     *      Updates lastEarnTime to rewardPeriodEndTs for claimed tokens with positive rewards.
+     *      Updates lastEarnTime to rewardPeriodEndTs to track future accruals.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
@@ -180,17 +192,24 @@ interface IRevenueReward {
     function disableSelfRepayLoan(uint256 tokenId) external;
 
     /**
+     * @notice Notifies the contract that a new token has been created
+     * @dev Intended to update internal state or trigger logic after a veNFT creation event
+     *      Can only be called by the DustLock contract.
+     * @param tokenId The ID of the token (veNFT) that has been created
+     */
+    function notifyTokenMinted(uint256 tokenId) external;
+
+    /**
      * @notice Handles necessary operations after a veNFT token is transferred
      * @dev This function is called by the DustLock contract just after transferring a token
      *      It performs two main actions:
      *      1. Claims all pending rewards for the token being transferred
      *      2. Removes the token from the self-repaying loan tracking if enabled
-     *      Can only be called by the DustLock contract
-     *      Throws NotDustLock error if called by any other address
-     * @param _tokenId The ID of the veNFT token that was transferred
-     * @param _from The address of the previous token owner (sender of the transfer)
+     *      Can only be called by the DustLock contract.
+     * @param tokenId The ID of the veNFT token that was transferred
+     * @param from The address of the previous token owner (sender of the transfer)
      */
-    function _notifyAfterTokenTransferred(uint256 _tokenId, address _from) external;
+    function notifyAfterTokenTransferred(uint256 tokenId, address from) external;
 
     /**
      * @notice Handles necessary operations after a veNFT token is burned
@@ -198,12 +217,81 @@ interface IRevenueReward {
      *      It performs two main actions:
      *      1. Claims all pending rewards for the token being burned
      *      2. Removes the token from the self-repaying loan tracking if enabled
-     *      Can only be called by the DustLock contract
-     *      Throws NotDustLock error if called by any other address
-     * @param _tokenId The ID of the veNFT token that was burned
-     * @param _from The address of the previous token owner
+     *      Can only be called by the DustLock contract.
+     * @param tokenId The ID of the veNFT token that was burned
+     * @param from The address of the previous token owner
      */
-    function _notifyAfterTokenBurned(uint256 _tokenId, address _from) external;
+    function notifyAfterTokenBurned(uint256 tokenId, address from) external;
+
+    /**
+     * @notice Handles bookkeeping after two veNFTs are merged.
+     * @dev Callable only by the DustLock contract.
+     * @param fromToken The tokenId that was merged and is no longer active (source).
+     * @param toToken The tokenId that survives the merge and should receive consolidated accounting (destination).
+     * @param owner The tokens' owner.
+     */
+    function notifyAfterTokenMerged(uint256 fromToken, uint256 toToken, address owner) external;
+
+    /**
+     * @notice Handles bookkeeping after a veNFT is split into two new veNFTs.
+     * @dev Callable only by the DustLock contract.
+     *      - Initializes mint timestamps for the two new tokenIds.
+     *      - Proportionally splits the accumulated fractional rewards remainder (scaled by 1e8)
+     *        from `fromToken` between `tokenId1` and `tokenId2` using their provided amounts.
+     *      - Clears the remainder accumulator for `fromToken` and removes it from any self-repaying
+     *        loan tracking if applicable.
+     * @param fromToken The original tokenId that was split (source).
+     * @param tokenId1 The first resulting tokenId after the split.
+     * @param token1Amount The amount (voting power/shares) assigned to `tokenId1` in the split.
+     * @param tokenId2 The second resulting tokenId after the split.
+     * @param token2Amount The amount (voting power/shares) assigned to `tokenId2` in the split.
+     * @param owner The owner of the tokens involved in the split.
+     */
+    function notifyAfterTokenSplit(
+        uint256 fromToken,
+        uint256 tokenId1,
+        uint256 token1Amount,
+        uint256 tokenId2,
+        uint256 token2Amount,
+        address owner
+    ) external;
+
+    /**
+     * @notice Preview unclaimed rewards for a single reward token up to a specific timestamp.
+     * @dev Read-only mirror of claim math; does not mutate state, does not advance checkpoints.
+     *      Reverts with EndTimestampMoreThanCurrent if `endTs` is in the future.
+     * @param token Reward token address to preview.
+     * @param tokenId veNFT id to preview for.
+     * @param endTs Timestamp (<= now) up to which to compute rewards.
+     * @return amount Total rewards that would be claimable if claimed up to `endTs`.
+     */
+    function earnedRewards(address token, uint256 tokenId, uint256 endTs) external view returns (uint256 amount);
+
+    /**
+     * @notice Preview unclaimed rewards for multiple tokens at the current timestamp.
+     * @dev Convenience wrapper that uses block.timestamp internally.
+     * @param tokens Array of reward token addresses.
+     * @param tokenId veNFT id to preview for.
+     * @return rewards Array of amounts in the same order as `tokens`.
+     */
+    function earnedRewardsAll(address[] memory tokens, uint256 tokenId)
+        external
+        view
+        returns (uint256[] memory rewards);
+
+    /**
+     * @notice Preview unclaimed rewards for multiple tokens up to a specific timestamp.
+     * @dev Read-only; does not mutate state, does not advance checkpoints.
+     *      Reverts with EndTimestampMoreThanCurrent if `endTs` is in the future.
+     * @param tokens Array of reward token addresses.
+     * @param tokenId veNFT id to preview for.
+     * @param endTs Timestamp (<= now) up to which to compute rewards.
+     * @return rewards Array of amounts in the same order as `tokens`.
+     */
+    function earnedRewardsAllUntilTs(address[] memory tokens, uint256 tokenId, uint256 endTs)
+        external
+        view
+        returns (uint256[] memory rewards);
 
     /**
      * @notice Returns a list of user addresses with at least one active self-repaying loan within a given range.
@@ -234,14 +322,6 @@ interface IRevenueReward {
      * @param amount The amount of rewards to add to the distribution pool
      */
     function notifyRewardAmount(address token, uint256 amount) external;
-
-    /**
-     * @notice Notifies the contract that a new token has been created
-     * @dev Intended to update internal state or trigger logic after a veNFT creation event
-     *      Can only be called by authorized contracts, typically after a creation operation
-     * @param _tokenId The ID of the token (veNFT) that has been created
-     */
-    function _notifyTokenMinted(uint256 _tokenId) external;
 
     /**
      * @notice Updates the address authorized to add rewards to the contract
