@@ -24,6 +24,7 @@ abstract contract BaseTest is Script, Test {
     uint256 constant TOKEN_50M = 5e25; // 5e7 = 50M tokens with 18 decimals
     uint256 constant TOKEN_100M = 1e26; // 1e8 = 100M tokens with 18 decimals
 
+    address internal FORWARDER = address(0xF0);
     address internal ZERO_ADDRESS = address(0);
 
     uint256 constant MINTIME = 4 weeks;

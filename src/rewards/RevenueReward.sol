@@ -7,10 +7,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
+import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
-
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
 
@@ -27,13 +26,20 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(address _forwarder, address _dustLock, address _rewardDistributor) ERC2771Context(_forwarder) {
+    constructor(
+        address _forwarder,
+        IDustLock _dustLock,
+        address _rewardDistributor,
+        IUserVaultFactory _userVaultFactory
+    ) ERC2771Context(_forwarder) {
         CommonChecksLibrary.revertIfZeroAddress(_forwarder);
-        CommonChecksLibrary.revertIfZeroAddress(_dustLock);
+        CommonChecksLibrary.revertIfZeroAddress(address(_dustLock));
         CommonChecksLibrary.revertIfZeroAddress(_rewardDistributor);
+        CommonChecksLibrary.revertIfZeroAddress(address(_userVaultFactory));
 
-        dustLock = IDustLock(_dustLock);
+        dustLock = _dustLock;
         rewardDistributor = _rewardDistributor;
+        userVaultFactory = _userVaultFactory;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -48,6 +54,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IRevenueReward
     IDustLock public dustLock;
+    /// @inheritdoc IRevenueReward
+    IUserVaultFactory public userVaultFactory;
     /// @inheritdoc IRevenueReward
     address public rewardDistributor;
     /// @inheritdoc IRevenueReward
@@ -88,16 +96,17 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
-    function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external virtual override nonReentrant {
-        CommonChecksLibrary.revertIfZeroAddress(rewardReceiver);
+    function enableSelfRepayLoan(uint256 tokenId) external virtual override nonReentrant {
         address sender = _msgSender();
         if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
 
-        tokenRewardReceiver[tokenId] = rewardReceiver;
+        address userVault = userVaultFactory.getUserVault(sender);
+
+        tokenRewardReceiver[tokenId] = userVault;
         usersWithSelfRepayingLoan.add(sender);
         userTokensWithSelfRepayingLoan[sender].add(tokenId);
 
-        emit SelfRepayingLoanUpdate(tokenId, rewardReceiver, true);
+        emit SelfRepayingLoanUpdate(tokenId, userVault, true);
     }
 
     /// @inheritdoc IRevenueReward

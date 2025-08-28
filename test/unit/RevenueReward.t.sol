@@ -738,8 +738,8 @@ contract RevenueRewardsTest is BaseTestLocal {
         uint256 userTokenId1 = _createLock(user, 8 * TOKEN_1, MAXTIME);
         uint256 userTokenId2 = _createLock(user, 6 * TOKEN_1, MAXTIME);
 
-        revenueReward.enableSelfRepayLoan(userTokenId1, user4);
-        revenueReward.enableSelfRepayLoan(userTokenId2, user5);
+        revenueReward.enableSelfRepayLoan(userTokenId1);
+        revenueReward.enableSelfRepayLoan(userTokenId2);
 
         _createLock(user2, TOKEN_1M, MAXTIME);
 
@@ -748,7 +748,10 @@ contract RevenueRewardsTest is BaseTestLocal {
 
         // assert
         assertEq(revenueReward.tokenRewardReceiver(userTokenId1), ZERO_ADDRESS);
-        assertEq(revenueReward.tokenRewardReceiver(userTokenId2), user5);
+
+        address user2Vault = userVaultFactory.getUserVault(user);
+        assertEq(revenueReward.tokenRewardReceiver(userTokenId2), user2Vault);
+
         assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user).length, 1);
         assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user)[0], userTokenId2);
     }
@@ -785,7 +788,7 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(dustLock.balanceOfNFT(userTokenId1Split1), 6 * TOKEN_1);
         assertEq(dustLock.balanceOfNFT(userTokenId1Split2), 2 * TOKEN_1);
 
-        revenueReward.enableSelfRepayLoan(userTokenId1Split1, user5);
+        revenueReward.enableSelfRepayLoan(userTokenId1Split1);
 
         assertEq(
             revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split1), 749952000383996928
@@ -806,15 +809,18 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(revenueReward.tokenRewardReceiver(userTokenId1), ZERO_ADDRESS);
 
         // userTokenId1Split1 rewards
+        address userVault = userVaultFactory.getUserVault(user);
+
         revenueReward.getReward(userTokenId1Split1, tokens); // 6e18 * 1e6 / (1e24 + 8e18) = 5.999952000383996928
 
         // 1 extra from remainder: 749952000383996928 + 999952000383996928 = 1_749904000767993856
-        assertEq(mockUSDC.balanceOf(user5), 5 + 1);
+        assertEq(mockUSDC.balanceOf(userVault), 5 + 1);
         assertEq(
             revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), userTokenId1Split1), 749904000767993856
         );
 
-        assertEq(revenueReward.tokenRewardReceiver(userTokenId1Split1), user5);
+        assertEq(revenueReward.tokenRewardReceiver(userTokenId1Split1), userVault);
+
         assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user).length, 1);
         assertEq(revenueReward.getUserTokensWithSelfRepayingLoan(user)[0], userTokenId1Split1);
 
@@ -926,7 +932,7 @@ contract RevenueRewardsTest is BaseTestLocal {
         vm.startPrank(user2);
         emit log("[self-repay] Expect revert: enable by non-owner");
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
-        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        revenueReward.enableSelfRepayLoan(tokenId);
         vm.stopPrank();
     }
 
@@ -935,7 +941,7 @@ contract RevenueRewardsTest is BaseTestLocal {
         uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
         _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
 
-        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        revenueReward.enableSelfRepayLoan(tokenId);
 
         // act/assert
         vm.startPrank(user2);
@@ -955,11 +961,12 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(block.timestamp, 2 weeks + 1);
 
         // act
+        address userVault = userVaultFactory.getUserVault(user);
         vm.expectEmit(true, true, true, false, address(revenueReward));
-        emit SelfRepayingLoanUpdate(tokenId, user2, true);
+        emit SelfRepayingLoanUpdate(tokenId, userVault, true);
         emit log_named_uint("[self-repay] tokenId", tokenId);
         emit log_named_address("[self-repay] receiver", user2);
-        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        revenueReward.enableSelfRepayLoan(tokenId);
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
@@ -968,7 +975,7 @@ contract RevenueRewardsTest is BaseTestLocal {
         // assert
         assertEqApprThreeWei(mockUSDC.balanceOf(user), 0);
 
-        uint256 balanceAfter = mockUSDC.balanceOf(user2);
+        uint256 balanceAfter = mockUSDC.balanceOf(userVault);
         uint256 rewardAmount = balanceAfter;
         emit log_named_uint("[self-repay] USDC redirected", rewardAmount);
 
@@ -983,13 +990,14 @@ contract RevenueRewardsTest is BaseTestLocal {
         skipToNextEpoch(1);
 
         emit log_named_uint("[self-repay/disable] tokenId", tokenId);
-        revenueReward.enableSelfRepayLoan(tokenId, user2);
+        revenueReward.enableSelfRepayLoan(tokenId);
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
         revenueReward.getReward(tokenId, tokens);
 
-        assertEqApprThreeWei(mockUSDC.balanceOf(user2), USDC_10K);
+        address userVault = userVaultFactory.getUserVault(user);
+        assertEqApprThreeWei(mockUSDC.balanceOf(userVault), USDC_10K);
 
         // epoch2
         skipToNextEpoch(1);

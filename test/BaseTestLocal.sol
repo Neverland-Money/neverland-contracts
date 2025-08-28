@@ -7,14 +7,21 @@ import {RevenueReward} from "../src/rewards/RevenueReward.sol";
 import {Dust} from "../src/tokens/Dust.sol";
 import {DustLock} from "../src/tokens/DustLock.sol";
 import {MockERC20} from "./_utils/MockERC20.sol";
+import {IUserVaultFactory} from "../src/interfaces/IUserVaultFactory.sol";
+import {UserVaultFactory} from "../src/self-repaying-loans/UserVaultFactory.sol";
+import {UserVault} from "../src/self-repaying-loans/UserVault.sol";
+import {UserVaultRegistry} from "../src/self-repaying-loans/UserVaultRegistry.sol";
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 abstract contract BaseTestLocal is BaseTest {
     Dust internal DUST;
-    DustLock internal dustLock;
+    IDustLock internal dustLock;
     RevenueReward internal revenueReward;
     MockERC20 internal mockUSDC;
     MockERC20 internal mockERC20;
+    IUserVaultFactory internal userVaultFactory;
 
     address internal admin = address(0xad1);
     address internal user = address(this);
@@ -40,10 +47,22 @@ abstract contract BaseTestLocal is BaseTest {
 
         // deploy DustLock
         string memory baseUrl = "https://neverland.money/nfts/";
-        dustLock = new DustLock(address(0xF0), address(DUST), baseUrl);
+        dustLock = new DustLock(FORWARDER, address(DUST), baseUrl);
+
+        // AAVE
+        IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
+
+        // user vault
+        UserVaultRegistry userVaultRegistry = new UserVaultRegistry();
+
+        UserVault userVault = new UserVault(userVaultRegistry, aaveOracle);
+        UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
+        userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
 
         // deploy RevenueReward
-        revenueReward = new RevenueReward(address(0xF1), address(dustLock), admin);
+        emit log("here1");
+        revenueReward = new RevenueReward(FORWARDER, dustLock, admin, userVaultFactory);
+        emit log("here2");
 
         // set RevenueReward to DustLock
         dustLock.setRevenueReward(revenueReward);

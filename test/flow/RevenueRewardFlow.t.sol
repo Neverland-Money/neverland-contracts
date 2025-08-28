@@ -48,9 +48,9 @@ contract RevenueRewardFlow is BaseTestLocal {
 
         // Initialize RevenueReward instances for precision testing
         // Use user (address(this)) as rewardDistributor instead of admin (proxy admin)
-        testRevenueReward = new RevenueReward(address(0xF2), address(dustLock), user);
-        testRevenueReward2 = new RevenueReward(address(0xF3), address(dustLock), user);
-        testRevenueReward3 = new RevenueReward(address(0xF4), address(dustLock), user);
+        testRevenueReward = new RevenueReward(address(0xF2), dustLock, user, userVaultFactory);
+        testRevenueReward2 = new RevenueReward(address(0xF3), dustLock, user, userVaultFactory);
+        testRevenueReward3 = new RevenueReward(address(0xF4), dustLock, user, userVaultFactory);
 
         skip(1 hours);
 
