@@ -14,6 +14,7 @@ abstract contract BaseTestLocal is BaseTest {
     DustLock internal dustLock;
     RevenueReward internal revenueReward;
     MockERC20 internal mockUSDC;
+    MockERC20 internal mockERC20;
 
     address internal admin = address(0xad1);
     address internal user = address(this);
@@ -35,6 +36,7 @@ abstract contract BaseTestLocal is BaseTest {
 
         // deploy USDC
         mockUSDC = new MockERC20("USDC", "USDC", 6);
+        mockERC20 = new MockERC20("mERC20", "mERC20", 18);
 
         // deploy DustLock
         string memory baseUrl = "https://neverland.money/nfts/";
