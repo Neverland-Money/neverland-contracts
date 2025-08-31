@@ -18,11 +18,13 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @notice Structure representing a locked token position
      * @dev Used to track the amount of tokens locked, when they unlock, and if they're permanently locked
      * @param amount Amount of tokens locked in int256 format for consistency with precision calculations
+     * @param effectiveStart Effective start time for penalty calculations (weighted average on lock operations)
      * @param end Timestamp when tokens unlock (0 for permanent locks)
      * @param isPermanent Whether this is a permanent lock that cannot be withdrawn normally
      */
     struct LockedBalance {
         int256 amount;
+        uint256 effectiveStart;
         uint256 end;
         bool isPermanent;
     }
@@ -98,6 +100,9 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
 
     /// @notice Error thrown when the lock duration is less than the minimum required time
     error LockDurationTooShort();
+
+    /// @notice Error thrown when trying to depositFor to a lock expiring within MINTIME
+    error DepositForLockDurationTooShort();
 
     /// @notice Error thrown when trying to perform an operation on an expired lock
     error LockExpired();
