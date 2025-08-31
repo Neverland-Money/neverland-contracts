@@ -1115,6 +1115,73 @@ contract DustLockTests is BaseTest {
         emit log("[penalty] Expired lock: zero penalty confirmed");
     }
 
+    /* ============= SYSTEM DISCOUNT ============= */
+
+    function testWeightedAveragePenaltyDiscount() public {
+        // Test showing that merged penalty < sum of separate penalties due to weighted averaging
+        dustLock.setEarlyWithdrawTreasury(user2);
+
+        // Create initial lock: 1,000,000 DUST, then add 500,000 DUST at halfway point
+        mintErc20Token(address(DUST), user, TOKEN_1M + TOKEN_1M / 2);
+        DUST.approve(address(dustLock), TOKEN_1M + TOKEN_1M / 2);
+
+        uint256 tokenId = dustLock.createLock(TOKEN_1M, MAXTIME);
+        skipAndRoll(MAXTIME / 2);
+        dustLock.increaseAmount(tokenId, TOKEN_1M / 2);
+
+        IDustLock.LockedBalance memory lockedBalance = dustLock.locked(tokenId);
+        uint256 treasuryBefore = DUST.balanceOf(user2);
+
+        // Calculate what separate penalties would be based on actual values:
+        // Old tranche: (1,000,000 * 5,000 * remainingTime) / (10,000 * originalLockTime)
+        // New tranche: (500,000 * 5,000 * remainingTime) / (10,000 * remainingTime) = 50% of 500K
+        uint256 remainingTime = 32054400 - block.timestamp;
+        uint256 oldTranchePenalty = (TOKEN_1M * 5000 * remainingTime) / (BASIS_POINTS * 31449599);
+        uint256 newTranchePenalty = TOKEN_1M / 2 / 2; // 50% of 500K DUST
+        uint256 expectedSeparatePenalties = oldTranchePenalty + newTranchePenalty;
+
+        dustLock.earlyWithdraw(tokenId);
+        uint256 actualPenalty = DUST.balanceOf(user2) - treasuryBefore;
+
+        emit log_named_uint("[discount] Actual penalty", actualPenalty);
+        emit log_named_uint("[discount] Separate penalties would be", expectedSeparatePenalties);
+        emit log_named_uint("[discount] Weighted start", lockedBalance.effectiveStart);
+        emit log_named_uint("[discount] Discount amount", expectedSeparatePenalties - actualPenalty);
+
+        // Verify weighted average penalty is less than separate penalties would be
+        assertLt(actualPenalty, expectedSeparatePenalties);
+        assertEq(lockedBalance.effectiveStart, 5860801);
+    }
+
+    function testTinyLockNoGamingBenefit() public {
+        // Test showing that tiny aged locks provide negligible benefit for large deposits
+        dustLock.setEarlyWithdrawTreasury(user2);
+
+        // Create tiny lock, age it 300 days, add massive amount
+        mintErc20Token(address(DUST), user, TOKEN_1K + TOKEN_1M);
+        DUST.approve(address(dustLock), TOKEN_1K + TOKEN_1M);
+
+        uint256 tokenId = dustLock.createLock(TOKEN_1K, MAXTIME);
+        skipAndRoll(300 days);
+        dustLock.increaseAmount(tokenId, TOKEN_1M);
+
+        IDustLock.LockedBalance memory lockedBalance = dustLock.locked(tokenId);
+        uint256 treasuryBefore = DUST.balanceOf(user2);
+
+        dustLock.earlyWithdraw(tokenId);
+        uint256 actualPenalty = DUST.balanceOf(user2) - treasuryBefore;
+
+        emit log_named_uint("[gaming] Weighted start", lockedBalance.effectiveStart);
+        emit log_named_uint("[gaming] Actual penalty", actualPenalty);
+        emit log_named_uint("[gaming] Fresh 1M would pay", TOKEN_1M / 2);
+        emit log_named_uint("[gaming] Benefit", TOKEN_1M / 2 - actualPenalty);
+
+        // Verify tiny lock provides negligible gaming benefit
+        assertEq(lockedBalance.effectiveStart, 26498906);
+        assertEq(actualPenalty, 498167093601397103479906);
+        assertLt(TOKEN_1M / 2 - actualPenalty, TOKEN_1M / 500); // <0.2% benefit
+    }
+
     /* ============= REENTRANCY PROTECTION ============= */
 
     function testReentrancyBlockedOnTransfer() public {
