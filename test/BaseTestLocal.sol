@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseTest.sol";
 import {IDustLock} from "../src/interfaces/IDustLock.sol";
+import {IUserVaultRegistry} from "../src/interfaces/IUserVaultRegistry.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
 import {Dust} from "../src/tokens/Dust.sol";
 import {DustLock} from "../src/tokens/DustLock.sol";
@@ -22,7 +23,9 @@ abstract contract BaseTestLocal is BaseTest {
     MockERC20 internal mockUSDC;
     MockERC20 internal mockERC20;
     IUserVaultFactory internal userVaultFactory;
+    IUserVaultRegistry internal userVaultRegistry;
 
+    address internal automation = address(0xad2);
     address internal admin = address(0xad1);
     address internal user = address(this);
     address internal user1 = address(0x1);
@@ -31,7 +34,7 @@ abstract contract BaseTestLocal is BaseTest {
     address internal user4 = address(0x4);
     address internal user5 = address(0x5);
 
-    function _testSetup() internal override {
+    function _testSetup() internal virtual override {
         // seed set up with initial time
         skip(1 weeks);
 
@@ -53,29 +56,33 @@ abstract contract BaseTestLocal is BaseTest {
         IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
 
         // user vault
-        UserVaultRegistry userVaultRegistry = new UserVaultRegistry();
+        userVaultRegistry = new UserVaultRegistry();
+        userVaultRegistry.setExecutor(automation);
 
         UserVault userVault = new UserVault(userVaultRegistry, aaveOracle);
         UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
         userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
 
         // deploy RevenueReward
-        emit log("here1");
         revenueReward = new RevenueReward(FORWARDER, dustLock, admin, userVaultFactory);
-        emit log("here2");
 
         // set RevenueReward to DustLock
         dustLock.setRevenueReward(revenueReward);
 
         // add log labels
-        vm.label(address(admin), "admin");
+        vm.label(automation, "automation");
+        vm.label(admin, "admin");
         vm.label(address(this), "user");
-        vm.label(address(user1), "user1");
-        vm.label(address(user2), "user2");
-        vm.label(address(user3), "user3");
-        vm.label(address(user4), "user4");
+        vm.label(user1, "user1");
+        vm.label(user2, "user2");
+        vm.label(user3, "user3");
+        vm.label(user4, "user4");
 
         vm.label(address(DUST), "DUST");
         vm.label(address(dustLock), "DustLock");
+        vm.label(address(aaveOracle), "AAVE Oracle");
+        vm.label(address(userVaultRegistry), "UserVaultRegistry");
+        vm.label(address(userVaultFactory), "UserVaultFactory");
+        vm.label(address(revenueReward), "RevenueReward");
     }
 }

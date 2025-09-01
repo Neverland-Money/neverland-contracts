@@ -10,8 +10,8 @@ import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 
 contract UserVault is IUserVault, Initializable {
-    IUserVaultRegistry userVaultRegistry;
-    IAaveOracle aaveOracle;
+    IUserVaultRegistry immutable userVaultRegistry;
+    IAaveOracle immutable aaveOracle;
     address user;
 
     /// @dev these properties are set to implementation contract
