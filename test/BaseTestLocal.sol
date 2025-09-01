@@ -52,16 +52,7 @@ abstract contract BaseTestLocal is BaseTest {
         string memory baseUrl = "https://neverland.money/nfts/";
         dustLock = new DustLock(FORWARDER, address(DUST), baseUrl);
 
-        // AAVE
-        IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
-
-        // user vault
-        userVaultRegistry = new UserVaultRegistry();
-        userVaultRegistry.setExecutor(automation);
-
-        UserVault userVault = new UserVault(userVaultRegistry, aaveOracle);
-        UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
-        userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
+        (userVaultRegistry, userVaultFactory) = _deployUserVault(ZERO_ADDRESS, automation);
 
         // deploy RevenueReward
         revenueReward = new RevenueReward(FORWARDER, dustLock, admin, userVaultFactory);
@@ -80,9 +71,24 @@ abstract contract BaseTestLocal is BaseTest {
 
         vm.label(address(DUST), "DUST");
         vm.label(address(dustLock), "DustLock");
-        vm.label(address(aaveOracle), "AAVE Oracle");
         vm.label(address(userVaultRegistry), "UserVaultRegistry");
         vm.label(address(userVaultFactory), "UserVaultFactory");
         vm.label(address(revenueReward), "RevenueReward");
+    }
+
+    function _deployUserVault(address _aaveOracleAddress, address _executor)
+        internal
+        returns (IUserVaultRegistry _userVaultRegistry, IUserVaultFactory _userVaultFactory)
+    {
+        // AAVE
+        IAaveOracle aaveOracle = IAaveOracle(_aaveOracleAddress);
+
+        // user vault
+        _userVaultRegistry = new UserVaultRegistry();
+        _userVaultRegistry.setExecutor(_executor);
+
+        UserVault userVault = new UserVault(_userVaultRegistry, aaveOracle);
+        UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
+        _userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
     }
 }

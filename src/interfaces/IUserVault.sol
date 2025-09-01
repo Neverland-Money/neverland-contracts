@@ -58,6 +58,13 @@ interface IUserVault {
     function repayDebt(address poolAddress, address debtToken, uint256 amount) external;
 
     /**
+     * @notice Returns a list of prices from a list of assets addresses
+     * @param assets The list of assets addresses
+     * @return The prices of the given assets
+     */
+    function getAssetsPrices(address[] calldata assets) external view returns (uint256[] memory);
+
+    /**
      * @notice Deposits collateral for a user into a lending pool.
      * @param poolAddress The address of the lending pool.
      * @param debtToken The address of the collateral token.

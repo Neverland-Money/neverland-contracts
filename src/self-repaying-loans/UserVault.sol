@@ -62,6 +62,10 @@ contract UserVault is IUserVault, Initializable {
         IPool(poolAddress).repay(debtToken, amount, 2, user);
     }
 
+    function getAssetsPrices(address[] calldata assets) external view returns (uint256[] memory) {
+        return aaveOracle.getAssetsPrices(assets);
+    }
+
     function depositCollateral(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
         IERC20(debtToken).approve(poolAddress, amount);
         IPool(poolAddress).supply(debtToken, amount, user, 0);

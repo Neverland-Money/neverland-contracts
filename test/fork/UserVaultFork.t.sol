@@ -4,9 +4,13 @@ pragma solidity 0.8.19;
 import "../BaseTestFork.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+
 import {IUserVault} from "../../src/interfaces/IUserVault.sol";
+import {IUserVaultFactory} from "../../src/interfaces/IUserVaultFactory.sol";
 
 contract UserVaultTest is BaseTestFork {
     function _setUp() internal override {
@@ -23,7 +27,7 @@ contract UserVaultTest is BaseTestFork {
     function testRepayDebt() public {
         return; // skip test
 
-        // fork
+        // chain data
         // uint256 MONAD_TESTNET_BLOCK_NUMBER = 30753577;
         address poolAddressProvider = 0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499;
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
@@ -46,5 +50,28 @@ contract UserVaultTest is BaseTestFork {
 
         // assert
         // expect no revert
+    }
+
+    function testAaveOracle() public {
+        return; // skip test
+
+        // chain data
+        address aaveOracleAddress = 0x58207F48394a02c933dec4Ee45feC8A55e9cdf38;
+        address USDT = 0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D;
+        address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
+
+        // arrange
+        (, IUserVaultFactory _userVaultFactory) = _deployUserVault(aaveOracleAddress, automation);
+        address _userVaultAddress = _userVaultFactory.getUserVault(poolUser);
+        IUserVault _userVault = IUserVault(_userVaultAddress);
+
+        // act
+        address[] memory assets = new address[](1);
+        assets[0] = USDT;
+
+        uint256[] memory prices = _userVault.getAssetsPrices(assets);
+
+        // assert
+        emit log_uint(prices[0]);
     }
 }
