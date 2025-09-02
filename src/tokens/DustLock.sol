@@ -730,15 +730,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
             newLocked.effectiveStart = block.timestamp;
         } else if (_depositType == DepositType.INCREASE_LOCK_AMOUNT || _depositType == DepositType.DEPOSIT_FOR_TYPE) {
             // Calculate weighted average start time to prevent gaming
-            uint256 oldAmount = _oldLocked.amount.toUint256();
-            uint256 totalAmount = oldAmount + _value;
-
-            // weightedStart = (oldAmount * oldStart + newAmount * currentTime) / totalAmount
-            uint256 oldWeightedTime = Math.mulDiv(oldAmount, _oldLocked.effectiveStart, 1);
-            uint256 newWeightedTime = Math.mulDiv(_value, block.timestamp, 1);
-            uint256 weightedStart = (oldWeightedTime + newWeightedTime) / totalAmount;
-
-            newLocked.effectiveStart = weightedStart;
+            // Use current time as start time for new deposit value
+            newLocked.effectiveStart = _calculateWeightedStart(
+                _oldLocked.amount.toUint256(), _oldLocked.effectiveStart, _value, block.timestamp
+            );
         }
 
         _locked[_tokenId] = newLocked;
@@ -767,6 +762,24 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function depositFor(uint256 _tokenId, uint256 _value) external override nonReentrant {
         _increaseAmountFor(_tokenId, _value, DepositType.DEPOSIT_FOR_TYPE);
+    }
+
+    /**
+     * @dev Calculates the weighted start time of two locks based on their amounts.
+     * @param _amountA Amount of DUST in the first lock.
+     * @param _startA Effective start time of the first lock.
+     * @param _amountB Amount of DUST in the second lock.
+     * @param _startB Effective start time of the second lock.
+     */
+    function _calculateWeightedStart(uint256 _amountA, uint256 _startA, uint256 _amountB, uint256 _startB)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 totalAmount = _amountA + _amountB;
+        uint256 oldWeightedTime = Math.mulDiv(_amountA, _startA, 1);
+        uint256 newWeightedTime = Math.mulDiv(_amountB, _startB, 1);
+        return (oldWeightedTime + newWeightedTime) / totalAmount;
     }
 
     /**
@@ -978,13 +991,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         newLockedTo.amount = oldLockedTo.amount + oldLockedFrom.amount;
 
         // Use weighted average to preserve time served from both locks
-        uint256 amountTo = oldLockedTo.amount.toUint256();
-        uint256 amountFrom = oldLockedFrom.amount.toUint256();
-        uint256 totalAmount = amountTo + amountFrom;
-
-        uint256 weightedTimeTo = Math.mulDiv(amountTo, oldLockedTo.effectiveStart, 1);
-        uint256 weightedTimeFrom = Math.mulDiv(amountFrom, oldLockedFrom.effectiveStart, 1);
-        newLockedTo.effectiveStart = (weightedTimeTo + weightedTimeFrom) / totalAmount;
+        newLockedTo.effectiveStart = _calculateWeightedStart(
+            oldLockedTo.amount.toUint256(),
+            oldLockedTo.effectiveStart,
+            oldLockedFrom.amount.toUint256(),
+            oldLockedFrom.effectiveStart
+        );
         newLockedTo.isPermanent = oldLockedTo.isPermanent;
         if (newLockedTo.isPermanent) {
             permanentLockBalance += oldLockedFrom.amount.toUint256();
