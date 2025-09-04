@@ -8,10 +8,8 @@ import {UserVault} from "./UserVault.sol";
 
 contract UserVaultFactory is IUserVaultFactory {
     address private userVaultBeacon;
-    // user address => user vault address
+    // user => UserVault
     mapping(address => address) private userVaults;
-
-    error UserVaultExists();
 
     constructor(address _userVaultBeacon) {
         CommonChecksLibrary.revertIfZeroAddress(_userVaultBeacon);
@@ -24,13 +22,17 @@ contract UserVaultFactory is IUserVaultFactory {
         address existingUserVault = userVaults[user];
         if (existingUserVault != address(0)) return existingUserVault;
 
+        address deployedUserVaultAddress = _createUserVault(user);
+        userVaults[user] = deployedUserVaultAddress;
+
+        return deployedUserVaultAddress;
+    }
+
+    function _createUserVault(address user) internal returns (address) {
         BeaconProxy userVaultBeaconProxy = new BeaconProxy(userVaultBeacon, "");
         UserVault deployedUserVault = UserVault(address(userVaultBeaconProxy));
         deployedUserVault.initialize(user);
 
-        address deployedUserVaultAddress = address(deployedUserVault);
-        userVaults[user] = deployedUserVaultAddress;
-
-        return deployedUserVaultAddress;
+        return address(deployedUserVault);
     }
 }
