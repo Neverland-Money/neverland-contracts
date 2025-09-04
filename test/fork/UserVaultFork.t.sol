@@ -57,7 +57,13 @@ contract UserVaultTest is BaseTestFork {
 
         // chain data
         address aaveOracleAddress = 0x58207F48394a02c933dec4Ee45feC8A55e9cdf38;
+
+        address USDC = 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea;
+        address WETH = 0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37;
+        address WBTC = 0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d;
+        address WMON = 0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701;
         address USDT = 0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D;
+
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
 
         // arrange
@@ -66,12 +72,20 @@ contract UserVaultTest is BaseTestFork {
         IUserVault _userVault = IUserVault(_userVaultAddress);
 
         // act
-        address[] memory assets = new address[](1);
-        assets[0] = USDT;
+        address[] memory assets = new address[](5);
+        assets[0] = USDC;
+        assets[1] = WETH;
+        assets[2] = WBTC;
+        assets[3] = WMON;
+        assets[4] = USDT;
 
         uint256[] memory prices = _userVault.getAssetsPrices(assets);
 
         // assert
-        emit log_uint(prices[0]);
+        emit log_named_uint("USDC", prices[0]);
+        emit log_named_uint("WETH", prices[1]);
+        emit log_named_uint("WBTC", prices[2]);
+        emit log_named_uint("WMON", prices[3]);
+        emit log_named_uint("USDT", prices[4]);
     }
 }
