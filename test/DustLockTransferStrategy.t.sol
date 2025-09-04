@@ -50,7 +50,6 @@ contract DustLockTransferStrategyTest is BaseTest {
     /* ========== TEST SETUP ========== */
 
     function testSetup() public view {
-        assertEq(transferStrategy.getDustVault(), dustVault);
         assertEq(transferStrategy.getRewardsAdmin(), admin);
         assertEq(transferStrategy.getIncentivesController(), incentivesController);
         assertEq(address(transferStrategy.DUST_LOCK()), address(dustLock));

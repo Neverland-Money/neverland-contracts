@@ -115,6 +115,18 @@ interface IRevenueReward {
     function rewardTokens(uint256 index) external view returns (address);
 
     /**
+     * @notice Returns the number of registered reward tokens
+     * @return The count of reward tokens
+     */
+    function rewardTokensLength() external view returns (uint256);
+
+    /**
+     * @notice Returns the full list of registered reward tokens
+     * @return tokens An array containing all reward token addresses
+     */
+    function getRewardTokens() external view returns (address[] memory tokens);
+
+    /**
      * @notice Returns the accumulated sum of all reward distributions for a specific token
      * @dev Used for internal reward accounting and distribution calculations
      *      This value increases each time new rewards are notified

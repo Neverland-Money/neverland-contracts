@@ -266,6 +266,16 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
+    function rewardTokensLength() external view override returns (uint256) {
+        return rewardTokens.length;
+    }
+
+    /// @inheritdoc IRevenueReward
+    function getRewardTokens() external view override returns (address[] memory tokens) {
+        return rewardTokens;
+    }
+
+    /// @inheritdoc IRevenueReward
     function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view override returns (address[] memory) {
         CommonChecksLibrary.revertIfInvalidRange(from, to);
         uint256 length = usersWithSelfRepayingLoan.length();
