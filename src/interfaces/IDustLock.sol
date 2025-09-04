@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
@@ -18,11 +18,13 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @notice Structure representing a locked token position
      * @dev Used to track the amount of tokens locked, when they unlock, and if they're permanently locked
      * @param amount Amount of tokens locked in int256 format for consistency with precision calculations
+     * @param effectiveStart Effective start time for penalty calculations (weighted average on lock operations)
      * @param end Timestamp when tokens unlock (0 for permanent locks)
      * @param isPermanent Whether this is a permanent lock that cannot be withdrawn normally
      */
     struct LockedBalance {
         int256 amount;
+        uint256 effectiveStart;
         uint256 end;
         bool isPermanent;
     }
@@ -99,6 +101,9 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /// @notice Error thrown when the lock duration is less than the minimum required time
     error LockDurationTooShort();
 
+    /// @notice Error thrown when trying to depositFor to a lock expiring within MINTIME
+    error DepositForLockDurationTooShort();
+
     /// @notice Error thrown when trying to perform an operation on an expired lock
     error LockExpired();
 
@@ -137,6 +142,9 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
 
     /// @notice Error thrown when trying to add a token that already has an owner
     error AlreadyOwned();
+
+    /// @notice Error thrown when setting a revenue reward contract that is not a deployed contract
+    error InvalidRevenueRewardContract();
 
     /**
      * @notice Emitted when tokens are deposited into the veNFT system
@@ -259,6 +267,48 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param cancelledTeam The proposed team address that was cancelled
      */
     event TeamProposalCancelled(address indexed currentTeam, address indexed cancelledTeam);
+
+    /**
+     * @notice Emitted when the early withdraw penalty is updated
+     * @param oldPenalty Previous penalty in basis points
+     * @param newPenalty New penalty in basis points
+     */
+    event EarlyWithdrawPenaltyUpdated(uint256 oldPenalty, uint256 newPenalty);
+
+    /**
+     * @notice Emitted when the early withdraw treasury address is updated
+     * @param oldTreasury Previous treasury address
+     * @param newTreasury New treasury address
+     */
+    event EarlyWithdrawTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+
+    /**
+     * @notice Emitted when the minimum lock amount is updated
+     * @param oldAmount Previous minimum lock amount
+     * @param newAmount New minimum lock amount
+     */
+    event MinLockAmountUpdated(uint256 oldAmount, uint256 newAmount);
+
+    /**
+     * @notice Emitted when the revenue reward contract is updated
+     * @param oldReward Previous revenue reward contract address
+     * @param newReward New revenue reward contract address
+     */
+    event RevenueRewardUpdated(address indexed oldReward, address indexed newReward);
+
+    /**
+     * @notice Emitted when the split permission is toggled for an account
+     * @param account Address whose permission is updated
+     * @param allowed Whether splitting is now allowed for the account
+     */
+    event SplitPermissionUpdated(address indexed account, bool allowed);
+
+    /**
+     * @notice Emitted when the base URI is updated
+     * @param oldBaseURI Previous base URI
+     * @param newBaseURI New base URI
+     */
+    event BaseURIUpdated(string oldBaseURI, string newBaseURI);
 
     // State variables
     /// @notice Address of Meta-tx Forwarder

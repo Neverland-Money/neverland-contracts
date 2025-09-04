@@ -50,7 +50,6 @@ contract DustLockTransferStrategyTest is BaseTest {
     /* ========== TEST SETUP ========== */
 
     function testSetup() public view {
-        assertEq(transferStrategy.getDustVault(), dustVault);
         assertEq(transferStrategy.getRewardsAdmin(), admin);
         assertEq(transferStrategy.getIncentivesController(), incentivesController);
         assertEq(address(transferStrategy.DUST_LOCK()), address(dustLock));
@@ -382,5 +381,34 @@ contract DustLockTransferStrategyTest is BaseTest {
         IDustLock.LockedBalance memory lockedBalance = dustLock.locked(tokenId);
         emit log_named_uint("[depositFor] Final locked amount", uint256(lockedBalance.amount));
         assertEq(lockedBalance.amount, 3e18);
+    }
+
+    function testPerformTransferWithDepositToSoonExpiringLock() public {
+        // Create a lock that will expire within MINTIME
+        vm.prank(dustVault);
+        DUST.approve(address(dustLock), TOKEN_1);
+        vm.prank(dustVault);
+        uint256 tokenId = dustLock.createLock(TOKEN_1, MINTIME + WEEK);
+
+        // Skip forward so the lock expires within MINTIME
+        skipAndRoll(WEEK + 1);
+
+        IDustLock.LockedBalance memory lockedBalance = dustLock.locked(tokenId);
+        emit log_named_uint("[transferStrategy] lock end timestamp", lockedBalance.end);
+        emit log_named_uint("[transferStrategy] current timestamp", block.timestamp);
+        emit log_named_uint("[transferStrategy] time until expiry", lockedBalance.end - block.timestamp);
+        emit log_named_uint("[transferStrategy] MINTIME", MINTIME);
+
+        // Try to deposit to the soon-expiring lock via emissions
+        vm.prank(incentivesController);
+        emit log("[transferStrategy] Expect revert: deposit to soon-expiring lock");
+        vm.expectRevert(IDustLock.DepositForLockDurationTooShort.selector);
+        transferStrategy.performTransfer(
+            dustVault, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            0, // lockTime
+            tokenId // tokenId
+        );
     }
 }

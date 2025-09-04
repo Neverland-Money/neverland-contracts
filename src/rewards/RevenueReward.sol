@@ -266,6 +266,16 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
+    function rewardTokensLength() external view override returns (uint256) {
+        return rewardTokens.length;
+    }
+
+    /// @inheritdoc IRevenueReward
+    function getRewardTokens() external view override returns (address[] memory tokens) {
+        return rewardTokens;
+    }
+
+    /// @inheritdoc IRevenueReward
     function getUsersWithSelfRepayingLoan(uint256 from, uint256 to) external view override returns (address[] memory) {
         CommonChecksLibrary.revertIfInvalidRange(from, to);
         uint256 length = usersWithSelfRepayingLoan.length();
@@ -313,7 +323,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         CommonChecksLibrary.revertIfZeroAddress(newRewardDistributor);
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
 
+        address old = rewardDistributor;
         rewardDistributor = newRewardDistributor;
+        emit RewardDistributorUpdated(old, newRewardDistributor);
     }
 
     /// @inheritdoc IRevenueReward
@@ -329,7 +341,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         nonReentrant
     {
         if (address(dustLock) != _msgSender()) {
-            if (dustLock.ownerOf(tokenId) != _msgSender()) revert NotOwner();
+            if (!dustLock.isApprovedOrOwner(_msgSender(), tokenId)) revert NotOwner();
         }
 
         address rewardsReceiver = _resolveRewardsReceiver(tokenId);

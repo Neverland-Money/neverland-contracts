@@ -18,6 +18,8 @@ abstract contract BaseTest is Script, Test {
     MockERC20 internal mockUSDC;
     MockERC20 internal mockERC20;
 
+    uint256 constant BASIS_POINTS = 10000;
+
     uint256 constant USDC_1_UNIT = 1; // 1/100th of a cent
     uint256 constant USDC_1_CENT = 10000; // 0.01 USDC
     uint256 constant USDC_1 = 1e6;
