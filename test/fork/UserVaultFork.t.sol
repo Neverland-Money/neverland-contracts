@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "../BaseTestFork.sol";
+import "../BaseTestMonadTestnetFork.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -12,7 +12,7 @@ import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 import {IUserVault} from "../../src/interfaces/IUserVault.sol";
 import {IUserVaultFactory} from "../../src/interfaces/IUserVaultFactory.sol";
 
-contract UserVaultTest is BaseTestFork {
+contract UserVaultTest is BaseTestMonadTestnetFork {
     function _setUp() internal override {
         // mint ethereum
         address[] memory usersToMintEth = new address[](1);
