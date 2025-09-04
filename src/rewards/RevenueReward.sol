@@ -313,7 +313,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         CommonChecksLibrary.revertIfZeroAddress(newRewardDistributor);
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
 
+        address old = rewardDistributor;
         rewardDistributor = newRewardDistributor;
+        emit RewardDistributorUpdated(old, newRewardDistributor);
     }
 
     /// @inheritdoc IRevenueReward
@@ -329,7 +331,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         nonReentrant
     {
         if (address(dustLock) != _msgSender()) {
-            if (dustLock.ownerOf(tokenId) != _msgSender()) revert NotOwner();
+            if (!dustLock.isApprovedOrOwner(_msgSender(), tokenId)) revert NotOwner();
         }
 
         address rewardsReceiver = _resolveRewardsReceiver(tokenId);

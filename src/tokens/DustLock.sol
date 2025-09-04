@@ -130,8 +130,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                              METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    string public constant name = "veNFT";
-    string public constant symbol = "veNFT";
+    string public constant name = "Voting Escrow DUST";
+    string public constant symbol = "veDUST";
     string public constant version = "2.0.0";
 
     string internal baseURI;
@@ -145,7 +145,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function setBaseURI(string memory newBaseURI) external override {
         if (_msgSender() != team) revert NotTeam();
+        string memory old = baseURI;
         baseURI = newBaseURI;
+        emit BaseURIUpdated(old, newBaseURI);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -777,9 +779,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         returns (uint256)
     {
         uint256 totalAmount = _amountA + _amountB;
-        uint256 oldWeightedTime = Math.mulDiv(_amountA, _startA, 1);
-        uint256 newWeightedTime = Math.mulDiv(_amountB, _startB, 1);
-        return (oldWeightedTime + newWeightedTime) / totalAmount;
+        uint256 numerator = _amountA * _startA + _amountB * _startB;
+        return numerator / totalAmount;
     }
 
     /**
@@ -891,9 +892,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Both can have >= 0 amount
         _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, 0, false));
 
-        IERC20(token).safeTransfer(sender, value);
+        IERC20(token).safeTransfer(owner, value);
 
-        emit Withdraw(sender, _tokenId, value, block.timestamp);
+        emit Withdraw(owner, _tokenId, value, block.timestamp);
         emit Supply(supplyBefore, supply);
     }
 
@@ -946,10 +947,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Both can have >= 0 amount
         _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, 0, false));
 
-        IERC20(token).safeTransfer(sender, userTransferAmount);
+        IERC20(token).safeTransfer(owner, userTransferAmount);
         IERC20(token).safeTransfer(earlyWithdrawTreasury, treasuryTransferAmount);
 
-        emit EarlyWithdraw(sender, _tokenId, userLockedAmount, userTransferAmount, block.timestamp);
+        emit EarlyWithdraw(owner, _tokenId, userLockedAmount, userTransferAmount, block.timestamp);
         emit Supply(supplyBefore, supply);
     }
 
@@ -957,16 +958,20 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setEarlyWithdrawPenalty(uint256 _earlyWithdrawPenalty) external override nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         if (_earlyWithdrawPenalty >= BASIS_POINTS) revert InvalidWithdrawPenalty();
-
+        uint256 old = earlyWithdrawPenalty;
         earlyWithdrawPenalty = _earlyWithdrawPenalty;
+
+        emit EarlyWithdrawPenaltyUpdated(old, _earlyWithdrawPenalty);
     }
 
     /// @inheritdoc IDustLock
     function setEarlyWithdrawTreasury(address _account) external override nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAddress(_account);
-
+        address old = earlyWithdrawTreasury;
         earlyWithdrawTreasury = _account;
+
+        emit EarlyWithdrawTreasuryUpdated(old, _account);
     }
 
     /// @inheritdoc IDustLock
@@ -1094,6 +1099,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function toggleSplit(address _account, bool _bool) external override {
         if (_msgSender() != team) revert NotTeam();
         canSplit[_account] = _bool;
+        emit SplitPermissionUpdated(_account, _bool);
     }
 
     /// @inheritdoc IDustLock
@@ -1191,8 +1197,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setMinLockAmount(uint256 newMinLockAmount) public override {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAmount(newMinLockAmount);
-
+        uint256 old = minLockAmount;
         minLockAmount = newMinLockAmount;
+        emit MinLockAmountUpdated(old, newMinLockAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1204,7 +1211,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function setRevenueReward(IRevenueReward _revenueReward) public override {
         if (_msgSender() != team) revert NotTeam();
+        IRevenueReward old = revenueReward;
+        address newReward = address(_revenueReward);
+        // Allow disabling by setting to zero address; otherwise require a contract
+        if (newReward != address(0) && !_isContract(newReward)) revert InvalidRevenueRewardContract();
         revenueReward = _revenueReward;
+        emit RevenueRewardUpdated(address(old), newReward);
     }
 
     function _notifyAfterTokenTransferred(
