@@ -35,6 +35,15 @@ abstract contract BaseTest is Script, Test {
 
     uint256 constant PRECISION_TOLERANCE = 1; // 1 wei tolerance for rounding
 
+    address internal automation = address(0xad2);
+    address internal admin = address(0xad1);
+    address internal user = address(this);
+    address internal user1 = address(0x1);
+    address internal user2 = address(0x2);
+    address internal user3 = address(0x3);
+    address internal user4 = address(0x4);
+    address internal user5 = address(0x5);
+
     function setUp() public virtual {
         _testSetup();
         _setUp();

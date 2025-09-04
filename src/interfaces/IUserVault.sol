@@ -16,6 +16,11 @@ interface IUserVault {
     error NotExecutor();
 
     /**
+     * @notice Emitted when swap is failed.
+     */
+    error SwapFailed();
+
+    /**
      * @notice Initializes the UserVault for a specific user.
      * @param _user The address of the user owning this vault.
      */
@@ -47,22 +52,8 @@ interface IUserVault {
      * @param aggregatorData The calldata required by the aggregator contract for the swap execution.
      * @param slippage The maximum acceptable slippage (in basis points or aggregator-specific format) for the swap transaction.
      */
-    function swap(address token, address aggregator, bytes calldata aggregatorData, uint256 slippage) external;
-
-    /**
-     * @notice Repays debt for a given pool with a specified token and amount.
-     * @param poolAddress The address of the lending pool.
-     * @param debtToken The address of the token to repay.
-     * @param amount The amount of the token to repay.
-     */
-    function repayDebt(address poolAddress, address debtToken, uint256 amount) external;
-
-    /**
-     * @notice Returns a list of prices from a list of assets addresses
-     * @param assets The list of assets addresses
-     * @return The prices of the given assets
-     */
-    function getAssetsPrices(address[] calldata assets) external view returns (uint256[] memory);
+    function swapAndVerifySlippage(address token, address aggregator, bytes calldata aggregatorData, uint256 slippage)
+        external;
 
     /**
      * @notice Deposits collateral for a user into a lending pool.

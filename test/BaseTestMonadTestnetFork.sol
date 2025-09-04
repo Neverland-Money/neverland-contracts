@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {BaseTestLocal} from "./BaseTestLocal.sol";
+import {BaseTest} from "./BaseTest.sol";
 
-abstract contract BaseTestMonadTestnetFork is BaseTestLocal {
+abstract contract BaseTestMonadTestnetFork is BaseTest {
     string internal MONAD_TESTNET_RPC_URL = "https://testnet-rpc.monad.xyz";
 
     function _testSetup() internal override {

@@ -2,19 +2,22 @@
 pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseTest.sol";
+
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+
 import {IDustLock} from "../src/interfaces/IDustLock.sol";
 import {IUserVaultRegistry} from "../src/interfaces/IUserVaultRegistry.sol";
+import {IUserVaultFactory} from "../src/interfaces/IUserVaultFactory.sol";
 import {RevenueReward} from "../src/rewards/RevenueReward.sol";
 import {Dust} from "../src/tokens/Dust.sol";
 import {DustLock} from "../src/tokens/DustLock.sol";
 import {MockERC20} from "./_utils/MockERC20.sol";
-import {IUserVaultFactory} from "../src/interfaces/IUserVaultFactory.sol";
 import {UserVaultFactory} from "../src/self-repaying-loans/UserVaultFactory.sol";
 import {UserVault} from "../src/self-repaying-loans/UserVault.sol";
 import {UserVaultRegistry} from "../src/self-repaying-loans/UserVaultRegistry.sol";
-import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 abstract contract BaseTestLocal is BaseTest {
     Dust internal DUST;
@@ -24,15 +27,6 @@ abstract contract BaseTestLocal is BaseTest {
     MockERC20 internal mockERC20;
     IUserVaultFactory internal userVaultFactory;
     IUserVaultRegistry internal userVaultRegistry;
-
-    address internal automation = address(0xad2);
-    address internal admin = address(0xad1);
-    address internal user = address(this);
-    address internal user1 = address(0x1);
-    address internal user2 = address(0x2);
-    address internal user3 = address(0x3);
-    address internal user4 = address(0x4);
-    address internal user5 = address(0x5);
 
     function _testSetup() internal virtual override {
         // seed set up with initial time
@@ -52,7 +46,16 @@ abstract contract BaseTestLocal is BaseTest {
         string memory baseUrl = "https://neverland.money/nfts/";
         dustLock = new DustLock(FORWARDER, address(DUST), baseUrl);
 
-        (userVaultRegistry, userVaultFactory) = _deployUserVault(ZERO_ADDRESS, automation);
+        // deploy UserVaultFactory
+        IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
+
+        // user vault
+        userVaultRegistry = new UserVaultRegistry();
+        userVaultRegistry.setExecutor(automation);
+
+        UserVault userVault = new UserVault(userVaultRegistry, aaveOracle);
+        UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
+        userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
 
         // deploy RevenueReward
         revenueReward = new RevenueReward(FORWARDER, dustLock, admin, userVaultFactory);
@@ -74,21 +77,5 @@ abstract contract BaseTestLocal is BaseTest {
         vm.label(address(userVaultRegistry), "UserVaultRegistry");
         vm.label(address(userVaultFactory), "UserVaultFactory");
         vm.label(address(revenueReward), "RevenueReward");
-    }
-
-    function _deployUserVault(address _aaveOracleAddress, address _executor)
-        internal
-        returns (IUserVaultRegistry _userVaultRegistry, IUserVaultFactory _userVaultFactory)
-    {
-        // AAVE
-        IAaveOracle aaveOracle = IAaveOracle(_aaveOracleAddress);
-
-        // user vault
-        _userVaultRegistry = new UserVaultRegistry();
-        _userVaultRegistry.setExecutor(_executor);
-
-        UserVault userVault = new UserVault(_userVaultRegistry, aaveOracle);
-        UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
-        _userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
     }
 }

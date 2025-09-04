@@ -4,13 +4,34 @@ pragma solidity 0.8.19;
 import "../BaseTestMonadTestnetFork.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 
 import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 
+import {UserVault} from "../../src/self-repaying-loans/UserVault.sol";
+import {UserVaultRegistry} from "../../src/self-repaying-loans/UserVaultRegistry.sol";
 import {IUserVault} from "../../src/interfaces/IUserVault.sol";
+import {IUserVaultRegistry} from "../../src/interfaces/IUserVaultRegistry.sol";
 import {IUserVaultFactory} from "../../src/interfaces/IUserVaultFactory.sol";
+import {UserVaultFactory} from "../../src/self-repaying-loans/UserVaultFactory.sol";
+
+// Exposes the internal functions as an external ones
+contract UserVaultHarness is UserVault {
+    constructor(IUserVaultRegistry _userVaultRegistry, IAaveOracle _aaveOracle)
+        UserVault(_userVaultRegistry, _aaveOracle)
+    {}
+
+    function exposed_getAssetsPrices(address[] calldata assets) external view returns (uint256[] memory) {
+        return _getAssetsPrices(assets);
+    }
+
+    function exposed_repayDebt(address poolAddress, address debtToken, uint256 amount) external {
+        return _repayDebt(poolAddress, debtToken, amount);
+    }
+}
 
 contract UserVaultTest is BaseTestMonadTestnetFork {
     function _setUp() internal override {
@@ -22,6 +43,8 @@ contract UserVaultTest is BaseTestMonadTestnetFork {
         ethAmountToMint[0] = 1 ether;
 
         mintETH(usersToMintEth, ethAmountToMint);
+
+        // deploy
     }
 
     function testRepayDebt() public {
@@ -36,17 +59,25 @@ contract UserVaultTest is BaseTestMonadTestnetFork {
         // address variableDebtUSDT = 0x20838Ac96e96049C844f714B58aaa0cb84414d60;
 
         // arrange
+        IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
+
+        IUserVaultRegistry _userVaultRegistry = new UserVaultRegistry();
+        _userVaultRegistry.setExecutor(automation);
+
+        UserVaultHarness _userVaultIml = new UserVaultHarness(_userVaultRegistry, aaveOracle);
+        UpgradeableBeacon _userVaultBeacon = new UpgradeableBeacon(address(_userVaultIml));
+        BeaconProxy _userVaultBeaconProxy = new BeaconProxy(address(_userVaultBeacon), "");
+        UserVaultHarness _userVault = UserVaultHarness(address(_userVaultBeaconProxy));
+        _userVault.initialize(poolUser);
+
+        mintErc20Token(USDT, address(_userVault), userDebtUSDTWei);
+
         IPoolAddressesProvider pap = IPoolAddressesProvider(poolAddressProvider);
         address poolAddress = pap.getPool();
 
-        address userVaultAddress = userVaultFactory.getUserVault(poolUser);
-        IUserVault userVault = IUserVault(userVaultAddress);
-
-        mintErc20Token(USDT, address(userVault), userDebtUSDTWei);
-
         // act
         vm.prank(automation);
-        userVault.repayDebt(poolAddress, USDT, userDebtUSDTWei);
+        _userVault.exposed_repayDebt(poolAddress, USDT, userDebtUSDTWei);
 
         // assert
         // expect no revert
@@ -67,9 +98,16 @@ contract UserVaultTest is BaseTestMonadTestnetFork {
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
 
         // arrange
-        (, IUserVaultFactory _userVaultFactory) = _deployUserVault(aaveOracleAddress, automation);
-        address _userVaultAddress = _userVaultFactory.getUserVault(poolUser);
-        IUserVault _userVault = IUserVault(_userVaultAddress);
+        IAaveOracle aaveOracle = IAaveOracle(aaveOracleAddress);
+
+        IUserVaultRegistry _userVaultRegistry = new UserVaultRegistry();
+        _userVaultRegistry.setExecutor(automation);
+
+        UserVaultHarness _userVaultIml = new UserVaultHarness(_userVaultRegistry, aaveOracle);
+        UpgradeableBeacon _userVaultBeacon = new UpgradeableBeacon(address(_userVaultIml));
+        BeaconProxy _userVaultBeaconProxy = new BeaconProxy(address(_userVaultBeacon), "");
+        UserVaultHarness _userVault = UserVaultHarness(address(_userVaultBeaconProxy));
+        _userVault.initialize(poolUser);
 
         // act
         address[] memory assets = new address[](5);
@@ -79,7 +117,7 @@ contract UserVaultTest is BaseTestMonadTestnetFork {
         assets[3] = WMON;
         assets[4] = USDT;
 
-        uint256[] memory prices = _userVault.getAssetsPrices(assets);
+        uint256[] memory prices = _userVault.exposed_getAssetsPrices(assets);
 
         // assert
         emit log_named_uint("USDC", prices[0]);
