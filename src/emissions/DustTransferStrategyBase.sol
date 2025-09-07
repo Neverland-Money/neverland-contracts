@@ -18,8 +18,19 @@ import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 abstract contract DustTransferStrategyBase is IDustTransferStrategy {
     using GPv2SafeERC20 for IERC20;
 
+    /*//////////////////////////////////////////////////////////////
+                          STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev The incentives controller contract address
     address internal immutable INCENTIVES_CONTROLLER;
+
+    /// @dev The rewards admin address for administrative functions
     address internal immutable REWARDS_ADMIN;
+
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
 
     constructor(address incentivesController, address rewardsAdmin) {
         CommonChecksLibrary.revertIfZeroAddress(incentivesController);
@@ -28,6 +39,10 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
         INCENTIVES_CONTROLLER = incentivesController;
         REWARDS_ADMIN = rewardsAdmin;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                           ACCESS CONTROL
+    //////////////////////////////////////////////////////////////*/
 
     /// @dev Modifier for incentives controller only functions
     modifier onlyIncentivesController() {
@@ -41,6 +56,10 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
         _;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                VIEWS
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IDustTransferStrategy
     function getIncentivesController() external view override returns (address) {
         return INCENTIVES_CONTROLLER;
@@ -51,11 +70,19 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
         return REWARDS_ADMIN;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                         TRANSFER STRATEGY
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IDustTransferStrategy
     function performTransfer(address to, address reward, uint256 amount, uint256 lockTime, uint256 tokenId)
         external
         virtual
         returns (bool);
+
+    /*//////////////////////////////////////////////////////////////
+                               ADMIN
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustTransferStrategy
     function emergencyWithdrawal(address token, address to, uint256 amount) external onlyRewardsAdmin {
