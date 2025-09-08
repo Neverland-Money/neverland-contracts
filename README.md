@@ -5,6 +5,8 @@ A decentralized lending protocol built on Aave V3 with an advanced vote-escrow s
 ## Prerequisites
 
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Node.js](https://nodejs.org/) (v16 or later)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 
 ## Installation
 
@@ -14,20 +16,62 @@ git clone https://github.com/Neverland-Money/neverland-contracts.git
 cd neverland-contracts
 ```
 
-2. Install dependencies:
+2. Install Git submodules:
+```bash
+git submodule update --init --recursive
+```
+
+3. Install Foundry dependencies:
 ```bash
 forge install
 ```
 
-3. Build the contracts:
+4. Install Node.js dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+5. Build the contracts with Foundry:
 ```bash
 forge build
 ```
 
-4. Run tests:
+6. Compile contracts with Hardhat and generate TypeChain types:
+```bash
+npx hardhat compile
+```
+
+7. Run tests:
 ```bash
 forge test
 ```
+
+## Development Workflow
+
+### Foundry (Primary)
+```bash
+# Build contracts
+forge build
+
+# Run tests
+forge test
+
+# Run tests with verbose output
+forge test -vv
+```
+
+### Hardhat (TypeScript Support)
+```bash
+# Compile contracts and generate TypeChain types
+npx hardhat compile
+```
+
+### TypeChain Integration
+After running `npx hardhat compile`, TypeScript type definitions will be generated in the `typechain-types/` directory, providing full type safety for contract interactions. 
+
+Default typechain is `ethers-v6`, to choose `ethers-v5` specify `ETHERS_V5=true` env variable.
 
 ## Deployment
 

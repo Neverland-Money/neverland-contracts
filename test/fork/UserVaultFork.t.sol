@@ -98,7 +98,7 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
     }
 
     function testAaveOracle() public {
-        return; // skip test
+        // return; // skip test
 
         // chain data
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;

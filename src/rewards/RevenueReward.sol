@@ -100,7 +100,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         address sender = _msgSender();
         if (sender != dustLock.ownerOf(tokenId)) revert NotOwner();
 
-        address userVault = userVaultFactory.getUserVault(sender);
+        address userVault = userVaultFactory.getOrCreateUserVault(sender);
 
         tokenRewardReceiver[tokenId] = userVault;
         usersWithSelfRepayingLoan.add(sender);

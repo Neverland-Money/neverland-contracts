@@ -32,8 +32,8 @@ contract Dust is
 
         __ERC20_init("Dust", "DUST");
         __ERC20Pausable_init();
-        __ERC20Permit_init("Dust");
         __Ownable2Step_init();
+        __ERC20Permit_init("Dust");
         _transferOwnership(initialOwner);
     }
 

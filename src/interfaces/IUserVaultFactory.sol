@@ -13,5 +13,13 @@ interface IUserVaultFactory {
      * @param user The address of the user whose vault is being queried or created.
      * @return vault The address of the user's vault.
      */
-    function getUserVault(address user) external returns (address vault);
+    function getOrCreateUserVault(address user) external returns (address vault);
+
+    /**
+     * @notice Returns the vault address for a given user if it exists.
+     * @dev If the vault does not exist, returns address(0).
+     * @param user The address of the user whose vault is being queried or created.
+     * @return vault The address of the user's vault.
+     */
+    function getUserVault(address user) external view returns (address vault);
 }

@@ -18,7 +18,7 @@ contract UserVaultFactory is IUserVaultFactory, Initializable {
     IAaveOracle aaveOracle;
     IRevenueReward revenueReward;
 
-    // user => UserVault
+    // public to get a view getter
     mapping(address => address) private userVaults;
 
     function initialize(
@@ -38,7 +38,11 @@ contract UserVaultFactory is IUserVaultFactory, Initializable {
         revenueReward = _revenueReward;
     }
 
-    function getUserVault(address user) public returns (address) {
+    function getUserVault(address user) external view returns (address) {
+        return userVaults[user];
+    }
+
+    function getOrCreateUserVault(address user) external returns (address) {
         CommonChecksLibrary.revertIfZeroAddress(user);
 
         address existingUserVault = userVaults[user];

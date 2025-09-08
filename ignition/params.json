@@ -1,0 +1,12 @@
+{
+    "UserVaultModule": {
+        "aaveOracle": "0x406846114B2A9b65a8A2Ab702C2C57d27784dBA2",
+        "executor": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+        "rewardDistributor": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
+    },
+    "EmissionsModule": {
+        "rewardsAdmin": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+        "dustVault": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+        "emissionsManager": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
+    }
+  }

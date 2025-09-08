@@ -112,7 +112,7 @@ contract UserVault is IUserVault, Initializable {
      * @param aggregatorData The calldata required by the aggregator contract for the swap execution.
      */
     function _swap(address token, address aggregator, bytes calldata aggregatorData) internal {
-        if (userVaultRegistry.isSupportedAggregator(aggregator)) {
+        if (!userVaultRegistry.isSupportedAggregator(aggregator)) {
             revert AggregatorNotSupported();
         }
         IERC20(token).approve(aggregator, IERC20(token).balanceOf(address(this)));
