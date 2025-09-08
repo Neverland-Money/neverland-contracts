@@ -1,28 +1,42 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
+
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {IUserVaultRegistry} from "../interfaces/IUserVaultRegistry.sol";
 import {IUserVault} from "../interfaces/IUserVault.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
-import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 contract UserVault is IUserVault, Initializable {
-    IUserVaultRegistry immutable userVaultRegistry;
-    IAaveOracle immutable aaveOracle;
+    IUserVaultRegistry userVaultRegistry;
+    IAaveOracle aaveOracle;
+    IRevenueReward revenueReward;
     address user;
 
-    /// @dev these properties are set to implementation contract
-    constructor(IUserVaultRegistry _userVaultRegistry, IAaveOracle _aaveOracle) {
-        userVaultRegistry = _userVaultRegistry;
-        aaveOracle = _aaveOracle;
+    constructor() {
         _disableInitializers();
     }
 
-    /// @dev these properties are set to proxy contract
-    function initialize(address _user) external initializer {
+    function initialize(
+        IUserVaultRegistry _userVaultRegistry,
+        IAaveOracle _aaveOracle,
+        IRevenueReward _revenueReward,
+        address _user
+    ) external initializer {
+        CommonChecksLibrary.revertIfZeroAddress(address(_userVaultRegistry));
+        CommonChecksLibrary.revertIfZeroAddress(address(_aaveOracle));
+        CommonChecksLibrary.revertIfZeroAddress(address(_revenueReward));
+        CommonChecksLibrary.revertIfZeroAddress(_user);
+
+        userVaultRegistry = _userVaultRegistry;
+        aaveOracle = _aaveOracle;
+        revenueReward = _revenueReward;
         user = _user;
     }
 
@@ -34,12 +48,27 @@ contract UserVault is IUserVault, Initializable {
         address[] calldata aggregatorAddress,
         bytes[] calldata aggregatorData
     ) public onlyExecutor {
+        // basic checks
+        CommonChecksLibrary.revertIfZeroAddress(debtToken);
+        CommonChecksLibrary.revertIfZeroAddress(poolAddress);
+        if (tokenIds.length != rewardTokens.length) revert CommonChecksLibrary.ArraysLengthDoNotMatch();
+        if (aggregatorAddress.length != aggregatorData.length) revert CommonChecksLibrary.ArraysLengthDoNotMatch();
+
+        //        // get rewards
+        //        uint256 swappedAmount;
+        //        for (uint256 i = 0; i < tokenIds.length; i++) {
+        //            IRevenueReward rewardContract = IRevenueReward(rewardTokens[i]);
+        //            rewardContract.getReward(tokenIds[i]);
+        //        }
+
         // TODO: implement
         // TODO: get user tokens on-chain, check which ones are self repaying
         // getReward(tokenIds, rewardTokens);
         // swappedAmount = 9;
         // loop: swappedAmount += swap(debtToken, address, aggregatorData, 1_000)
         // repayDebt(poolAddress, debtToken, swappedAmount)
+        // event to show RepaySelfContract
+        // maybe add storage
     }
 
     function swapAndVerifySlippage(address token, address aggregator, bytes calldata aggregatorData, uint256 slippage)

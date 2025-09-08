@@ -36,9 +36,8 @@ abstract contract BaseTestLocal is BaseTest {
         Dust dustImpl = new Dust();
         TransparentUpgradeableProxy dustProxy = new TransparentUpgradeableProxy(address(dustImpl), address(admin), "");
         DUST = Dust(address(dustProxy));
-        DUST.initialize(admin);
 
-        // deploy USDC
+        // deploy ERC20
         mockUSDC = new MockERC20("USDC", "USDC", 6);
         mockERC20 = new MockERC20("mERC20", "mERC20", 18);
 
@@ -46,21 +45,24 @@ abstract contract BaseTestLocal is BaseTest {
         string memory baseUrl = "https://neverland.money/nfts/";
         dustLock = new DustLock(FORWARDER, address(DUST), baseUrl);
 
-        // deploy UserVaultFactory
-        IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
+        // deploy UserVault
+        IAaveOracle aaveOracle = IAaveOracle(NON_ZERO_ADDRESS);
 
-        // user vault
         userVaultRegistry = new UserVaultRegistry();
         userVaultRegistry.setExecutor(automation);
 
-        UserVault userVault = new UserVault(userVaultRegistry, aaveOracle);
+        UserVault userVault = new UserVault();
         UpgradeableBeacon userVaultBeacon = new UpgradeableBeacon(address(userVault));
-        userVaultFactory = new UserVaultFactory(address(userVaultBeacon));
+        UserVaultFactory _userVaultFactory = new UserVaultFactory();
+        userVaultFactory = IUserVaultFactory(address(_userVaultFactory));
 
         // deploy RevenueReward
         revenueReward = new RevenueReward(FORWARDER, dustLock, admin, userVaultFactory);
 
-        // set RevenueReward to DustLock
+        // initializers
+        DUST.initialize(admin);
+        _userVaultFactory.initialize(address(userVaultBeacon), userVaultRegistry, aaveOracle, revenueReward);
+
         dustLock.setRevenueReward(revenueReward);
 
         // add log labels

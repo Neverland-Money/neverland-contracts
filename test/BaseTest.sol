@@ -26,6 +26,7 @@ abstract contract BaseTest is Script, Test {
 
     address internal FORWARDER = address(0xF0);
     address internal ZERO_ADDRESS = address(0);
+    address internal NON_ZERO_ADDRESS = address(0x64);
 
     uint256 constant MINTIME = 4 weeks;
     uint256 constant MAXTIME = 1 * 365 * 86400;

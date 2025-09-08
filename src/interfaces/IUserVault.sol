@@ -21,12 +21,6 @@ interface IUserVault {
     error SwapFailed();
 
     /**
-     * @notice Initializes the UserVault for a specific user.
-     * @param _user The address of the user owning this vault.
-     */
-    function initialize(address _user) external;
-
-    /**
      * @notice Repays a user's debt for a specified token on a lending pool,
      *         potentially using rewards or swapped collateral.
      * @param debtToken The address of the debt token to be repaid.

@@ -29,6 +29,9 @@ library CommonChecksLibrary {
     /// @notice Used when a user address is invalid.
     error InvalidUserAddress();
 
+    /// @notice Used arrays do not have the same length.
+    error ArraysLengthDoNotMatch();
+
     /**
      * @dev Reverts if the address is zero.
      * @param addressToCheck The address to check.

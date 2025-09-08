@@ -17,12 +17,13 @@ import {IUserVault} from "../../src/interfaces/IUserVault.sol";
 import {IUserVaultRegistry} from "../../src/interfaces/IUserVaultRegistry.sol";
 import {IUserVaultFactory} from "../../src/interfaces/IUserVaultFactory.sol";
 import {UserVaultFactory} from "../../src/self-repaying-loans/UserVaultFactory.sol";
+import {IRevenueReward} from "../../src/interfaces/IRevenueReward.sol";
+
+import {BaseTestLocal} from "../BaseTestLocal.sol";
 
 // Exposes the internal functions as an external ones
 contract UserVaultHarness is UserVault {
-    constructor(IUserVaultRegistry _userVaultRegistry, IAaveOracle _aaveOracle)
-        UserVault(_userVaultRegistry, _aaveOracle)
-    {}
+    constructor() UserVault() {}
 
     function exposed_getAssetsPrices(address[] calldata assets) external view returns (uint256[] memory) {
         return _getAssetsPrices(assets);
@@ -33,7 +34,22 @@ contract UserVaultHarness is UserVault {
     }
 }
 
-contract UserVaultTest is BaseTestMonadTestnetFork {
+contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
+    // testnet chain data
+    address poolAddressProvider = 0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499;
+    address aaveOracleAddress = 0x58207F48394a02c933dec4Ee45feC8A55e9cdf38;
+
+    address USDC = 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea;
+    address WETH = 0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37;
+    address WBTC = 0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d;
+    address WMON = 0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701;
+    address USDT = 0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D;
+
+    function _testSetup() internal override(BaseTestMonadTestnetFork, BaseTestLocal) {
+        BaseTestMonadTestnetFork._testSetup();
+        BaseTestLocal._testSetup();
+    }
+
     function _setUp() internal override {
         // mint ethereum
         address[] memory usersToMintEth = new address[](1);
@@ -52,10 +68,8 @@ contract UserVaultTest is BaseTestMonadTestnetFork {
 
         // chain data
         // uint256 MONAD_TESTNET_BLOCK_NUMBER = 30753577;
-        address poolAddressProvider = 0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499;
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
         uint256 userDebtUSDTWei = 8500000;
-        address USDT = 0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D;
         // address variableDebtUSDT = 0x20838Ac96e96049C844f714B58aaa0cb84414d60;
 
         // arrange
@@ -64,11 +78,11 @@ contract UserVaultTest is BaseTestMonadTestnetFork {
         IUserVaultRegistry _userVaultRegistry = new UserVaultRegistry();
         _userVaultRegistry.setExecutor(automation);
 
-        UserVaultHarness _userVaultIml = new UserVaultHarness(_userVaultRegistry, aaveOracle);
+        UserVaultHarness _userVaultIml = new UserVaultHarness();
         UpgradeableBeacon _userVaultBeacon = new UpgradeableBeacon(address(_userVaultIml));
         BeaconProxy _userVaultBeaconProxy = new BeaconProxy(address(_userVaultBeacon), "");
         UserVaultHarness _userVault = UserVaultHarness(address(_userVaultBeaconProxy));
-        _userVault.initialize(poolUser);
+        _userVault.initialize(_userVaultRegistry, aaveOracle, revenueReward, poolUser);
 
         mintErc20Token(USDT, address(_userVault), userDebtUSDTWei);
 
@@ -87,14 +101,6 @@ contract UserVaultTest is BaseTestMonadTestnetFork {
         return; // skip test
 
         // chain data
-        address aaveOracleAddress = 0x58207F48394a02c933dec4Ee45feC8A55e9cdf38;
-
-        address USDC = 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea;
-        address WETH = 0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37;
-        address WBTC = 0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d;
-        address WMON = 0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701;
-        address USDT = 0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D;
-
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
 
         // arrange
@@ -103,11 +109,11 @@ contract UserVaultTest is BaseTestMonadTestnetFork {
         IUserVaultRegistry _userVaultRegistry = new UserVaultRegistry();
         _userVaultRegistry.setExecutor(automation);
 
-        UserVaultHarness _userVaultIml = new UserVaultHarness(_userVaultRegistry, aaveOracle);
+        UserVaultHarness _userVaultIml = new UserVaultHarness();
         UpgradeableBeacon _userVaultBeacon = new UpgradeableBeacon(address(_userVaultIml));
         BeaconProxy _userVaultBeaconProxy = new BeaconProxy(address(_userVaultBeacon), "");
         UserVaultHarness _userVault = UserVaultHarness(address(_userVaultBeaconProxy));
-        _userVault.initialize(poolUser);
+        _userVault.initialize(_userVaultRegistry, aaveOracle, revenueReward, poolUser);
 
         // act
         address[] memory assets = new address[](5);
