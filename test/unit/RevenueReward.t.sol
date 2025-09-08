@@ -320,6 +320,18 @@ contract RevenueRewardsTest is BaseTestLocal {
         _addReward(admin, mockDAI, TOKEN_10K);
         _addReward(admin, mockUSDC, USDC_10K);
 
+        uint256 rewardTokensLength = revenueReward.rewardTokensLength();
+        address[] memory rts = revenueReward.getRewardTokens();
+
+        emit log_named_uint("[claim/subset] rewardTokensLength", rewardTokensLength);
+        emit log_named_array("[claim/subset] getRewardTokens", rts);
+
+        // Verify reward token views
+        assertEq(rewardTokensLength, 2);
+        assertEq(rts.length, 2);
+        assertArrayContainsAddr(rts, address(mockDAI));
+        assertArrayContainsAddr(rts, address(mockUSDC));
+
         // Skip to next epoch
         skipToNextEpoch(1);
 

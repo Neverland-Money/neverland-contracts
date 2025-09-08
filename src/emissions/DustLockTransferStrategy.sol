@@ -91,13 +91,4 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
         }
         return true;
     }
-
-    /**
-     * @notice Returns the address of the vault holding DUST rewards
-     * @dev This vault must approve this contract to transfer DUST tokens
-     * @return The address of the DUST_VAULT
-     */
-    function getDustVault() external view returns (address) {
-        return DUST_VAULT;
-    }
 }

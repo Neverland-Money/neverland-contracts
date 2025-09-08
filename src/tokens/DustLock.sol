@@ -8,6 +8,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {UD60x18, convert} from "@prb/math/src/UD60x18.sol";
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
@@ -129,8 +130,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                              METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    string public constant name = "veNFT";
-    string public constant symbol = "veNFT";
+    string public constant name = "Voting Escrow DUST";
+    string public constant symbol = "veDUST";
     string public constant version = "2.0.0";
 
     string internal baseURI;
@@ -144,7 +145,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function setBaseURI(string memory newBaseURI) external override {
         if (_msgSender() != team) revert NotTeam();
+        string memory old = baseURI;
         baseURI = newBaseURI;
+        emit BaseURIUpdated(old, newBaseURI);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -714,14 +717,27 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         // Set newLocked to _oldLocked without mangling memory
         LockedBalance memory newLocked;
-        (newLocked.amount, newLocked.end, newLocked.isPermanent) =
-            (_oldLocked.amount, _oldLocked.end, _oldLocked.isPermanent);
+        (newLocked.amount, newLocked.effectiveStart, newLocked.end, newLocked.isPermanent) =
+            (_oldLocked.amount, _oldLocked.effectiveStart, _oldLocked.end, _oldLocked.isPermanent);
 
         // Adding to existing lock, or if a lock is expired - creating a new one
         newLocked.amount += _value.toInt256();
         if (_unlockTime != 0) {
             newLocked.end = _unlockTime;
         }
+
+        // Set effective start time based on deposit type
+        if (_depositType == DepositType.CREATE_LOCK_TYPE) {
+            // Set effective start time to current block timestamp for new locks
+            newLocked.effectiveStart = block.timestamp;
+        } else if (_depositType == DepositType.INCREASE_LOCK_AMOUNT || _depositType == DepositType.DEPOSIT_FOR_TYPE) {
+            // Calculate weighted average start time to prevent gaming
+            // Use current time as start time for new deposit value
+            newLocked.effectiveStart = _calculateWeightedStart(
+                _oldLocked.amount.toUint256(), _oldLocked.effectiveStart, _value, block.timestamp
+            );
+        }
+
         _locked[_tokenId] = newLocked;
 
         // Possibilities:
@@ -742,12 +758,29 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
     /// @inheritdoc IDustLock
     function checkpoint() external override nonReentrant {
-        _checkpoint(0, LockedBalance(0, 0, false), LockedBalance(0, 0, false));
+        _checkpoint(0, LockedBalance(0, 0, 0, false), LockedBalance(0, 0, 0, false));
     }
 
     /// @inheritdoc IDustLock
     function depositFor(uint256 _tokenId, uint256 _value) external override nonReentrant {
         _increaseAmountFor(_tokenId, _value, DepositType.DEPOSIT_FOR_TYPE);
+    }
+
+    /**
+     * @dev Calculates the weighted start time of two locks based on their amounts.
+     * @param _amountA Amount of DUST in the first lock.
+     * @param _startA Effective start time of the first lock.
+     * @param _amountB Amount of DUST in the second lock.
+     * @param _startB Effective start time of the second lock.
+     */
+    function _calculateWeightedStart(uint256 _amountA, uint256 _startA, uint256 _amountB, uint256 _startB)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 totalAmount = _amountA + _amountB;
+        uint256 numerator = _amountA * _startA + _amountB * _startB;
+        return numerator / totalAmount;
     }
 
     /**
@@ -800,6 +833,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (oldLocked.amount <= 0) revert NoLockFound();
         if (oldLocked.end <= block.timestamp && !oldLocked.isPermanent) revert LockExpired();
 
+        // Prevent depositFor to locks expiring within MINTIME
+        if (_depositType == DepositType.DEPOSIT_FOR_TYPE && !oldLocked.isPermanent) {
+            if (oldLocked.end < block.timestamp + MINTIME) revert DepositForLockDurationTooShort();
+        }
+
         if (oldLocked.isPermanent) permanentLockBalance += _value;
         _depositFor(_tokenId, _value, 0, oldLocked, _depositType);
 
@@ -845,18 +883,18 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _burn(_tokenId);
         _notifyAfterTokenBurned(_tokenId, owner, sender);
 
-        _locked[_tokenId] = LockedBalance(0, 0, false);
+        _locked[_tokenId] = LockedBalance(0, 0, 0, false);
         uint256 supplyBefore = supply;
         supply = supplyBefore - value;
 
         // oldLocked can have either expired <= timestamp or zero end
         // oldLocked has only 0 end
         // Both can have >= 0 amount
-        _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, false));
+        _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, 0, false));
 
-        IERC20(token).safeTransfer(sender, value);
+        IERC20(token).safeTransfer(owner, value);
 
-        emit Withdraw(sender, _tokenId, value, block.timestamp);
+        emit Withdraw(owner, _tokenId, value, block.timestamp);
         emit Supply(supplyBefore, supply);
     }
 
@@ -878,24 +916,41 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _burn(_tokenId);
         _notifyAfterTokenBurned(_tokenId, owner, sender);
 
-        _locked[_tokenId] = LockedBalance(0, 0, false);
+        _locked[_tokenId] = LockedBalance(0, 0, 0, false);
         uint256 supplyBefore = supply;
         supply = supplyBefore - userLockedAmount;
 
-        // penaltyAmount = earlyWithdrawPenalty * _balanceOfNFTAt(_tokenId, block.timestamp) / userLockedAmount * userLockedAmount / BASIS_POINTS
-        uint256 userPenaltyAmount = earlyWithdrawPenalty * _balanceOfNFTAt(_tokenId, block.timestamp) / BASIS_POINTS;
+        // Calculate lock creation time and end time
+        uint256 effectiveStart = oldLocked.effectiveStart;
+        uint256 lockEndTime = oldLocked.end;
+
+        // Calculate penalty based on remaining time from effective start to end
+        // penaltyFactor = (lockEndTime - block.timestamp) / (lockEndTime - effectiveStart)
+        // userPenaltyAmount = earlyWithdrawPenalty * penaltyFactor * userLockedAmount / BASIS_POINTS
+        uint256 remainingTime = lockEndTime > block.timestamp ? lockEndTime - block.timestamp : 0;
+        uint256 totalLockTime = lockEndTime - effectiveStart;
+
+        uint256 userPenaltyAmount;
+        if (totalLockTime > 0 && remainingTime > 0) {
+            // penalty = amount * penalty * remainingTime / (BASIS_POINTS * totalLockTime)
+            userPenaltyAmount =
+                Math.mulDiv(userLockedAmount * earlyWithdrawPenalty, remainingTime, BASIS_POINTS * totalLockTime);
+        } else {
+            userPenaltyAmount = 0;
+        }
+
         uint256 userTransferAmount = userLockedAmount - userPenaltyAmount;
         uint256 treasuryTransferAmount = userPenaltyAmount;
 
         // oldLocked can have either expired <= timestamp or zero end
         // oldLocked has only 0 end
         // Both can have >= 0 amount
-        _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, false));
+        _checkpoint(_tokenId, oldLocked, LockedBalance(0, 0, 0, false));
 
-        IERC20(token).safeTransfer(sender, userTransferAmount);
+        IERC20(token).safeTransfer(owner, userTransferAmount);
         IERC20(token).safeTransfer(earlyWithdrawTreasury, treasuryTransferAmount);
 
-        emit EarlyWithdraw(sender, _tokenId, userLockedAmount, userTransferAmount, block.timestamp);
+        emit EarlyWithdraw(owner, _tokenId, userLockedAmount, userTransferAmount, block.timestamp);
         emit Supply(supplyBefore, supply);
     }
 
@@ -903,16 +958,20 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setEarlyWithdrawPenalty(uint256 _earlyWithdrawPenalty) external override nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         if (_earlyWithdrawPenalty >= BASIS_POINTS) revert InvalidWithdrawPenalty();
-
+        uint256 old = earlyWithdrawPenalty;
         earlyWithdrawPenalty = _earlyWithdrawPenalty;
+
+        emit EarlyWithdrawPenaltyUpdated(old, _earlyWithdrawPenalty);
     }
 
     /// @inheritdoc IDustLock
     function setEarlyWithdrawTreasury(address _account) external override nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAddress(_account);
-
+        address old = earlyWithdrawTreasury;
         earlyWithdrawTreasury = _account;
+
+        emit EarlyWithdrawTreasuryUpdated(old, _account);
     }
 
     /// @inheritdoc IDustLock
@@ -930,11 +989,19 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         address owner = _ownerOf(_from);
         _burn(_from);
-        _locked[_from] = LockedBalance(0, 0, false);
-        _checkpoint(_from, oldLockedFrom, LockedBalance(0, 0, false));
+        _locked[_from] = LockedBalance(0, 0, 0, false);
+        _checkpoint(_from, oldLockedFrom, LockedBalance(0, 0, 0, false));
 
         LockedBalance memory newLockedTo;
         newLockedTo.amount = oldLockedTo.amount + oldLockedFrom.amount;
+
+        // Use weighted average to preserve time served from both locks
+        newLockedTo.effectiveStart = _calculateWeightedStart(
+            oldLockedTo.amount.toUint256(),
+            oldLockedTo.effectiveStart,
+            oldLockedFrom.amount.toUint256(),
+            oldLockedFrom.effectiveStart
+        );
         newLockedTo.isPermanent = oldLockedTo.isPermanent;
         if (newLockedTo.isPermanent) {
             permanentLockBalance += oldLockedFrom.amount.toUint256();
@@ -983,8 +1050,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         // Zero out and burn old veNFT
         _burn(_from);
-        _locked[_from] = LockedBalance(0, 0, false);
-        _checkpoint(_from, newLocked, LockedBalance(0, 0, false));
+        _locked[_from] = LockedBalance(0, 0, 0, false);
+        _checkpoint(_from, newLocked, LockedBalance(0, 0, 0, false));
 
         // Create new veNFT using old balance - amount
         if (uint256(newLocked.amount - _splitAmount) < minLockAmount) revert AmountTooSmall();
@@ -1024,7 +1091,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function _createSplitNFT(address _to, LockedBalance memory _newLocked) private returns (uint256 _tokenId) {
         _tokenId = ++tokenId;
         _locked[_tokenId] = _newLocked;
-        _checkpoint(_tokenId, LockedBalance(0, 0, false), _newLocked);
+        _checkpoint(_tokenId, LockedBalance(0, 0, 0, false), _newLocked);
         _mint(_to, _tokenId);
     }
 
@@ -1032,6 +1099,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function toggleSplit(address _account, bool _bool) external override {
         if (_msgSender() != team) revert NotTeam();
         canSplit[_account] = _bool;
+        emit SplitPermissionUpdated(_account, _bool);
     }
 
     /// @inheritdoc IDustLock
@@ -1063,6 +1131,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         uint256 _amount = _newLocked.amount.toUint256();
         permanentLockBalance -= _amount;
+        _newLocked.effectiveStart = block.timestamp;
         _newLocked.end = ((block.timestamp + MAXTIME) / WEEK) * WEEK;
         _newLocked.isPermanent = false;
         _checkpoint(_tokenId, _locked[_tokenId], _newLocked);
@@ -1128,8 +1197,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setMinLockAmount(uint256 newMinLockAmount) public override {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAmount(newMinLockAmount);
-
+        uint256 old = minLockAmount;
         minLockAmount = newMinLockAmount;
+        emit MinLockAmountUpdated(old, newMinLockAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1141,7 +1211,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function setRevenueReward(IRevenueReward _revenueReward) public override {
         if (_msgSender() != team) revert NotTeam();
+        IRevenueReward old = revenueReward;
+        address newReward = address(_revenueReward);
+        // Allow disabling by setting to zero address; otherwise require a contract
+        if (newReward != address(0) && !_isContract(newReward)) revert InvalidRevenueRewardContract();
         revenueReward = _revenueReward;
+        emit RevenueRewardUpdated(address(old), newReward);
     }
 
     function _notifyAfterTokenTransferred(

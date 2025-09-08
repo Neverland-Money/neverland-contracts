@@ -35,6 +35,7 @@ abstract contract BaseTest is Script, Test {
     uint256 constant MIN_LOCK_AMOUNT = 1e18;
 
     uint256 constant PRECISION_TOLERANCE = 1; // 1 wei tolerance for rounding
+    uint256 constant BASIS_POINTS = 10000;
 
     address internal automation = address(0xad2);
     address internal admin = address(0xad1);
