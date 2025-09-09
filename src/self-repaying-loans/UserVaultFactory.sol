@@ -18,7 +18,7 @@ contract UserVaultFactory is IUserVaultFactory, Initializable {
     IAaveOracle aaveOracle;
     IRevenueReward revenueReward;
 
-    // public to get a view getter
+    // user => UserVault
     mapping(address => address) private userVaults;
 
     function initialize(
