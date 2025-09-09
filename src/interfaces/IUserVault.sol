@@ -29,26 +29,43 @@ interface IUserVault {
         address indexed user, address indexed userVault, address pool, address debtToken, uint256 amount
     );
 
+    // Structs
+
     /**
-     * @notice Repays a user's debt for a specified token on a lending pool,
-     *         potentially using rewards or swapped collateral.
+     * @notice Parameters for repaying a user's debt on a lending pool.
+     * @dev
+     * - tokenIds must belong to this user vault, otherwise the call reverts.
+     * - Set aggregatorAddress and aggregatorData only if a swap is required (e.g., swapping rewards to the debt token).
+     * - maxSlippageBps is expressed in basis points (1 bps = 0.01%).
      * @param debtToken The address of the debt token to be repaid.
      * @param poolAddress The address of the lending pool where the debt exists.
      * @param tokenIds List of token IDs involved in the operation.
-     * @param rewardToken A reward token addresses to claim before repayment.
-     * @param aggregatorAddress Swap aggregator address to use for asset conversion if needed.
-     * @param aggregatorData Call data for aggregator to perform swaps.
-     * @param maxSlippageBps Max slippage accepted.
+     * @param rewardToken The reward token to claim and optionally swap before repayment.
+     * @param rewardTokenAmountToSwap Amount of rewardToken to swap into the debt token.
+     * @param aggregatorAddress Swap aggregator address to use for asset conversion, if needed.
+     * @param aggregatorData Calldata for the aggregator to perform the swap.
+     * @param maxSlippageBps Maximum acceptable swap slippage in basis points.
      */
-    function repayUserDebt(
-        address debtToken,
-        address poolAddress,
-        uint256[] calldata tokenIds,
-        address rewardToken,
-        address aggregatorAddress,
-        bytes calldata aggregatorData,
-        uint256 maxSlippageBps
-    ) external;
+    struct RepayUserDebtParams {
+        address debtToken;
+        address poolAddress;
+        uint256[] tokenIds;
+        address rewardToken;
+        uint256 rewardTokenAmountToSwap;
+        address aggregatorAddress;
+        bytes aggregatorData;
+        uint256 maxSlippageBps;
+    }
+
+    // Public Functions
+
+    /**
+     * @notice Repays a user's debt for a specified token on a lending pool.
+     * @dev Optionally claims rewardToken and swaps it via the provided aggregator before repayment,
+     *      enforcing the specified maxSlippageBps. Reverts if tokenIds are not associated with this vault.
+     * @param params Structured parameters. See RepayUserDebtParams for details.
+     */
+    function repayUserDebt(RepayUserDebtParams calldata params) external;
 
     /**
      * @notice Deposits collateral for a user into a lending pool.

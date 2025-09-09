@@ -40,38 +40,35 @@ contract UserVault is IUserVault, Initializable {
         user = _user;
     }
 
-    function repayUserDebt(
-        address debtToken,
-        address poolAddress,
-        uint256[] calldata tokenIds,
-        address rewardToken,
-        address aggregatorAddress,
-        bytes calldata aggregatorData,
-        uint256 maxSlippageBps
-    ) public onlyExecutor {
+    function repayUserDebt(RepayUserDebtParams calldata params) public onlyExecutor {
         // basic checks
-        CommonChecksLibrary.revertIfZeroAddress(debtToken);
-        CommonChecksLibrary.revertIfZeroAddress(poolAddress);
+        CommonChecksLibrary.revertIfZeroAddress(params.debtToken);
+        CommonChecksLibrary.revertIfZeroAddress(params.poolAddress);
         // limit slippagePercent: read from registry value
 
         // get rewards
-        uint256 rewardTokenAmount = _getTokenIdsReward(tokenIds, rewardToken);
+        uint256 rewardTokenAmount = _getTokenIdsReward(params.tokenIds, params.rewardToken);
         if (rewardTokenAmount < 0) revert NegativeRewardAmount();
 
         // swap
-        uint256 debtTokenSwapAmount = _swap(rewardToken, aggregatorAddress, aggregatorData);
+        uint256 debtTokenSwapAmount =
+            _swap(params.rewardToken, params.rewardTokenAmountToSwap, params.aggregatorAddress, params.aggregatorData);
         if (debtTokenSwapAmount < 0) revert NegativeSwapAmount();
 
         // verify slippage
-        uint256[] memory tokenPricesInUSD_8dec = _getTokenPricesInUsd_8dec(rewardToken, debtToken);
+        uint256[] memory tokenPricesInUSD_8dec = _getTokenPricesInUsd_8dec(params.rewardToken, params.debtToken);
         _verifySlippage(
-            rewardTokenAmount, tokenPricesInUSD_8dec[0], debtTokenSwapAmount, tokenPricesInUSD_8dec[1], maxSlippageBps
+            params.rewardTokenAmountToSwap,
+            tokenPricesInUSD_8dec[0],
+            debtTokenSwapAmount,
+            tokenPricesInUSD_8dec[1],
+            params.maxSlippageBps
         );
 
         // repay
-        _repayDebt(poolAddress, debtToken, debtTokenSwapAmount);
+        _repayDebt(params.poolAddress, params.debtToken, debtTokenSwapAmount);
 
-        emit LoanSelfRepaid(user, address(this), poolAddress, debtToken, debtTokenSwapAmount);
+        emit LoanSelfRepaid(user, address(this), params.poolAddress, params.debtToken, debtTokenSwapAmount);
     }
 
     function depositCollateral(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
@@ -111,16 +108,20 @@ contract UserVault is IUserVault, Initializable {
     /**
      * @notice Swaps a specified token using a given aggregator contract.
      * @param tokenIn The address of the token to be swapped.
+     * @param tokenInAmount Amount needed to swap tokens.
      * @param aggregator The address of the swap aggregator contract to use for performing the swap.
      * @param aggregatorData The calldata required by the aggregator contract for the swap execution.
      */
-    function _swap(address tokenIn, address aggregator, bytes calldata aggregatorData) internal returns (uint256) {
+    function _swap(address tokenIn, uint256 tokenInAmount, address aggregator, bytes memory aggregatorData)
+        internal
+        returns (uint256)
+    {
         uint256 debtTokenBalanceBefore = _getErc20TokenBalance(tokenIn, address(this));
 
         if (!userVaultRegistry.isSupportedAggregator(aggregator)) {
             revert AggregatorNotSupported();
         }
-        IERC20(tokenIn).approve(aggregator, IERC20(tokenIn).balanceOf(address(this)));
+        IERC20(tokenIn).approve(aggregator, tokenInAmount);
         (bool success,) = aggregator.call(aggregatorData);
 
         if (!success) revert SwapFailed();
