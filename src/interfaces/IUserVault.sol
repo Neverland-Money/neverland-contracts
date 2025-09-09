@@ -5,20 +5,29 @@ pragma solidity 0.8.19;
 /// @notice Interface for the UserVault contract that manages user collateral, repayments, swaps, and recovery of tokens or ETH.
 /// @author
 interface IUserVault {
-    /**
-     * @notice Emitted when an aggregator is not supported.
-     */
+    // ERRORS
+
+    // @notice Emitted when an aggregator is not supported.
     error AggregatorNotSupported();
-
-    /**
-     * @notice Emitted when the caller is not the executor.
-     */
+    //  @notice Emitted when the caller is not the executor.
     error NotExecutor();
-
-    /**
-     * @notice Emitted when swap is failed.
-     */
+    // @notice Emitted when swap is failed.
     error SwapFailed();
+    // @notice Emitted the asset prices failed to be retrieved from oracle
+    error GettingAssetPriceFailed();
+    // @notice Emitted when getting a reward lowers balance.
+    error NegativeRewardAmount();
+    // @notice Emitted when swapping lowers the swapped token amount.
+    error NegativeSwapAmount();
+    // @notice Emitted when swapping slippage exceeded the max allowed.
+    error SlippageExceeded();
+    // @notice Emitted when tokenId belongs to a different user vault.
+    error InvalidUserVaultForToken();
+
+    // EVENTS
+    event LoanSelfRepaid(
+        address indexed user, address indexed userVault, address pool, address debtToken, uint256 amount
+    );
 
     /**
      * @notice Repays a user's debt for a specified token on a lending pool,
@@ -26,28 +35,20 @@ interface IUserVault {
      * @param debtToken The address of the debt token to be repaid.
      * @param poolAddress The address of the lending pool where the debt exists.
      * @param tokenIds List of token IDs involved in the operation.
-     * @param rewardTokens Array of reward token addresses to claim before repayment.
-     * @param aggregatorAddress Array of swap aggregator addresses to use for asset conversion if needed.
-     * @param aggregatorData Call data for each aggregator to perform swaps.
+     * @param rewardToken A reward token addresses to claim before repayment.
+     * @param aggregatorAddress Swap aggregator address to use for asset conversion if needed.
+     * @param aggregatorData Call data for aggregator to perform swaps.
+     * @param maxSlippageBps Max slippage accepted.
      */
     function repayUserDebt(
         address debtToken,
         address poolAddress,
         uint256[] calldata tokenIds,
-        address[] calldata rewardTokens,
-        address[] calldata aggregatorAddress,
-        bytes[] calldata aggregatorData
+        address rewardToken,
+        address aggregatorAddress,
+        bytes calldata aggregatorData,
+        uint256 maxSlippageBps
     ) external;
-
-    /**
-     * @notice Swaps a specified token using a given aggregator contract.
-     * @param token The address of the token to be swapped.
-     * @param aggregator The address of the swap aggregator contract to use for performing the swap.
-     * @param aggregatorData The calldata required by the aggregator contract for the swap execution.
-     * @param slippage The maximum acceptable slippage (in basis points or aggregator-specific format) for the swap transaction.
-     */
-    function swapAndVerifySlippage(address token, address aggregator, bytes calldata aggregatorData, uint256 slippage)
-        external;
 
     /**
      * @notice Deposits collateral for a user into a lending pool.

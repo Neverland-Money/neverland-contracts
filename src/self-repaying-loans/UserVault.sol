@@ -44,41 +44,34 @@ contract UserVault is IUserVault, Initializable {
         address debtToken,
         address poolAddress,
         uint256[] calldata tokenIds,
-        address[] calldata rewardTokens,
-        address[] calldata aggregatorAddress,
-        bytes[] calldata aggregatorData
+        address rewardToken,
+        address aggregatorAddress,
+        bytes calldata aggregatorData,
+        uint256 maxSlippageBps
     ) public onlyExecutor {
         // basic checks
         CommonChecksLibrary.revertIfZeroAddress(debtToken);
         CommonChecksLibrary.revertIfZeroAddress(poolAddress);
-        if (tokenIds.length != rewardTokens.length) revert CommonChecksLibrary.ArraysLengthDoNotMatch();
-        if (aggregatorAddress.length != aggregatorData.length) revert CommonChecksLibrary.ArraysLengthDoNotMatch();
+        // limit slippagePercent: read from registry value
 
-        //        // get rewards
-        //        uint256 swappedAmount;
-        //        for (uint256 i = 0; i < tokenIds.length; i++) {
-        //            IRevenueReward rewardContract = IRevenueReward(rewardTokens[i]);
-        //            rewardContract.getReward(tokenIds[i]);
-        //        }
+        // get rewards
+        uint256 rewardTokenAmount = _getTokenIdsReward(tokenIds, rewardToken);
+        if (rewardTokenAmount < 0) revert NegativeRewardAmount();
 
-        // TODO: implement
-        // TODO: get user tokens on-chain, check which ones are self repaying
-        // getReward(tokenIds, rewardTokens);
-        // swappedAmount = 9;
-        // loop: swappedAmount += swap(debtToken, address, aggregatorData, 1_000)
-        // repayDebt(poolAddress, debtToken, swappedAmount)
-        // event to show RepaySelfContract
-        // maybe add storage
-    }
+        // swap
+        uint256 debtTokenSwapAmount = _swap(rewardToken, aggregatorAddress, aggregatorData);
+        if (debtTokenSwapAmount < 0) revert NegativeSwapAmount();
 
-    function swapAndVerifySlippage(address token, address aggregator, bytes calldata aggregatorData, uint256 slippage)
-        public
-        onlyExecutor
-    {
-        _swap(token, aggregator, aggregatorData);
-        // TODO: implement
-        // check amount (slippage) using AAVE oracle
-        // IAaveOracle.getAssetsPrices()
+        // verify slippage
+        uint256[] memory tokenPricesInUSD_8dec = _getTokenPricesInUsd_8dec(rewardToken, debtToken);
+        _verifySlippage(
+            rewardTokenAmount, tokenPricesInUSD_8dec[0], debtTokenSwapAmount, tokenPricesInUSD_8dec[1], maxSlippageBps
+        );
+
+        // repay
+        _repayDebt(poolAddress, debtToken, debtTokenSwapAmount);
+
+        emit LoanSelfRepaid(user, address(this), poolAddress, debtToken, debtTokenSwapAmount);
     }
 
     function depositCollateral(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
@@ -94,31 +87,62 @@ contract UserVault is IUserVault, Initializable {
         payable(user).transfer(amount);
     }
 
-    // HELPER METHODS
+    /*//////////////////////////////////////////////////////////////
+                            HELPERS
+    //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Returns a list of prices from a list of assets addresses
-     * @param assets The list of assets addresses
-     * @return The prices of the given assets
-     */
-    function _getAssetsPrices(address[] calldata assets) internal view returns (uint256[] memory) {
-        return aaveOracle.getAssetsPrices(assets);
+    function _getTokenIdsReward(uint256[] memory tokenIds, address rewardToken) internal returns (uint256) {
+        uint256 rewardTokenTokenBalanceBefore = _getErc20TokenBalance(rewardToken, address(this));
+
+        address[] memory rewardTokens = new address[](1);
+        rewardTokens[0] = address(rewardToken);
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (revenueReward.tokenRewardReceiver(tokenIds[i]) != address(this)) {
+                revert InvalidUserVaultForToken();
+            }
+            revenueReward.getReward(tokenIds[i], rewardTokens);
+        }
+
+        uint256 rewardTokenTokenBalanceAfter = _getErc20TokenBalance(rewardToken, address(this));
+        uint256 rewardTokenAmount = rewardTokenTokenBalanceAfter - rewardTokenTokenBalanceBefore;
+        return rewardTokenAmount;
     }
 
     /**
      * @notice Swaps a specified token using a given aggregator contract.
-     * @param token The address of the token to be swapped.
+     * @param tokenIn The address of the token to be swapped.
      * @param aggregator The address of the swap aggregator contract to use for performing the swap.
      * @param aggregatorData The calldata required by the aggregator contract for the swap execution.
      */
-    function _swap(address token, address aggregator, bytes calldata aggregatorData) internal {
+    function _swap(address tokenIn, address aggregator, bytes calldata aggregatorData) internal returns (uint256) {
+        uint256 debtTokenBalanceBefore = _getErc20TokenBalance(tokenIn, address(this));
+
         if (!userVaultRegistry.isSupportedAggregator(aggregator)) {
             revert AggregatorNotSupported();
         }
-        IERC20(token).approve(aggregator, IERC20(token).balanceOf(address(this)));
+        IERC20(tokenIn).approve(aggregator, IERC20(tokenIn).balanceOf(address(this)));
         (bool success,) = aggregator.call(aggregatorData);
 
         if (!success) revert SwapFailed();
+
+        uint256 debtTokenBalanceAfter = _getErc20TokenBalance(tokenIn, address(this));
+        uint256 debtTokenSwapAmount = debtTokenBalanceAfter - debtTokenBalanceBefore;
+
+        return debtTokenSwapAmount;
+    }
+
+    /**
+     * @notice Returns a list of prices from a list of assets addresses
+     * @param token1 token1 address
+     * @param token2 token2 address
+     * @return The prices of the given assets
+     */
+    function _getTokenPricesInUsd_8dec(address token1, address token2) internal view returns (uint256[] memory) {
+        address[] memory tokens = new address[](2);
+        tokens[0] = token1;
+        tokens[1] = token2;
+
+        return aaveOracle.getAssetsPrices(tokens);
     }
 
     /**
@@ -132,7 +156,38 @@ contract UserVault is IUserVault, Initializable {
         IPool(poolAddress).repay(debtToken, amount, 2, user);
     }
 
-    // MODIFIERS
+    /**
+     * @notice Gets the balance of an ERC20 token for a specified account
+     * @param erc20Token The address of the ERC20 token
+     * @param account The address of the account to check balance for
+     * @return The balance of the ERC20 token for the specified account
+     */
+    function _getErc20TokenBalance(address erc20Token, address account) internal view returns (uint256) {
+        return IERC20(erc20Token).balanceOf(account);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            CALCULATIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function _verifySlippage(
+        uint256 desiredSwapAmountInTokenA,
+        uint256 tokenAUnitPriceInUSD_8dec,
+        uint256 actualSwapedAmountInTokenB,
+        uint256 tokenBUnitPriceInUSD_8dec,
+        uint256 maxAllowedSlippageBps
+    ) internal pure {
+        uint256 desiredSwapAmountInUsd = desiredSwapAmountInTokenA / 10e8 * tokenAUnitPriceInUSD_8dec;
+        uint256 actualSwapAmountInUsd = actualSwapedAmountInTokenB / 10e8 * tokenBUnitPriceInUSD_8dec;
+
+        uint256 actualSlippageBps = (desiredSwapAmountInUsd - actualSwapAmountInUsd) / desiredSwapAmountInUsd * 10_000;
+
+        if (actualSlippageBps < maxAllowedSlippageBps) revert SlippageExceeded();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                             MODIFIERS
+     //////////////////////////////////////////////////////////////*/
 
     modifier onlyExecutor() {
         if (!isExecutor(msg.sender)) {

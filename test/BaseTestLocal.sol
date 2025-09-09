@@ -18,6 +18,7 @@ import {MockERC20} from "./_utils/MockERC20.sol";
 import {UserVaultFactory} from "../src/self-repaying-loans/UserVaultFactory.sol";
 import {UserVault} from "../src/self-repaying-loans/UserVault.sol";
 import {UserVaultRegistry} from "../src/self-repaying-loans/UserVaultRegistry.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 abstract contract BaseTestLocal is BaseTest {
     Dust internal DUST;
@@ -34,7 +35,9 @@ abstract contract BaseTestLocal is BaseTest {
 
         // deploy DUST
         Dust dustImpl = new Dust();
-        TransparentUpgradeableProxy dustProxy = new TransparentUpgradeableProxy(address(dustImpl), address(admin), "");
+        ProxyAdmin proxyAdmin = new ProxyAdmin();
+        TransparentUpgradeableProxy dustProxy =
+            new TransparentUpgradeableProxy(address(dustImpl), address(proxyAdmin), "");
         DUST = Dust(address(dustProxy));
 
         // deploy ERC20

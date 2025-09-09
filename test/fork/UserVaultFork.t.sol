@@ -25,8 +25,8 @@ import {BaseTestLocal} from "../BaseTestLocal.sol";
 contract UserVaultHarness is UserVault {
     constructor() UserVault() {}
 
-    function exposed_getAssetsPrices(address[] calldata assets) external view returns (uint256[] memory) {
-        return _getAssetsPrices(assets);
+    function exposed_getAssetsPrices(address token1, address token2) external view returns (uint256[] memory) {
+        return _getTokenPricesInUsd_8dec(token1, token2);
     }
 
     function exposed_repayDebt(address poolAddress, address debtToken, uint256 amount) external {
@@ -123,13 +123,16 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         assets[3] = WMON;
         assets[4] = USDT;
 
-        uint256[] memory prices = _userVault.exposed_getAssetsPrices(assets);
+        uint256[] memory prices1 = _userVault.exposed_getAssetsPrices(USDC, WETH);
+        uint256[] memory prices2 = _userVault.exposed_getAssetsPrices(WBTC, WMON);
+        uint256[] memory prices3 = _userVault.exposed_getAssetsPrices(USDT, address(0));
 
         // assert
-        emit log_named_uint("USDC", prices[0]);
-        emit log_named_uint("WETH", prices[1]);
-        emit log_named_uint("WBTC", prices[2]);
-        emit log_named_uint("WMON", prices[3]);
-        emit log_named_uint("USDT", prices[4]);
+        emit log_named_uint("USDC", prices1[0]);
+        emit log_named_uint("WETH", prices1[1]);
+        emit log_named_uint("WBTC", prices2[0]);
+        emit log_named_uint("WMON", prices2[1]);
+        emit log_named_uint("USDT", prices3[0]);
+        emit log_named_uint("address(0)", prices3[1]);
     }
 }
