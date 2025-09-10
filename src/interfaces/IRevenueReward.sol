@@ -346,9 +346,8 @@ interface IRevenueReward {
      *      Access: callable only by the veNFT owner.
      *      Reverts: NotOwner, zero rewardReceiver.
      * @param tokenId The ID of the veNFT to configure self-repaying loan for
-     * @param rewardReceiver The address that will receive this veNFT's rewards
      */
-    function enableSelfRepayLoan(uint256 tokenId, address rewardReceiver) external;
+    function enableSelfRepayLoan(uint256 tokenId) external;
 
     /**
      * @notice Disables the self-repaying loan feature for a specific veNFT
@@ -364,9 +363,8 @@ interface IRevenueReward {
      * @notice Batch enable self-repaying loan with a single receiver for many tokenIds.
      * @dev Each tokenId must be owned by the caller. Reverts on zero rewardReceiver.
      * @param tokenIds Array of veNFT ids to configure.
-     * @param rewardReceiver The address that will receive rewards for all provided ids.
      */
-    function enableSelfRepayLoanBatch(uint256[] calldata tokenIds, address rewardReceiver) external;
+    function enableSelfRepayLoanBatch(uint256[] calldata tokenIds) external;
 
     /**
      * @notice Batch disable self-repaying loan for many tokenIds.

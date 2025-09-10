@@ -1271,18 +1271,22 @@ contract RevenueRewardsTest is BaseTestLocal {
         ids[0] = tokenId1;
         ids[1] = tokenId2;
 
+        vm.startPrank(user);
         vm.expectEmit(true, true, true, false, address(revenueReward));
         emit SelfRepayingLoanUpdate(tokenId1, user2, true);
         vm.expectEmit(true, true, true, false, address(revenueReward));
         emit SelfRepayingLoanUpdate(tokenId2, user2, true);
-        revenueReward.enableSelfRepayLoanBatch(ids, user2);
+        revenueReward.enableSelfRepayLoanBatch(ids);
+        vm.stopPrank();
+
+        address user_userVault = userVaultFactory.getUserVault(user);
 
         // claim to ensure routing works for both
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
         revenueReward.getReward(tokenId1, tokens);
         revenueReward.getReward(tokenId2, tokens);
-        assertGt(mockUSDC.balanceOf(user2), 0);
+        assertGt(mockUSDC.balanceOf(user_userVault), 0);
 
         // disable batch
         vm.expectEmit(true, true, true, false, address(revenueReward));

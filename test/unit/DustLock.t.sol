@@ -1571,7 +1571,7 @@ contract DustLockTests is BaseTestLocal {
         emit log_named_uint("[transfer] Created tokenId", tokenId);
 
         emit log("[transfer] Deploying malicious reward hook and setting it on DustLock");
-        MaliciousRevenueReward malicious = new MaliciousRevenueReward(address(dustLock), userVaultFactory);
+        MaliciousRevenueReward malicious = new MaliciousRevenueReward(dustLock, userVaultFactory);
         dustLock.setRevenueReward(malicious);
         emit log_named_address("[transfer] Malicious hook address", address(malicious));
 
@@ -1590,7 +1590,7 @@ contract DustLockTests is BaseTestLocal {
         emit log_named_uint("[burn] Created tokenId", tokenId);
 
         emit log("[burn] Deploying malicious reward hook and setting it on DustLock");
-        MaliciousRevenueReward malicious = new MaliciousRevenueReward(address(dustLock), userVaultFactory);
+        MaliciousRevenueReward malicious = new MaliciousRevenueReward(dustLock, userVaultFactory);
         dustLock.setRevenueReward(malicious);
         emit log_named_address("[burn] Malicious hook address", address(malicious));
 

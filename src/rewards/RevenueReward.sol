@@ -350,11 +350,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /// @inheritdoc IRevenueReward
-    function enableSelfRepayLoanBatch(uint256[] calldata tokenIds)
-        external
-        override
-        nonReentrant
-    {
+    function enableSelfRepayLoanBatch(uint256[] calldata tokenIds) external override nonReentrant {
         _validateTokenIdsArray(tokenIds.length);
 
         address sender = _msgSender();
