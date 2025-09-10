@@ -5,7 +5,7 @@ import "../BaseTestLocal.sol";
 
 contract RevenueRewardsTest is BaseTestLocal {
     // uses Mocks
-    function testSwapHittingSlippage() public {
+    function testVerifySlippage() public {
         // arrange
 
         // act

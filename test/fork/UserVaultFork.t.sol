@@ -2,24 +2,27 @@
 pragma solidity 0.8.19;
 
 import "../BaseTestMonadTestnetFork.sol";
-import {UserVaultHarness} from "../harness/UserVaultHarness.sol";
-
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
-
-import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
-import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
-import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
-
-import {UserVaultRegistry} from "../../src/self-repaying-loans/UserVaultRegistry.sol";
-import {IUserVaultRegistry} from "../../src/interfaces/IUserVaultRegistry.sol";
-import {IUserVaultFactory} from "../../src/interfaces/IUserVaultFactory.sol";
-import {IRevenueReward} from "../../src/interfaces/IRevenueReward.sol";
+import {HarnessFactory} from "../harness/HarnessFactory.sol";
 
 import {BaseTestLocal} from "../BaseTestLocal.sol";
+import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
+import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
+
+import {IRevenueReward} from "../../src/interfaces/IRevenueReward.sol";
+import {IUserVaultFactory} from "../../src/interfaces/IUserVaultFactory.sol";
+import {IUserVaultRegistry} from "../../src/interfaces/IUserVaultRegistry.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+
+import {UserVaultHarness} from "../harness/UserVaultHarness.sol";
+import {UserVaultRegistry} from "../../src/self-repaying-loans/UserVaultRegistry.sol";
 
 contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
+    HarnessFactory harnessFactory;
+
     // testnet chain data
     address poolAddressProvider = 0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499;
     address aaveOracleAddress = 0x58207F48394a02c933dec4Ee45feC8A55e9cdf38;
@@ -45,7 +48,7 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
 
         mintETH(usersToMintEth, ethAmountToMint);
 
-        // deploy
+        harnessFactory = new HarnessFactory();
     }
 
     function testRepayDebt() public {
@@ -58,16 +61,8 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         // address variableDebtUSDT = 0x20838Ac96e96049C844f714B58aaa0cb84414d60;
 
         // arrange
-        IAaveOracle aaveOracle = IAaveOracle(ZERO_ADDRESS);
-
-        IUserVaultRegistry _userVaultRegistry = new UserVaultRegistry();
-        _userVaultRegistry.setExecutor(automation);
-
-        UserVaultHarness _userVaultIml = new UserVaultHarness();
-        UpgradeableBeacon _userVaultBeacon = new UpgradeableBeacon(address(_userVaultIml));
-        BeaconProxy _userVaultBeaconProxy = new BeaconProxy(address(_userVaultBeacon), "");
-        UserVaultHarness _userVault = UserVaultHarness(address(_userVaultBeaconProxy));
-        _userVault.initialize(_userVaultRegistry, aaveOracle, revenueReward, poolUser);
+        (UserVaultHarness _userVault,,,) =
+            harnessFactory.createUserVaultHarness(poolUser, revenueReward, NON_ZERO_ADDRESS, automation);
 
         mintErc20Token(USDT, address(_userVault), userDebtUSDTWei);
 
@@ -89,16 +84,8 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
 
         // arrange
-        IAaveOracle aaveOracle = IAaveOracle(aaveOracleAddress);
-
-        IUserVaultRegistry _userVaultRegistry = new UserVaultRegistry();
-        _userVaultRegistry.setExecutor(automation);
-
-        UserVaultHarness _userVaultIml = new UserVaultHarness();
-        UpgradeableBeacon _userVaultBeacon = new UpgradeableBeacon(address(_userVaultIml));
-        BeaconProxy _userVaultBeaconProxy = new BeaconProxy(address(_userVaultBeacon), "");
-        UserVaultHarness _userVault = UserVaultHarness(address(_userVaultBeaconProxy));
-        _userVault.initialize(_userVaultRegistry, aaveOracle, revenueReward, poolUser);
+        (UserVaultHarness _userVault,,,) =
+            harnessFactory.createUserVaultHarness(poolUser, revenueReward, aaveOracleAddress, automation);
 
         // act
         address[] memory assets = new address[](5);
