@@ -120,12 +120,12 @@ contract UserVault is IUserVault, Initializable {
     }
 
     /// @inheritdoc IUserVault
-    function recoverERC20(address token, uint256 amount) public onlyExecutor {
+    function recoverERC20(address token, uint256 amount) public onlyExecutorOrUser {
         IERC20(token).transfer(user, amount);
     }
 
     /// @inheritdoc IUserVault
-    function recoverETH(uint256 amount) public onlyExecutor {
+    function recoverETH(uint256 amount) public onlyExecutorOrUser {
         payable(user).transfer(amount);
     }
 
@@ -215,13 +215,16 @@ contract UserVault is IUserVault, Initializable {
      //////////////////////////////////////////////////////////////*/
 
     modifier onlyExecutor() {
-        if (!isExecutor(msg.sender)) {
+        if (userVaultRegistry.executor() != msg.sender) {
             revert NotExecutor();
         }
         _;
     }
 
-    function isExecutor(address account) private view returns (bool) {
-        return userVaultRegistry.executor() == account;
+    modifier onlyExecutorOrUser() {
+        if (userVaultRegistry.executor() != msg.sender || user != msg.sender) {
+            revert CommonChecksLibrary.UnauthorizedAccess();
+        }
+        _;
     }
 }

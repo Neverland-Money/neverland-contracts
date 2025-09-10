@@ -4,30 +4,24 @@ pragma solidity 0.8.19;
 library CommonChecksLibrary {
     /// @notice Used when a zero address is provided where not allowed.
     error AddressZero();
-
     /// @notice Used when a zero amount is provided where not allowed.
     error ZeroAmount();
-
     /// @notice Used when a range is invalid.
     error InvalidRange();
-
     /// @notice Used when two addresses are the same but must differ.
     error SameAddress();
-
     /// @notice Used when a balance is zero.
     error ZeroBalance();
-
     /// @notice Used when a tokenId is invalid.
     error InvalidTokenId();
-
     /// @notice Used when a from address is invalid.
     error InvalidFromAddress();
-
     /// @notice Used when a to address is invalid.
     error InvalidToAddress();
-
     /// @notice Used when a user address is invalid.
     error InvalidUserAddress();
+    /// @notice Used a function is called by an account that is not permitted.
+    error UnauthorizedAccess();
 
     /**
      * @dev Reverts if the address is zero.
