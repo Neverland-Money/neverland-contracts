@@ -42,7 +42,7 @@ contract UserVault is IUserVault, Initializable {
 
     /// @inheritdoc IUserVault
     function repayUserDebt(RepayUserDebtParams calldata params) public onlyExecutor {
-        uint256 rewardTokenAmount = getTokenIdsReward(params.tokenIds, params.rewardToken);
+        getTokenIdsReward(params.tokenIds, params.rewardToken);
 
         uint256 debtTokenSwapAmount = swapAndVerify(
             params.rewardToken,

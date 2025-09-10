@@ -292,9 +292,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 rewardPeriodEndTs,
         address sender
     ) internal {
-        if (!dustLock.isApprovedOrOwner(sender, tokenId)) revert NotOwner();
-
         address rewardsReceiver = _resolveRewardsReceiver(tokenId);
+        if (!dustLock.isApprovedOrOwner(sender, tokenId) && sender != rewardsReceiver) revert NotOwner();
+
         _claimRewardsUntilTs(tokenId, rewardsReceiver, tokens, rewardPeriodEndTs);
     }
 

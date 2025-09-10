@@ -1194,6 +1194,8 @@ contract RevenueRewardsTest is BaseTestLocal {
         vm.stopPrank();
     }
 
+    // TODO: Add tests for checking account that calls getReward
+
     function testEnableSelfRepayLoan() public {
         // arrange
         assertEq(block.timestamp, 1 weeks + 1);

@@ -1,6 +1,8 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 const DustModule = buildModule("DustModule", (m) => {
+  const ts = m.getParameter("ts", 1_000_000_000);
+
   const proxyAdminOwner = m.getAccount(0);
 
   const dustProxyAdmin = m.contract("ProxyAdmin", []);
@@ -15,7 +17,7 @@ const DustModule = buildModule("DustModule", (m) => {
 
   const dust = m.contractAt("Dust", proxy);
 
-  m.call(dust, "initialize", [proxyAdminOwner])
+  m.call(dust, "initialize", [proxyAdminOwner, ts])
 
   return { dustProxyAdmin, dust, dustImpl };
 });

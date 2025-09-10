@@ -26,8 +26,9 @@ contract Dust is
     /**
      * @notice Initializes the contract
      * @param initialOwner The address that will own the contract after initialization
+     * @param ts TotalSupply of the token (in wei w/o decimals)
      */
-    function initialize(address initialOwner) public initializer {
+    function initialize(address initialOwner, uint256 ts) public initializer {
         CommonChecksLibrary.revertIfZeroAddress(initialOwner);
 
         __ERC20_init("Dust", "DUST");
@@ -35,6 +36,7 @@ contract Dust is
         __Ownable2Step_init();
         __ERC20Permit_init("Dust");
         _transferOwnership(initialOwner);
+        _mint(initialOwner, ts * 10 ** decimals());
     }
 
     /**

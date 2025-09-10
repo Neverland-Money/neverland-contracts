@@ -63,7 +63,7 @@ abstract contract BaseTestLocal is BaseTest {
         revenueReward = new RevenueReward(FORWARDER, dustLock, admin, userVaultFactory);
 
         // initializers
-        DUST.initialize(admin);
+        DUST.initialize(admin, 0);
         _userVaultFactory.initialize(address(userVaultBeacon), userVaultRegistry, aaveOracle, revenueReward);
 
         dustLock.setRevenueReward(revenueReward);
