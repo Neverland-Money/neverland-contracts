@@ -104,15 +104,18 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         CommonChecksLibrary.revertIfSameAddress(_newTeam, team);
 
         pendingTeam = _newTeam;
+
         emit TeamProposed(team, _newTeam);
     }
 
     /// @inheritdoc IDustLock
     function acceptTeam() external override {
         if (_msgSender() != pendingTeam) revert NotPendingTeam();
+
         address oldTeam = team;
         team = pendingTeam;
         pendingTeam = address(0);
+
         emit TeamAccepted(oldTeam, team);
     }
 
@@ -123,6 +126,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         address cancelledTeam = pendingTeam;
         pendingTeam = address(0);
+
         emit TeamProposalCancelled(team, cancelledTeam);
     }
 
@@ -139,15 +143,19 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IERC721Metadata
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
         _ownerOfOrRevert(_tokenId);
+
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId.toString())) : "";
     }
 
     /// @inheritdoc IDustLock
     function setBaseURI(string memory newBaseURI) external override {
         if (_msgSender() != team) revert NotTeam();
+
         string memory old = baseURI;
         baseURI = newBaseURI;
+
         emit BaseURIUpdated(old, newBaseURI);
+        if (tokenId > 0) emit BatchMetadataUpdate(1, tokenId);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -233,6 +241,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         // Set the approval
         idToApprovals[_tokenId] = _approved;
+
         emit Approval(owner, _approved, _tokenId);
     }
 
@@ -243,10 +252,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         CommonChecksLibrary.revertIfSameAddress(_operator, sender);
 
         ownerToOperators[sender][_operator] = _approved;
+
         emit ApprovalForAll(sender, _operator, _approved);
     }
 
-    /* TRANSFER FUNCTIONS */
+    /*//////////////////////////////////////////////////////////////
+                           TRANSFER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     function _transferFrom(address _from, address _to, uint256 _tokenId, address _sender) internal {
         CommonChecksLibrary.revertIfZeroAddress(_to);
@@ -264,6 +276,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         ownershipChange[_tokenId] = block.number;
         // notify other contracts
         _notifyAfterTokenTransferred(_tokenId, _from, _to, _sender);
+
         // Log the transfer
         emit Transfer(_from, _to, _tokenId);
     }
@@ -353,6 +366,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function _addTokenTo(address _to, uint256 _tokenId) internal {
         // Throws if `_tokenId` is owned by someone
         if (_ownerOf(_tokenId) != address(0)) revert AlreadyOwned();
+
         // Change the owner
         idToOwner[_tokenId] = _to;
         // Update owner token index tracking
@@ -373,6 +387,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
+
         emit Transfer(address(0), _to, _tokenId);
         return true;
     }
@@ -417,6 +432,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function _removeTokenFrom(address _from, uint256 _tokenId) internal {
         // Throws if `_from` is not the current owner
         if (_ownerOf(_tokenId) != _from) revert NotOwner();
+
         // Change the owner
         idToOwner[_tokenId] = address(0);
         // Update owner token index tracking
@@ -433,11 +449,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function _burn(uint256 _tokenId) internal {
         address sender = _msgSender();
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
+
         address owner = _ownerOf(_tokenId);
         // Clear approval
         delete idToApprovals[_tokenId];
         // Remove token
         _removeTokenFrom(owner, _tokenId);
+
         emit Transfer(owner, address(0), _tokenId);
     }
 
@@ -730,9 +748,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (_depositType == DepositType.CREATE_LOCK_TYPE) {
             // Set effective start time to current block timestamp for new locks
             newLocked.effectiveStart = block.timestamp;
-        } else if (_depositType == DepositType.INCREASE_LOCK_AMOUNT || _depositType == DepositType.DEPOSIT_FOR_TYPE) {
-            // Calculate weighted average start time to prevent gaming
-            // Use current time as start time for new deposit value
+        } else if (
+            (_depositType == DepositType.INCREASE_LOCK_AMOUNT || _depositType == DepositType.DEPOSIT_FOR_TYPE)
+                && !_oldLocked.isPermanent && !newLocked.isPermanent
+        ) {
+            // Calculate weighted average start time for timed locks
             newLocked.effectiveStart = _calculateWeightedStart(
                 _oldLocked.amount.toUint256(), _oldLocked.effectiveStart, _value, block.timestamp
             );
@@ -754,6 +774,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         emit Deposit(from, _tokenId, _depositType, _value, newLocked.end, block.timestamp);
         emit Supply(supplyBefore, supply);
+
+        if (_value != 0 || _unlockTime != 0) emit MetadataUpdate(_tokenId);
     }
 
     /// @inheritdoc IDustLock
@@ -796,7 +818,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (_value < minLockAmount) revert AmountTooSmall();
 
         uint256 unlockTime = ((block.timestamp + _lockDuration) / WEEK) * WEEK; // Locktime is rounded down to weeks
-
         if (unlockTime <= block.timestamp) revert LockDurationNotInFuture();
         if (unlockTime < block.timestamp + MINTIME) revert LockDurationTooShort();
         if (unlockTime > block.timestamp + MAXTIME) revert LockDurationTooLong();
@@ -824,12 +845,36 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         return _createLock(_value, _lockDuration, _to);
     }
 
+    /// @inheritdoc IDustLock
+    function createLockPermanent(uint256 _value, uint256 _lockDuration)
+        external
+        override
+        nonReentrant
+        returns (uint256)
+    {
+        address owner = _msgSender();
+        uint256 newTokenId = _createLock(_value, _lockDuration, owner);
+        _lockPermanent(owner, newTokenId);
+        return newTokenId;
+    }
+
+    /// @inheritdoc IDustLock
+    function createLockPermanentFor(uint256 _value, uint256 _lockDuration, address _to)
+        external
+        override
+        nonReentrant
+        returns (uint256)
+    {
+        uint256 newTokenId = _createLock(_value, _lockDuration, _to);
+        _lockPermanent(_to, newTokenId);
+        return newTokenId;
+    }
+
     function _increaseAmountFor(uint256 _tokenId, uint256 _value, DepositType _depositType) internal {
         CommonChecksLibrary.revertIfZeroAmount(_value);
         if (_value < minLockAmount) revert AmountTooSmall();
 
         LockedBalance memory oldLocked = _locked[_tokenId];
-
         if (oldLocked.amount <= 0) revert NoLockFound();
         if (oldLocked.end <= block.timestamp && !oldLocked.isPermanent) revert LockExpired();
 
@@ -847,6 +892,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function increaseAmount(uint256 _tokenId, uint256 _value) external override nonReentrant {
         if (!_isApprovedOrOwner(_msgSender(), _tokenId)) revert NotApprovedOrOwner();
+
         _increaseAmountFor(_tokenId, _value, DepositType.INCREASE_LOCK_AMOUNT);
     }
 
@@ -856,10 +902,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         LockedBalance memory oldLocked = _locked[_tokenId];
         if (oldLocked.isPermanent) revert PermanentLock();
-        uint256 unlockTime = ((block.timestamp + _lockDuration) / WEEK) * WEEK; // Locktime is rounded down to weeks
-
         if (oldLocked.end <= block.timestamp) revert LockExpired();
         if (oldLocked.amount <= 0) revert NoLockFound();
+
+        uint256 unlockTime = ((block.timestamp + _lockDuration) / WEEK) * WEEK; // Locktime is rounded down to weeks
         if (unlockTime <= oldLocked.end) revert LockDurationNotInFuture();
         if (unlockTime > block.timestamp + MAXTIME) revert LockDurationTooLong();
 
@@ -876,6 +922,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         LockedBalance memory oldLocked = _locked[_tokenId];
         if (oldLocked.isPermanent) revert PermanentLock();
         if (block.timestamp < oldLocked.end) revert LockNotExpired();
+
         uint256 value = oldLocked.amount.toUint256();
 
         // Burn the NFT
@@ -934,7 +981,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (totalLockTime > 0 && remainingTime > 0) {
             // penalty = amount * penalty * remainingTime / (BASIS_POINTS * totalLockTime)
             userPenaltyAmount =
-                Math.mulDiv(userLockedAmount * earlyWithdrawPenalty, remainingTime, BASIS_POINTS * totalLockTime);
+                Math.mulDiv(userLockedAmount, earlyWithdrawPenalty * remainingTime, BASIS_POINTS * totalLockTime);
         } else {
             userPenaltyAmount = 0;
         }
@@ -958,6 +1005,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setEarlyWithdrawPenalty(uint256 _earlyWithdrawPenalty) external override nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         if (_earlyWithdrawPenalty >= BASIS_POINTS) revert InvalidWithdrawPenalty();
+
         uint256 old = earlyWithdrawPenalty;
         earlyWithdrawPenalty = _earlyWithdrawPenalty;
 
@@ -968,6 +1016,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setEarlyWithdrawTreasury(address _account) external override nonReentrant {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAddress(_account);
+
         address old = earlyWithdrawTreasury;
         earlyWithdrawTreasury = _account;
 
@@ -980,11 +1029,14 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (_from == _to) revert SameNFT();
         if (!_isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
         if (!_isApprovedOrOwner(sender, _to)) revert NotApprovedOrOwner();
+
         LockedBalance memory oldLockedTo = _locked[_to];
         if (oldLockedTo.end <= block.timestamp && !oldLockedTo.isPermanent) revert LockExpired();
 
         LockedBalance memory oldLockedFrom = _locked[_from];
-        if (oldLockedFrom.isPermanent) revert PermanentLock();
+        if (oldLockedFrom.end <= block.timestamp && !oldLockedFrom.isPermanent) revert LockExpired();
+        if (oldLockedFrom.isPermanent && !oldLockedTo.isPermanent) revert PermanentLock();
+
         uint256 end = oldLockedFrom.end >= oldLockedTo.end ? oldLockedFrom.end : oldLockedTo.end;
 
         address owner = _ownerOf(_from);
@@ -995,18 +1047,18 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         LockedBalance memory newLockedTo;
         newLockedTo.amount = oldLockedTo.amount + oldLockedFrom.amount;
 
-        // Use weighted average to preserve time served from both locks
-        newLockedTo.effectiveStart = _calculateWeightedStart(
-            oldLockedTo.amount.toUint256(),
-            oldLockedTo.effectiveStart,
-            oldLockedFrom.amount.toUint256(),
-            oldLockedFrom.effectiveStart
-        );
         newLockedTo.isPermanent = oldLockedTo.isPermanent;
         if (newLockedTo.isPermanent) {
-            permanentLockBalance += oldLockedFrom.amount.toUint256();
+            if (!oldLockedFrom.isPermanent) permanentLockBalance += oldLockedFrom.amount.toUint256();
         } else {
             newLockedTo.end = end;
+            // Use weighted average to preserve time served from both locks for timed locks
+            newLockedTo.effectiveStart = _calculateWeightedStart(
+                oldLockedTo.amount.toUint256(),
+                oldLockedTo.effectiveStart,
+                oldLockedFrom.amount.toUint256(),
+                oldLockedFrom.effectiveStart
+            );
         }
         _checkpoint(_to, oldLockedTo, newLockedTo);
         _locked[_to] = newLockedTo;
@@ -1036,17 +1088,17 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         CommonChecksLibrary.revertIfZeroAmount(_amount);
         address owner = _ownerOfOrRevert(_from);
         address sender = _msgSender();
-
         if (!canSplit[owner] && !canSplit[address(0)]) revert SplitNotAllowed();
         if (!_isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
+
         LockedBalance memory newLocked = _locked[_from];
         if (newLocked.end <= block.timestamp && !newLocked.isPermanent) revert LockExpired();
         if (newLocked.isPermanent) revert PermanentLock();
-
-        int256 _splitAmount = _amount.toInt256();
-
         if (_amount < minLockAmount) revert AmountTooSmall();
-        if (newLocked.amount <= _splitAmount) revert AmountTooBig();
+
+        int256 splitAmount = _amount.toInt256();
+        if (newLocked.amount <= splitAmount) revert AmountTooBig();
+        if (uint256(newLocked.amount - splitAmount) < minLockAmount) revert AmountTooSmall();
 
         // Zero out and burn old veNFT
         _burn(_from);
@@ -1054,13 +1106,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _checkpoint(_from, newLocked, LockedBalance(0, 0, 0, false));
 
         // Create new veNFT using old balance - amount
-        if (uint256(newLocked.amount - _splitAmount) < minLockAmount) revert AmountTooSmall();
-        newLocked.amount -= _splitAmount;
+        newLocked.amount -= splitAmount;
         uint256 token1Amount = newLocked.amount.toUint256();
         _tokenId1 = _createSplitNFT(owner, newLocked);
 
         // Create new veNFT using amount
-        newLocked.amount = _splitAmount;
+        newLocked.amount = splitAmount;
         _tokenId2 = _createSplitNFT(owner, newLocked);
 
         _notifyAfterTokenSplit(_from, _tokenId1, token1Amount, _tokenId2, _amount, owner);
@@ -1071,7 +1122,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
             _tokenId2,
             sender,
             _locked[_tokenId1].amount.toUint256(),
-            _splitAmount.toUint256(),
+            splitAmount.toUint256(),
             newLocked.end,
             block.timestamp
         );
@@ -1098,19 +1149,31 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function toggleSplit(address _account, bool _bool) external override {
         if (_msgSender() != team) revert NotTeam();
+
         canSplit[_account] = _bool;
+
         emit SplitPermissionUpdated(_account, _bool);
     }
 
     /// @inheritdoc IDustLock
     function lockPermanent(uint256 _tokenId) external override {
-        address sender = _msgSender();
-        if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
+        _lockPermanent(_msgSender(), _tokenId);
+    }
+
+    /**
+     * @dev Core implementation to convert a time-locked veNFT into a permanent lock.
+     *      Centralizes checks, checkpointing and events for reuse by wrappers.
+     * @param caller Address used for approval/ownership checks (msg.sender).
+     * @param _tokenId The veNFT id to make permanent.
+     */
+    function _lockPermanent(address caller, uint256 _tokenId) internal {
+        if (!_isApprovedOrOwner(caller, _tokenId)) revert NotApprovedOrOwner();
         LockedBalance memory _newLocked = _locked[_tokenId];
         if (_newLocked.isPermanent) revert PermanentLock();
         if (_newLocked.end <= block.timestamp) revert LockExpired();
         if (_newLocked.amount <= 0) revert NoLockFound();
 
+        address owner = _ownerOf(_tokenId);
         uint256 _amount = _newLocked.amount.toUint256();
         permanentLockBalance += _amount;
         _newLocked.end = 0;
@@ -1118,7 +1181,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _checkpoint(_tokenId, _locked[_tokenId], _newLocked);
         _locked[_tokenId] = _newLocked;
 
-        emit LockPermanent(sender, _tokenId, _amount, block.timestamp);
+        emit LockPermanent(owner, _tokenId, _amount, block.timestamp);
         emit MetadataUpdate(_tokenId);
     }
 
@@ -1129,6 +1192,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         LockedBalance memory _newLocked = _locked[_tokenId];
         if (!_newLocked.isPermanent) revert NotPermanentLock();
 
+        address owner = _ownerOf(_tokenId);
         uint256 _amount = _newLocked.amount.toUint256();
         permanentLockBalance -= _amount;
         _newLocked.effectiveStart = block.timestamp;
@@ -1137,7 +1201,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _checkpoint(_tokenId, _locked[_tokenId], _newLocked);
         _locked[_tokenId] = _newLocked;
 
-        emit UnlockPermanent(sender, _tokenId, _amount, block.timestamp);
+        emit UnlockPermanent(owner, _tokenId, _amount, block.timestamp);
         emit MetadataUpdate(_tokenId);
     }
 
@@ -1197,8 +1261,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function setMinLockAmount(uint256 newMinLockAmount) public override {
         if (_msgSender() != team) revert NotTeam();
         CommonChecksLibrary.revertIfZeroAmount(newMinLockAmount);
+
         uint256 old = minLockAmount;
         minLockAmount = newMinLockAmount;
+
         emit MinLockAmountUpdated(old, newMinLockAmount);
     }
 
@@ -1211,11 +1277,14 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     function setRevenueReward(IRevenueReward _revenueReward) public override {
         if (_msgSender() != team) revert NotTeam();
+
         IRevenueReward old = revenueReward;
         address newReward = address(_revenueReward);
         // Allow disabling by setting to zero address; otherwise require a contract
         if (newReward != address(0) && !_isContract(newReward)) revert InvalidRevenueRewardContract();
+
         revenueReward = _revenueReward;
+
         emit RevenueRewardUpdated(address(old), newReward);
     }
 

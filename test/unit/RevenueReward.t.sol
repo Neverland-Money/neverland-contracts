@@ -11,7 +11,7 @@ contract RevenueRewardsTest is BaseTestLocal {
     MockERC20 mockDAI = new MockERC20("DAI", "DAI", 18);
 
     // Declare the event locally
-    event ClaimRewards(address indexed user, address indexed token, uint256 amount);
+    event ClaimRewards(uint256 indexed tokenId, address indexed user, address indexed token, uint256 amount);
     event SelfRepayingLoanUpdate(uint256 indexed token, address rewardReceiver, bool isEnabled);
 
     function _setUp() internal view override {
@@ -74,8 +74,8 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId), 0);
 
         // act
-        vm.expectEmit(true, true, false, false, address(revenueReward));
-        emit ClaimRewards(user, address(mockUSDC), 0); // The actual amount will be dynamic
+        vm.expectEmit(true, true, true, false, address(revenueReward));
+        emit ClaimRewards(tokenId, user, address(mockUSDC), 0); // amount dynamic
 
         address[] memory tokens = new address[](1);
         tokens[0] = address(mockUSDC);
@@ -153,6 +153,237 @@ contract RevenueRewardsTest is BaseTestLocal {
 
         assertApproxEqAbs(rewardAmount, 2 * USDC_10K, 3);
         assertEq(lastEarnTimeAfter, block.timestamp);
+    }
+
+    function testBatchClaimMultipleLocksAtOnce() public {
+        // arrange
+        assertEq(block.timestamp, 1 weeks + 1);
+        uint256 id1 = _createLock(user, 5 * TOKEN_1, MAXTIME);
+        uint256 id2 = _createLock(user, 7 * TOKEN_1, MAXTIME);
+        uint256 id3 = _createLock(user, 13 * TOKEN_1, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_10K); // becomes active next epoch
+
+        // Total Rewards
+        emit log_named_uint("[claim/batch] total USDC added", USDC_10K);
+
+        // next epoch
+        skipToNextEpoch(1);
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        uint256[] memory ids = new uint256[](3);
+        ids[0] = id1;
+        ids[1] = id2;
+        ids[2] = id3;
+
+        // Check remainders before claim (should be 0)
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id1), 0);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id2), 0);
+        assertEq(revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id3), 0);
+
+        uint256 userBalBefore = mockUSDC.balanceOf(user);
+
+        // act: claim all in one tx
+        revenueReward.getRewardBatch(ids, tokens);
+
+        // assert: user received the full epoch reward and checkpoints updated
+        uint256 claimed = mockUSDC.balanceOf(user) - userBalBefore;
+        emit log_named_uint("[claim/batch] total USDC claimed", claimed);
+        assertEqApprThreeWei(claimed, USDC_10K);
+
+        // Check remainders after claim - the precision loss should be stored here
+        emit log_named_uint(
+            "[claim/batch] remainder1 stored", revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id1)
+        );
+        emit log_named_uint(
+            "[claim/batch] remainder2 stored", revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id2)
+        );
+        emit log_named_uint(
+            "[claim/batch] remainder3 stored", revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id3)
+        );
+
+        // Verify remainders are non-zero (capturing the precision loss)
+        assertTrue(
+            revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id1) > 0
+                || revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id2) > 0
+                || revenueReward.tokenRewardsRemainingAccScaled(address(mockUSDC), id3) > 0,
+            "Should have non-zero remainders"
+        );
+
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), id1), block.timestamp);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), id2), block.timestamp);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), id3), block.timestamp);
+    }
+
+    function testApprovedOperatorBatchClaimPaysCorrectRecipients() public {
+        // Arrange: user1 owns tokenId1, user2 owns tokenId2
+        uint256 tokenId1 = _createLock(user1, 2 * TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user2, 1 * TOKEN_1, MAXTIME);
+
+        // Add rewards that become active next epoch
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // Move to the epoch where rewards are claimable
+        skipToNextEpoch(1);
+
+        // Compute expected rewards per tokenId at current timestamp (to compare deltas after claim)
+        uint256 expectedUser1 = revenueReward.earnedRewards(address(mockUSDC), tokenId1, block.timestamp);
+        uint256 expectedUser2 = revenueReward.earnedRewards(address(mockUSDC), tokenId2, block.timestamp);
+        emit log_named_uint("[batch/approved] expectedUser1", expectedUser1);
+        emit log_named_uint("[batch/approved] expectedUser2", expectedUser2);
+
+        // user1 approves user2 for tokenId1
+        vm.prank(user1);
+        dustLock.approve(user2, tokenId1);
+
+        // Capture balances before claim
+        uint256 bal1Before = mockUSDC.balanceOf(user1);
+        uint256 bal2Before = mockUSDC.balanceOf(user2);
+
+        // Act: user2 (approved for tokenId1, owner of tokenId2) triggers a batch claim for both
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = tokenId1; // owned by user1, approved to user2
+        ids[1] = tokenId2; // owned by user2
+
+        vm.prank(user2);
+        revenueReward.getRewardBatch(ids, tokens);
+
+        // Assert: rewards are paid to the resolved receivers (owners by default), not to msg.sender
+        uint256 bal1After = mockUSDC.balanceOf(user1);
+        uint256 bal2After = mockUSDC.balanceOf(user2);
+
+        emit log_named_uint("[batch/approved] user1 received", bal1After - bal1Before);
+        emit log_named_uint("[batch/approved] user2 received", bal2After - bal2Before);
+
+        assertEqApprThreeWei(bal1After - bal1Before, expectedUser1);
+        assertEqApprThreeWei(bal2After - bal2Before, expectedUser2);
+
+        // And checkpoints advanced for both tokenIds
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId1), block.timestamp);
+        assertEq(revenueReward.lastEarnTime(address(mockUSDC), tokenId2), block.timestamp);
+
+        // After claiming, the batch view at now should return zeros for both ids
+        {
+            address[] memory tokensPost = new address[](1);
+            tokensPost[0] = address(mockUSDC);
+            uint256[] memory idsView2 = new uint256[](2);
+            idsView2[0] = tokenId1;
+            idsView2[1] = tokenId2;
+            (uint256[][] memory matrixAfter, uint256[] memory totalsAfter) =
+                revenueReward.earnedRewardsAll(tokensPost, idsView2);
+            assertEq(matrixAfter.length, 2);
+            assertEq(matrixAfter[0].length, 1);
+            assertEq(matrixAfter[1].length, 1);
+            assertEq(totalsAfter.length, 1);
+            assertEq(matrixAfter[0][0], 0);
+            assertEq(matrixAfter[1][0], 0);
+            assertEq(totalsAfter[0], 0);
+        }
+    }
+
+    function testBatchClaimWithDuplicateInputsNoDoublePay() public {
+        // arrange
+        uint256 id1 = _createLock(user, 5 * TOKEN_1, MAXTIME);
+        uint256 id2 = _createLock(user, 7 * TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(mockUSDC);
+        tokens[1] = address(mockUSDC); // duplicate
+
+        uint256[] memory ids = new uint256[](3);
+        ids[0] = id1;
+        ids[1] = id2;
+        ids[2] = id1; // duplicate
+
+        uint256 balBefore = mockUSDC.balanceOf(user);
+        revenueReward.getRewardBatch(ids, tokens);
+
+        uint256 claimed = mockUSDC.balanceOf(user) - balBefore;
+        // full epoch reward should be claimed exactly once
+        assertEqApprThreeWei(claimed, USDC_10K);
+    }
+
+    function testBatchWithUnauthorizedTokenIdReverts() public {
+        uint256 id1 = _createLock(user1, TOKEN_1, MAXTIME);
+        uint256 id2 = _createLock(user2, TOKEN_1, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = id1;
+        ids[1] = id2; // not owned/approved by user1
+
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
+        revenueReward.getRewardBatch(ids, tokens);
+        vm.stopPrank();
+    }
+
+    function testBatchInputTooLargeReverts() public {
+        // No need to mint; the revert happens on length check
+        address[] memory tokens = new address[](IRevenueReward(address(revenueReward)).MAX_TOKENS() + 1);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            tokens[i] = address(mockUSDC);
+        }
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 1;
+
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.InvalidArrayLengths.selector));
+        revenueReward.getRewardUntilTsBatch(ids, tokens, block.timestamp);
+
+        // Oversize tokenIds
+        address[] memory tokensOk = new address[](1);
+        tokensOk[0] = address(mockUSDC);
+        uint256[] memory idsTooMany = new uint256[](IRevenueReward(address(revenueReward)).MAX_TOKENIDS() + 1);
+
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.InvalidArrayLengths.selector));
+        revenueReward.getRewardUntilTsBatch(idsTooMany, tokensOk, block.timestamp);
+    }
+
+    function testBatchLargeUnderCapsWithSparseEpochs() public {
+        // Arrange a large set of locks just under cap
+        uint256 capIds = IRevenueReward(address(revenueReward)).MAX_TOKENIDS();
+        uint256 n = capIds - 1; // under cap
+
+        uint256[] memory ids = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
+            ids[i] = _createLock(user, TOKEN_1, MAXTIME);
+        }
+
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // Move across many zero-reward epochs to exercise iteration
+        skipToNextEpoch(1);
+        for (uint256 i = 0; i < 8; i++) {
+            // 8 sparse epochs
+            skipToNextEpoch(1);
+        }
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        uint256 balBefore = mockUSDC.balanceOf(user);
+        revenueReward.getRewardBatch(ids, tokens);
+        uint256 claimed = mockUSDC.balanceOf(user) - balBefore;
+
+        // We don't require exact equality due to rounding/remainder carry
+        assertGt(claimed, 0);
+        assertLe(claimed, USDC_10K);
+
+        // All tokenIds should have their lastEarnTime set to now
+        for (uint256 i = 0; i < n; i++) {
+            assertEq(revenueReward.lastEarnTime(address(mockUSDC), ids[i]), block.timestamp);
+        }
     }
 
     function testUserClaimRewardsUntilTimestamp() public {
@@ -866,7 +1097,7 @@ contract RevenueRewardsTest is BaseTestLocal {
         revenueReward.getReward(tokenId2, tokens);
         uint256 gasUsed = gasStart - gasleft();
         emit log_named_uint("[gas] getReward (initial)", gasUsed);
-        assertLt(gasUsed, 100_000); // About 80K
+        assertLt(gasUsed, 150_000); // About 150K
     }
 
     function testGetRewardGasCostsForLongUnclaimedDuration() public {
@@ -894,7 +1125,7 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
 
         emit log_named_uint("[gas] getReward (300 epochs)", gasUsed);
-        assertLt(gasUsed, 6_000_000); // about 5M
+        assertLt(gasUsed, 8_000_000); // about 8M
     }
 
     function testGetRewardUntilTsGasCostsForLongUnclaimedDuration() public {
@@ -928,7 +1159,7 @@ contract RevenueRewardsTest is BaseTestLocal {
             emit log_named_uint(
                 string(abi.encodePacked("[gas] getRewardUntilTs[", vm.toString(i), "]")), gasPerGetRewardUntilTs[i]
             );
-            assertLt(gasPerGetRewardUntilTs[i], 550_000); // about 450K - 500K
+            assertLt(gasPerGetRewardUntilTs[i], 900_000); // about 900K
         }
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
     }
@@ -1028,6 +1259,46 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEqApprThreeWei(mockUSDC.balanceOf(user), USDC_10K);
     }
 
+    function testEnableSelfRepayLoanBatchAndDisableBatch() public {
+        // arrange: create two tokens for user and add rewards
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        // enable batch to user2 receiver
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = tokenId1;
+        ids[1] = tokenId2;
+
+        vm.expectEmit(true, true, true, false, address(revenueReward));
+        emit SelfRepayingLoanUpdate(tokenId1, user2, true);
+        vm.expectEmit(true, true, true, false, address(revenueReward));
+        emit SelfRepayingLoanUpdate(tokenId2, user2, true);
+        revenueReward.enableSelfRepayLoanBatch(ids, user2);
+
+        // claim to ensure routing works for both
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        revenueReward.getReward(tokenId1, tokens);
+        revenueReward.getReward(tokenId2, tokens);
+        assertGt(mockUSDC.balanceOf(user2), 0);
+
+        // disable batch
+        vm.expectEmit(true, true, true, false, address(revenueReward));
+        emit SelfRepayingLoanUpdate(tokenId1, ZERO_ADDRESS, false);
+        vm.expectEmit(true, true, true, false, address(revenueReward));
+        emit SelfRepayingLoanUpdate(tokenId2, ZERO_ADDRESS, false);
+        revenueReward.disableSelfRepayLoanBatch(ids);
+
+        // next epoch and reward again, should return to owner
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+        revenueReward.getReward(tokenId1, tokens);
+        revenueReward.getReward(tokenId2, tokens);
+        assertGt(mockUSDC.balanceOf(user), 0);
+    }
+
     /* ========== TEST RECOVER TOKENS ========== */
 
     function testRecoverMultipleTokens() public {
@@ -1095,29 +1366,42 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEqApprThreeWei(earnedUSDCPartial, USDC_10K);
         assertGt(earnedUSDC, earnedUSDCPartial);
 
-        // Test 2: earnedRewardsAll() multi-token at current time
+        // Test 2: earnedRewardsAll() multi-token at current time (batch, single tokenId)
         address[] memory tokens = new address[](2);
         tokens[0] = address(mockUSDC);
         tokens[1] = address(mockDAI);
 
-        uint256[] memory earnedAll = revenueReward.earnedRewardsAll(tokens, tokenId);
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
 
-        emit log_named_uint("[view] earnedRewardsAll USDC", earnedAll[0]);
-        emit log_named_uint("[view] earnedRewardsAll DAI", earnedAll[1]);
+        (uint256[][] memory matrixAll, uint256[] memory totalsAll) = revenueReward.earnedRewardsAll(tokens, tokenIds);
 
-        assertEq(earnedAll.length, 2);
-        assertApproxEqAbs(earnedAll[0], 3 * USDC_10K, 3);
-        assertApproxEqAbs(earnedAll[1], 3 * TOKEN_10K, 3);
+        emit log_named_uint("[view] earnedRewardsAll USDC", matrixAll[0][0]);
+        emit log_named_uint("[view] earnedRewardsAll DAI", matrixAll[0][1]);
+
+        assertEq(matrixAll.length, 1);
+        assertEq(matrixAll[0].length, 2);
+        assertEq(totalsAll.length, 2);
+        assertApproxEqAbs(matrixAll[0][0], 3 * USDC_10K, 3);
+        assertApproxEqAbs(matrixAll[0][1], 3 * TOKEN_10K, 3);
+        // Totals should equal the row when a single tokenId is requested
+        assertEq(matrixAll[0][0], totalsAll[0]);
+        assertEq(matrixAll[0][1], totalsAll[1]);
 
         // Test 3: earnedRewardsAllUntilTs() with custom timestamp
-        uint256[] memory earnedPartial = revenueReward.earnedRewardsAllUntilTs(tokens, tokenId, epoch2Start);
+        (uint256[][] memory matrixPartial, uint256[] memory totalsPartial) =
+            revenueReward.earnedRewardsAllUntilTs(tokens, tokenIds, epoch2Start);
 
-        emit log_named_uint("[view] earnedRewardsAllUntilTs USDC", earnedPartial[0]);
-        emit log_named_uint("[view] earnedRewardsAllUntilTs DAI", earnedPartial[1]);
+        emit log_named_uint("[view] earnedRewardsAllUntilTs USDC", matrixPartial[0][0]);
+        emit log_named_uint("[view] earnedRewardsAllUntilTs DAI", matrixPartial[0][1]);
 
-        assertEq(earnedPartial.length, 2);
-        assertEqApprThreeWei(earnedPartial[0], USDC_10K);
-        assertEqApprThreeWei(earnedPartial[1], TOKEN_10K);
+        assertEq(matrixPartial.length, 1);
+        assertEq(matrixPartial[0].length, 2);
+        assertEq(totalsPartial.length, 2);
+        assertEqApprThreeWei(matrixPartial[0][0], USDC_10K);
+        assertEqApprThreeWei(matrixPartial[0][1], TOKEN_10K);
+        assertEq(matrixPartial[0][0], totalsPartial[0]);
+        assertEq(matrixPartial[0][1], totalsPartial[1]);
 
         // Verify view functions match actual claims
         revenueReward.getReward(tokenId, tokens);
@@ -1127,8 +1411,8 @@ contract RevenueRewardsTest is BaseTestLocal {
         emit log_named_uint("[view] actual claimed USDC", actualUSDC);
         emit log_named_uint("[view] actual claimed DAI", actualDAI);
 
-        assertEqApprThreeWei(earnedAll[0], actualUSDC);
-        assertEqApprThreeWei(earnedAll[1], actualDAI);
+        assertEqApprThreeWei(matrixAll[0][0], actualUSDC);
+        assertEqApprThreeWei(matrixAll[0][1], actualDAI);
 
         // Test error handling - future timestamp should revert
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.EndTimestampMoreThanCurrent.selector));

@@ -1,6 +1,20 @@
 # Neverland Protocol
 
-A decentralized lending protocol built on Aave V3 with an advanced vote-escrow system for governance and incentive alignment.
+Neverland Protocol is a next-generation decentralized lending platform that combines Aave V3's battle-tested lending infrastructure with an innovative vote-escrow (veNFT) system. Users can lock `DUST` tokens to receive `veDUST` that provide:
+
+- **Time-weighted governance power** for protocol decisions
+- **Revenue sharing** from protocol fees and activities  
+- **Enhanced yield** through boosted lending/borrowing rewards
+- **Transferable positions** via ERC-721 veNFTs with flexible management
+
+## Key Features
+
+- **Battle-tested Lending**: Built on Aave V3 with zero modifications to core lending logic
+- **Vote-Escrow Governance**: Lock DUST for 28 days to 1 year, receive voting power that decays linearly
+- **Revenue Distribution**: Automatic protocol revenue sharing to veNFT holders via RevenueReward contract
+- **Flexible Incentives**: Configurable emissions via DustRewardsController with auto-locking to veNFTs
+- **High Precision Math**: PRB Math UD60x18 ensures accurate calculations for all financial operations
+- **Advanced Operations**: Batch operations, permanent locks, self-repaying loans, and comprehensive veNFT management
 
 ## Prerequisites
 
@@ -8,9 +22,11 @@ A decentralized lending protocol built on Aave V3 with an advanced vote-escrow s
 - [Node.js](https://nodejs.org/) (v16 or later)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 
-## Installation
+## Quick Start
 
-1. Clone the repository:
+### Installation
+
+1. **Clone the repository:**
 ```bash
 git clone https://github.com/Neverland-Money/neverland-contracts.git
 cd neverland-contracts
@@ -55,11 +71,14 @@ forge test
 # Build contracts
 forge build
 
-# Run tests
+# Run all tests
 forge test
 
 # Run tests with verbose output
 forge test -vv
+
+# Run specific contract tests
+forge test --match-contract DustLock -vv
 ```
 
 ### Hardhat (TypeScript Support)
@@ -77,14 +96,33 @@ Default typechain is `ethers-v6`, to choose `ethers-v5` specify `ETHERS_V5=true`
 
 TBD
 
-## Architecture
+## Protocol Architecture
 
-Neverland Protocol consists of four main components:
+Neverland Protocol is built on four interconnected layers:
 
-- **Lending Market**: Built on Aave V3 with no modifications to core lending functionality
-- **Vote-Escrow System**: DUST token and DustLock contracts implementing time-weighted governance
-- **Incentive Distribution**: DustRewardsController and DustLockTransferStrategy for emissions management
-- **Revenue Sharing**: RevenueReward contract for distributing protocol revenues to governance participants
+### 1. Lending Market Layer
+- **Foundation**: Unmodified Aave V3 core contracts
+- **Assets**: Support for multiple ERC-20 tokens as collateral and borrowable assets
+- **Security**: Inherits Aave's battle-tested liquidation and risk management
+- **Integration**: Seamlessly connects with veNFT incentive system
+
+### 2. Vote-Escrow System
+- **DUST Token**: Protocol governance token (ERC-20)
+- **DustLock Contract**: Locks DUST into transferable veDUST NFT (ERC-721)
+- **Voting Power**: Time-weighted, linearly decaying based on lock duration
+- **Flexibility**: 28 days to 1 year locks, permanent locks, early withdrawal with penalty
+
+### 3. Incentive Distribution
+- **DustRewardsController**: Modified Aave rewards controller for DUST emissions
+- **DustLockTransferStrategy**: Automatically locks claimed rewards into veDUST
+- **Multi-Asset Support**: Configure emissions for any lending market asset
+- **User Choice**: Claim as liquid DUST (with penalty) or lock into veDUST for full rewards
+
+### 4. Revenue Sharing
+- **RevenueReward Contract**: Distributes protocol fees to veDUST holders
+- **Multi-Token Support**: Revenue sharing with the option to add multiple tokens
+- **Epoch-Based**: Weekly distribution cycles with proportional allocation
+- **Self-Repaying Loans**: Optional revenue redirection for automated loan repayment
 
 ### Technical Features
 
@@ -93,69 +131,96 @@ Neverland Protocol consists of four main components:
 - **Flexible Incentives**: Configurable reward distribution with multiple token support
 - **Comprehensive Testing**: Extensive test suite covering edge cases and precision scenarios
 
-## Dependencies
+
+## Dependencies & Compatibility
+
+### External Libraries
+
+| Library | Version | Commit Hash | Purpose |
+|---------|---------|-------------|---------|
+| [Forge Std](https://github.com/foundry-rs/forge-std) | v1.9.7 | 77041d2 | Foundry testing framework and utilities |
+| [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) | v4.9.5-2 | dc44c9f | Standard contract implementations |
+| [OpenZeppelin Upgradeable](https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable) | v4.9.6 | 2d081f2 | Upgradeable contract implementations |
+| [PRB Math](https://github.com/PaulRBerg/prb-math) | v4.1.0 | 280fc5f | High-precision 18-decimal arithmetic |
 
 ### Forked Repositories
 
-| Repository          | Release | Commit                                   | Repository Link                                |
-|---------------------|---------|------------------------------------------|------------------------------------------------|
-| aave-v3-deploy      | 1.56.2  | 27ccc6d24ef767a2b71946784a843526edbc9618 | https://github.com/aave/aave-v3-deploy         |
-| aave-v3-core        | 1.19.4  | b74526a7bc67a3a117a1963fc871b3eb8cea8435 | https://github.com/aave/aave-v3-core           |
-| aave-v3-periphery   | 2.5.2   | 803c3e7d6d1c6da8d91411f4d085494f7189ea0b | https://github.com/aave/aave-v3-periphery      |
-| velodrome-contracts | —       | 9e5a5748c3e2bcef7016cc4194ce9758f880153f | https://github.com/velodrome-finance/contracts |
+| Repository          | Release | Commit Hash | Purpose |
+|---------------------|---------|-------------|---------|
+| [aave-v3-core](https://github.com/aave/aave-v3-core) | v1.19.4-1 | 782f519 | Core lending protocol contracts |
+| [aave-v3-periphery](https://github.com/aave/aave-v3-periphery) | v2.1.0-17 | 9afa826 | Rewards and helper contracts |
+| [velodrome-contracts](https://github.com/velodrome-finance/contracts) | — | 9e5a574 | Vote-escrow mechanics reference |
 
-Aave V3 contracts are managed and deployed in [this repository](https://github.com/Neverland-Money/aave-v3-deploy).
+> **Note**: Aave V3 contracts are managed and deployed in [this repository](https://github.com/Neverland-Money/aave-v3-deploy).
 
 ## Smart Contracts
 
 | Contract                     | Description                                                                                         | Forked From                                       | Changes Scope                                                                                                                                                                                                                                                                            |
 |------------------------------|-----------------------------------------------------------------------------------------------------|---------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Dust**                     | Protocol ERC20 token                                                                                | —                                                 | —                                                                                                                                                                                                                                                                                        |
-| **DustLock**                 | ERC-721 vote-escrow contract. Users lock DUST tokens for governance participation with time-weighted voting power | velodrome-contracts:<br/>VotingEscrow             | - Implemented PRB Math UD60x18 for enhanced precision <br/> - Removed voting and delegation logic <br/> - Removed managed lock functionality <br/> - Added configurable tokenURI <br/> - Added early withdrawal with penalty <br/> - Set lock duration range: 28 days to 1 year <br/> - Added minimum lock amount validation |
-| **RevenueReward**            | Distributes ERC20 token rewards to veDUST holders                                                   | velodrome-contracts:<br/> Reward                  | - Based on forked contract, reusing `earned()`, `getReward()` and `notifyReward()` functions                                                                                                                                                                                             |
-| **DustRewardsController**    | Modified Aave rewards controller handling DUST emissions                                            | aave-v3-periphery:<br/>RewardsController          | - Replaced `ITransferStrategyBase` with `IDustTransferStrategy` interface <br/> - Added `lockTime` and `tokenId` arguments to claiming functions, to pass them to `IDustTransferStrategy.performTransfer()` function<br/> - Removed rewards oracles used to display price data on the UI |
-| **DustTransferStrategy**     | Base contract for reward transfer strategies                                                        | aave-v3-periphery:<br/>TransferStrategyBase       | - Replaced `ITransferStrategyBase` with `IDustTransferStrategy` interface <br/> - Added `lockTime` and `tokenId` arguments to the `performTransfer()` function                                                                                                                           |
-| **DustLockTransferStrategy** | Strategy used by the controller to lock or withdraw DUST rewards                                    | aave-v3-periphery:<br/>PullRewardTransferStrategy | - Based on forked contract                                                                                                                                                                                                                                                               |
-| **EpochTimeLibrary**         | Helper library for epoch time calculations                                                          | velodrome-contracts:<br/>VelodromeTimeLibrary     | - Changed contract name                                                                                                                                                                                                                                                                  |
-| **BalanceLogicLibrary**      | Library for veDUST balance accounting                                                               | velodrome-contracts:<br/>BalanceLogicLibrary      | - Renamed IVotingEscrow to IDustLock                                                                                                                                                                                                                                                     |
-| **SafeCastLibrary**          | Utilities for safe casting between integer types                                                    | velodrome-contracts:<br/>SafeCastLibrary          | - None                                                                                                                                                                                                                                                                                   |
+| **DustLock**                 | ERC-721 vote-escrow contract. Users lock DUST tokens for governance participation with time-weighted voting power | [velodrome-contracts](https://github.com/velodrome-finance/contracts):<br/>VotingEscrow             | - Extensively restructured, primarily retaining epoch time mathematics <br/> - Implemented [PRB Math](https://github.com/PaulRBerg/prb-math) UD60x18 for refined voting power precision <br/> - Removed voting and delegation mechanisms <br/> - Removed managed lock functionality <br/> - Added permanent lock capability <br/> - Added early withdrawal with penalty calculation <br/> - Set lock duration range: 28 days to 1 year <br/> - Added configurable tokenURI and minimum lock validation |
+| **RevenueReward**            | Distributes ERC20 token rewards to veDUST holders                                                   | Inspired by [velodrome-contracts](https://github.com/velodrome-finance/contracts):<br/>Reward                  | - Custom implementation inspired by core reward distribution concepts <br/> - Added comprehensive batch operations for multiple tokenIds and reward tokens <br/> - Added self-repaying loan functionality with automatic redirect <br/> - Implemented multi-token reward support with precision handling <br/> - Added epoch-based distribution with remainder tracking <br/> - Added access controls and operator management                                                                                                                                                                                             |
+| **DustRewardsController**    | Modified Aave rewards controller handling DUST emissions                                            | [aave-v3-periphery](https://github.com/aave/aave-v3-periphery):<br/>RewardsController          | - Replaced `ITransferStrategyBase` with `IDustTransferStrategy` interface <br/> - Added `lockTime` and `tokenId` arguments to claiming functions, to pass them to `IDustTransferStrategy.performTransfer()` function<br/> - Removed rewards oracles used to display price data on the UI |
+| **DustTransferStrategy**     | Base contract for reward transfer strategies                                                        | [aave-v3-periphery](https://github.com/aave/aave-v3-periphery):<br/>TransferStrategyBase       | - Replaced `ITransferStrategyBase` with `IDustTransferStrategy` interface <br/> - Added `lockTime` and `tokenId` arguments to the `performTransfer()` function                                                                                                                           |
+| **DustLockTransferStrategy** | Strategy used by the controller to lock or withdraw DUST rewards                                    | [aave-v3-periphery](https://github.com/aave/aave-v3-periphery):<br/>PullRewardTransferStrategy | - Based on forked contract <br/> - Integrates with [DustLock](https://github.com/velodrome-finance/contracts) for automatic veNFT creation <br/> - Supports early withdrawal with penalty via direct DUST transfer                                                                                                                                                                                               |
+| **EpochTimeLibrary**         | Helper library for epoch time calculations                                                          | [velodrome-contracts](https://github.com/velodrome-finance/contracts):<br/>VelodromeTimeLibrary     | - Changed contract name from VelodromeTimeLibrary to EpochTimeLibrary                                                                                                                                                                                                                                                                  |
+| **BalanceLogicLibrary**      | Library for veDUST balance accounting                                                               | [velodrome-contracts](https://github.com/velodrome-finance/contracts):<br/>BalanceLogicLibrary      | - Renamed IVotingEscrow interface to IDustLock <br/> - Updated references to match Neverland's veNFT implementation                                                                                                                                                                                                                                                     |
+| **SafeCastLibrary**          | Utilities for safe casting between integer types                                                    | [velodrome-contracts](https://github.com/velodrome-finance/contracts):<br/>SafeCastLibrary          | - No modifications, used as-is from upstream                                                                                                                                                                                                                                                                                   |
 
-## Testing
+## Testing Framework
 
-The test suite is organized into core functionality tests and comprehensive precision validation:
+Our comprehensive test suite ensures protocol security and mathematical precision across all operations.
 
-### Core Tests
-- `DustLock.t.sol` - Core vote-escrow functionality
-- `DustLockTransferStrategy.t.sol` - Reward transfer strategies  
-- `RevenueReward.t.sol` - Revenue distribution mechanics
-- `DustRewardsController.t.sol` - Incentive controller integration
+### Core Functionality Tests
 
-### Precision Tests (`/test/precision/`)
-- `CheckpointTests.t.sol` - Voting power checkpoint accuracy
-- `DecayTests.t.sol` - Time-based voting power decay
-- `PrecisionTests.t.sol` - Mathematical precision scenarios
-- `RewardTests.t.sol` - Multi-epoch reward distribution
-- `ValidationTests.t.sol` - Edge case validation
-- `ExtendedBaseTest.sol` - Shared testing utilities
+| Test File | Coverage | Key Scenarios |
+|-----------|----------|---------------|
+| `DustLock.t.sol` | Vote-escrow mechanics | Lock creation, deposits, withdrawals, transfers, permanent locks |
+| `RevenueReward.t.sol` | Revenue distribution | Multi-token rewards, batch claims, self-repaying loans, precision |
+| `DustRewardsController.t.sol` | Incentive distribution | Emission configuration, reward claiming, transfer strategies |
+| `DustLockTransferStrategy.t.sol` | Reward auto-locking | DUST reward conversion to veNFTs, penalty calculations |
+
+### End-to-End Tests (`/test/e2e/`)
+
+Integration tests validating full protocol workflows:
+
+| Test Suite | Purpose | Validation Points |
+|------------|---------|-------------------|
+| `DustEmissionsFlow.t.sol` | Complete emission cycles | Asset configuration, reward accrual, claiming workflows |
+| `DustLockFlow.t.sol` | Complete veNFT lifecycles | Lock creation, deposits, transfers, withdrawals |
+| `RevenueRewardFlow.t.sol` | Complete revenue distribution | Multi-epoch rewards, batch operations, precision validation |
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# Full test suite (recommended for CI)
 forge test
 
-# Run with verbose output
+# Verbose output with execution traces
 forge test -vv
 
-# Run specific test suite
-forge test --match-path "test/precision/*" -vv
+# Extra verbose with stack traces  
+forge test -vvv
 
-# Run specific test file
-forge test test/DustLock.t.sol -vv
+# Test specific functionality
+forge test --match-contract DustLock -vv
+forge test --match-path "test/e2e/*" -vv
+forge test --match-test "testRewardPrecision" -vvv
+
+# Run tests with gas reporting
+forge test --gas-report
 ```
 
-## Acknowledgments
+### Test Coverage
 
-- [Aave](https://aave.com/) for the lending protocol foundation
-- [Velodrome Finance](https://velodrome.finance/) for vote-escrow mechanics inspiration
-- [PRB Math](https://github.com/PaulRBerg/prb-math) for high-precision mathematical operations
+The protocol maintains comprehensive test coverage across all critical paths:
+
+- **Vote-Escrow Operations**: Complete coverage of lock mechanics
+- **Reward Distribution**: Complete coverage of claim and allocation logic  
+- **Mathematical Operations**: Comprehensive precision validation
+- **Access Controls**: Full security boundary testing
+- **Edge Cases**: Extensive boundary condition coverage
+
+> **Note**: Coverage analysis may cause some time-sensitive and gas-dependent tests to fail due to compilation differences.
+> All tests pass with standard `forge test` execution.
+> This is expected behavior when using `--ir-minimum` for coverage reporting.
