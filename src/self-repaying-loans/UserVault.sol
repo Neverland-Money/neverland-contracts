@@ -40,6 +40,7 @@ contract UserVault is IUserVault, Initializable {
         user = _user;
     }
 
+    /// @inheritdoc IUserVault
     function repayUserDebt(RepayUserDebtParams calldata params) public onlyExecutor {
         // basic checks
         CommonChecksLibrary.revertIfZeroAddress(params.debtToken);
@@ -47,48 +48,26 @@ contract UserVault is IUserVault, Initializable {
         // limit slippagePercent: read from registry value
 
         // get rewards
-        uint256 rewardTokenAmount = _getTokenIdsReward(params.tokenIds, params.rewardToken);
-        if (rewardTokenAmount < 0) revert NegativeRewardAmount();
+        uint256 rewardTokenAmount = getTokenIdsReward(params.tokenIds, params.rewardToken);
 
-        // swap
-        uint256 debtTokenSwapAmount =
-            _swap(params.rewardToken, params.rewardTokenAmountToSwap, params.aggregatorAddress, params.aggregatorData);
-        if (debtTokenSwapAmount < 0) revert NegativeSwapAmount();
-
-        // verify slippage
-        uint256[] memory tokenPricesInUSD_8dec = _getTokenPricesInUsd_8dec(params.rewardToken, params.debtToken);
-        _verifySlippage(
+        // swap and verify
+        uint256 debtTokenSwapAmount = swapAndVerify(
+            params.rewardToken,
             params.rewardTokenAmountToSwap,
-            tokenPricesInUSD_8dec[0],
-            debtTokenSwapAmount,
-            tokenPricesInUSD_8dec[1],
+            params.debtToken,
+            params.aggregatorAddress,
+            params.aggregatorData,
             params.maxSlippageBps
         );
 
         // repay
-        _repayDebt(params.poolAddress, params.debtToken, debtTokenSwapAmount);
+        repayDebt(params.poolAddress, params.debtToken, debtTokenSwapAmount);
 
         emit LoanSelfRepaid(user, address(this), params.poolAddress, params.debtToken, debtTokenSwapAmount);
     }
 
-    function depositCollateral(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
-        IERC20(debtToken).approve(poolAddress, amount);
-        IPool(poolAddress).supply(debtToken, amount, user, 0);
-    }
-
-    function recoverERC20(address token, uint256 amount) public onlyExecutor {
-        IERC20(token).transfer(user, amount);
-    }
-
-    function recoverETH(uint256 amount) public onlyExecutor {
-        payable(user).transfer(amount);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                            HELPERS
-    //////////////////////////////////////////////////////////////*/
-
-    function _getTokenIdsReward(uint256[] memory tokenIds, address rewardToken) internal returns (uint256) {
+    /// @inheritdoc IUserVault
+    function getTokenIdsReward(uint256[] memory tokenIds, address rewardToken) public onlyExecutor returns (uint256) {
         uint256 rewardTokenTokenBalanceBefore = _getErc20TokenBalance(rewardToken, address(this));
 
         address[] memory rewardTokens = new address[](1);
@@ -105,18 +84,71 @@ contract UserVault is IUserVault, Initializable {
         return rewardTokenAmount;
     }
 
+    /// @inheritdoc IUserVault
+    function swapAndVerify(
+        address tokenIn,
+        uint256 tokenInAmount,
+        address tokenOut,
+        address aggregator,
+        bytes memory aggregatorData,
+        uint256 maxAllowedSlippageBps
+    ) public onlyExecutor returns (uint256) {
+        uint256 debtTokenSwapAmount = _swap(tokenIn, tokenInAmount, tokenOut, aggregator, aggregatorData);
+
+        uint256[] memory tokenPricesInUSD_8dec = _getTokenPricesInUsd_8dec(tokenIn, tokenOut);
+        _verifySlippage(
+            tokenInAmount,
+            tokenPricesInUSD_8dec[0],
+            debtTokenSwapAmount,
+            tokenPricesInUSD_8dec[1],
+            maxAllowedSlippageBps
+        );
+
+        return debtTokenSwapAmount;
+    }
+
+    /// @inheritdoc IUserVault
+    function repayDebt(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
+        IERC20(debtToken).approve(poolAddress, amount);
+        IPool(poolAddress).repay(debtToken, amount, 2, user);
+    }
+
+    /// @inheritdoc IUserVault
+    function depositCollateral(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
+        IERC20(debtToken).approve(poolAddress, amount);
+        IPool(poolAddress).supply(debtToken, amount, user, 0);
+    }
+
+    /// @inheritdoc IUserVault
+    function recoverERC20(address token, uint256 amount) public onlyExecutor {
+        IERC20(token).transfer(user, amount);
+    }
+
+    /// @inheritdoc IUserVault
+    function recoverETH(uint256 amount) public onlyExecutor {
+        payable(user).transfer(amount);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            HELPERS
+    //////////////////////////////////////////////////////////////*/
+
     /**
      * @notice Swaps a specified token using a given aggregator contract.
-     * @param tokenIn The address of the token to be swapped.
+     * @param tokenIn The address of the token swapped in.
      * @param tokenInAmount Amount needed to swap tokens.
+     * @param tokenOut The address of the token swapped out.
      * @param aggregator The address of the swap aggregator contract to use for performing the swap.
      * @param aggregatorData The calldata required by the aggregator contract for the swap execution.
      */
-    function _swap(address tokenIn, uint256 tokenInAmount, address aggregator, bytes memory aggregatorData)
-        internal
-        returns (uint256)
-    {
-        uint256 debtTokenBalanceBefore = _getErc20TokenBalance(tokenIn, address(this));
+    function _swap(
+        address tokenIn,
+        uint256 tokenInAmount,
+        address tokenOut,
+        address aggregator,
+        bytes memory aggregatorData
+    ) internal returns (uint256) {
+        uint256 debtTokenBalanceBefore = _getErc20TokenBalance(tokenOut, address(this));
 
         if (!userVaultRegistry.isSupportedAggregator(aggregator)) {
             revert AggregatorNotSupported();
@@ -126,7 +158,7 @@ contract UserVault is IUserVault, Initializable {
 
         if (!success) revert SwapFailed();
 
-        uint256 debtTokenBalanceAfter = _getErc20TokenBalance(tokenIn, address(this));
+        uint256 debtTokenBalanceAfter = _getErc20TokenBalance(tokenOut, address(this));
         uint256 debtTokenSwapAmount = debtTokenBalanceAfter - debtTokenBalanceBefore;
 
         return debtTokenSwapAmount;
@@ -144,17 +176,6 @@ contract UserVault is IUserVault, Initializable {
         tokens[1] = token2;
 
         return aaveOracle.getAssetsPrices(tokens);
-    }
-
-    /**
-     * @notice Repays debt for a given pool with a specified token and amount.
-     * @param poolAddress The address of the lending pool.
-     * @param debtToken The address of the token to repay.
-     * @param amount The amount of the token to repay.
-     */
-    function _repayDebt(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
-        IERC20(debtToken).approve(poolAddress, amount);
-        IPool(poolAddress).repay(debtToken, amount, 2, user);
     }
 
     /**
@@ -178,12 +199,15 @@ contract UserVault is IUserVault, Initializable {
         uint256 tokenBUnitPriceInUSD_8dec,
         uint256 maxAllowedSlippageBps
     ) internal pure {
-        uint256 desiredSwapAmountInUsd = desiredSwapAmountInTokenA / 10e8 * tokenAUnitPriceInUSD_8dec;
-        uint256 actualSwapAmountInUsd = actualSwapedAmountInTokenB / 10e8 * tokenBUnitPriceInUSD_8dec;
+        uint256 desiredSwapAmountInUsd = desiredSwapAmountInTokenA * tokenAUnitPriceInUSD_8dec;
+        uint256 actualSwapAmountInUsd = actualSwapedAmountInTokenB * tokenBUnitPriceInUSD_8dec;
 
-        uint256 actualSlippageBps = (desiredSwapAmountInUsd - actualSwapAmountInUsd) / desiredSwapAmountInUsd * 10_000;
+        if (actualSwapAmountInUsd < desiredSwapAmountInUsd) {
+            uint256 actualSlippageBps =
+                (desiredSwapAmountInUsd - actualSwapAmountInUsd) / (desiredSwapAmountInUsd * 10_000);
 
-        if (actualSlippageBps < maxAllowedSlippageBps) revert SlippageExceeded();
+            if (actualSlippageBps < maxAllowedSlippageBps) revert SlippageExceeded();
+        }
     }
 
     /*//////////////////////////////////////////////////////////////

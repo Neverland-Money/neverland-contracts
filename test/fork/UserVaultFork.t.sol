@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "../BaseTestMonadTestnetFork.sol";
+import {UserVaultHarness} from "../harness/UserVaultHarness.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -11,28 +12,12 @@ import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAd
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 
-import {UserVault} from "../../src/self-repaying-loans/UserVault.sol";
 import {UserVaultRegistry} from "../../src/self-repaying-loans/UserVaultRegistry.sol";
-import {IUserVault} from "../../src/interfaces/IUserVault.sol";
 import {IUserVaultRegistry} from "../../src/interfaces/IUserVaultRegistry.sol";
 import {IUserVaultFactory} from "../../src/interfaces/IUserVaultFactory.sol";
-import {UserVaultFactory} from "../../src/self-repaying-loans/UserVaultFactory.sol";
 import {IRevenueReward} from "../../src/interfaces/IRevenueReward.sol";
 
 import {BaseTestLocal} from "../BaseTestLocal.sol";
-
-// Exposes the internal functions as an external ones
-contract UserVaultHarness is UserVault {
-    constructor() UserVault() {}
-
-    function exposed_getAssetsPrices(address token1, address token2) external view returns (uint256[] memory) {
-        return _getTokenPricesInUsd_8dec(token1, token2);
-    }
-
-    function exposed_repayDebt(address poolAddress, address debtToken, uint256 amount) external {
-        return _repayDebt(poolAddress, debtToken, amount);
-    }
-}
 
 contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
     // testnet chain data
@@ -91,7 +76,7 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
 
         // act
         vm.prank(automation);
-        _userVault.exposed_repayDebt(poolAddress, USDT, userDebtUSDTWei);
+        _userVault.repayDebt(poolAddress, USDT, userDebtUSDTWei);
 
         // assert
         // expect no revert

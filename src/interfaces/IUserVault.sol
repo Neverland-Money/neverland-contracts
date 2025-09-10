@@ -15,10 +15,6 @@ interface IUserVault {
     error SwapFailed();
     // @notice Emitted the asset prices failed to be retrieved from oracle
     error GettingAssetPriceFailed();
-    // @notice Emitted when getting a reward lowers balance.
-    error NegativeRewardAmount();
-    // @notice Emitted when swapping lowers the swapped token amount.
-    error NegativeSwapAmount();
     // @notice Emitted when swapping slippage exceeded the max allowed.
     error SlippageExceeded();
     // @notice Emitted when tokenId belongs to a different user vault.
@@ -66,6 +62,52 @@ interface IUserVault {
      * @param params Structured parameters. See RepayUserDebtParams for details.
      */
     function repayUserDebt(RepayUserDebtParams calldata params) external;
+
+    /**
+     * @notice Claims rewards for the provided tokenIds and returns the total amount of rewardToken received.
+     * @dev
+     * - Reverts with InvalidUserVaultForToken if any tokenId’s reward receiver is not this vault.
+     * - Calls the external rewards distributor for each tokenId to pull rewards into this contract.
+     * - Computes the claimed amount by measuring this contract’s rewardToken balance delta.
+     * - Callable only by the executor; otherwise reverts with NotExecutor.
+     * @param tokenIds Array of token IDs whose rewards should be claimed.
+     * @param rewardToken The ERC20 reward token to claim.
+     * @return rewardTokenAmount The total amount of rewardToken claimed into this vault.
+     */
+    function getTokenIdsReward(uint256[] memory tokenIds, address rewardToken) external returns (uint256);
+
+    /**
+     * @notice Swaps tokenIn for tokenOut via a supported aggregator and verifies slippage against oracle prices.
+     * @dev
+     * - Reverts with AggregatorNotSupported if the aggregator is not approved.
+     * - Forwards aggregatorData to the aggregator using a low-level call; reverts with SwapFailed on failure.
+     * - Computes USD-denominated slippage using oracle prices and reverts with SlippageExceeded
+     *   if it exceeds maxAllowedSlippageBps.
+     * - Callable only by the executor; otherwise reverts with NotExecutor.
+     * @param tokenIn The ERC20 token address to swap from.
+     * @param tokenInAmount The exact amount of tokenIn to swap.
+     * @param tokenOut The ERC20 token address to receive.
+     * @param aggregator The swap aggregator contract to execute the swap.
+     * @param aggregatorData Calldata to be sent to the aggregator for performing the swap.
+     * @param maxAllowedSlippageBps Maximum acceptable slippage in basis points (1 bps = 0.01%).
+     * @return The amount of tokenOut received from the swap.
+     */
+    function swapAndVerify(
+        address tokenIn,
+        uint256 tokenInAmount,
+        address tokenOut,
+        address aggregator,
+        bytes memory aggregatorData,
+        uint256 maxAllowedSlippageBps
+    ) external returns (uint256);
+
+    /**
+     * @notice Repays debt for a given pool with a specified token and amount.
+     * @param poolAddress The address of the lending pool.
+     * @param debtToken The address of the token to repay.
+     * @param amount The amount of the token to repay.
+     */
+    function repayDebt(address poolAddress, address debtToken, uint256 amount) external;
 
     /**
      * @notice Deposits collateral for a user into a lending pool.
