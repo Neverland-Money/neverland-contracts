@@ -42,15 +42,8 @@ contract UserVault is IUserVault, Initializable {
 
     /// @inheritdoc IUserVault
     function repayUserDebt(RepayUserDebtParams calldata params) public onlyExecutor {
-        // basic checks
-        CommonChecksLibrary.revertIfZeroAddress(params.debtToken);
-        CommonChecksLibrary.revertIfZeroAddress(params.poolAddress);
-        // limit slippagePercent: read from registry value
-
-        // get rewards
         uint256 rewardTokenAmount = getTokenIdsReward(params.tokenIds, params.rewardToken);
 
-        // swap and verify
         uint256 debtTokenSwapAmount = swapAndVerify(
             params.rewardToken,
             params.rewardTokenAmountToSwap,
@@ -60,7 +53,6 @@ contract UserVault is IUserVault, Initializable {
             params.maxSlippageBps
         );
 
-        // repay
         repayDebt(params.poolAddress, params.debtToken, debtTokenSwapAmount);
 
         emit LoanSelfRepaid(user, address(this), params.poolAddress, params.debtToken, debtTokenSwapAmount);
@@ -68,6 +60,8 @@ contract UserVault is IUserVault, Initializable {
 
     /// @inheritdoc IUserVault
     function getTokenIdsReward(uint256[] memory tokenIds, address rewardToken) public onlyExecutor returns (uint256) {
+        CommonChecksLibrary.revertIfZeroAddress(rewardToken);
+
         uint256 rewardTokenTokenBalanceBefore = _getErc20TokenBalance(rewardToken, address(this));
 
         address[] memory rewardTokens = new address[](1);
@@ -93,6 +87,12 @@ contract UserVault is IUserVault, Initializable {
         bytes memory aggregatorData,
         uint256 maxAllowedSlippageBps
     ) public onlyExecutor returns (uint256) {
+        CommonChecksLibrary.revertIfZeroAddress(tokenIn);
+        CommonChecksLibrary.revertIfZeroAddress(tokenOut);
+        CommonChecksLibrary.revertIfZeroAddress(aggregator);
+        CommonChecksLibrary.revertIfZeroAmount(tokenInAmount);
+        if (maxAllowedSlippageBps > userVaultRegistry.maxSwapSlippageBps()) revert MaxSlippageTooHigh();
+
         uint256 debtTokenSwapAmount = _swap(tokenIn, tokenInAmount, tokenOut, aggregator, aggregatorData);
 
         uint256[] memory tokenPricesInUSD_8dec = _getTokenPricesInUsd_8dec(tokenIn, tokenOut);

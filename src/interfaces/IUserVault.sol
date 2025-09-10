@@ -19,6 +19,8 @@ interface IUserVault {
     error SlippageExceeded();
     // @notice Emitted when tokenId belongs to a different user vault.
     error InvalidUserVaultForToken();
+    // @notice Emitted max slippage set by execute is more than max allowed.
+    error MaxSlippageTooHigh();
 
     // EVENTS
     event LoanSelfRepaid(

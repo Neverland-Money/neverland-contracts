@@ -8,6 +8,7 @@ import {IUserVaultRegistry} from "../interfaces/IUserVaultRegistry.sol";
 contract UserVaultRegistry is IUserVaultRegistry, Ownable {
     address public executor;
     mapping(address => bool) private supportedAggregators;
+    uint256 public maxSwapSlippageBps;
 
     function setExecutor(address _executor) external onlyOwner {
         executor = _executor;
@@ -19,5 +20,9 @@ contract UserVaultRegistry is IUserVaultRegistry, Ownable {
 
     function isSupportedAggregator(address aggregator) external view returns (bool) {
         return supportedAggregators[aggregator];
+    }
+
+    function setMaxSwapSlippageBps(uint256 newMaxSwapSlippageBps) external onlyOwner {
+        maxSwapSlippageBps = newMaxSwapSlippageBps;
     }
 }
