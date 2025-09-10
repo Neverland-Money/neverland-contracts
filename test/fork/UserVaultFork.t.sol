@@ -12,11 +12,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 
-import {IRevenueReward} from "../../src/interfaces/IRevenueReward.sol";
-import {IUserVaultFactory} from "../../src/interfaces/IUserVaultFactory.sol";
-import {IUserVaultRegistry} from "../../src/interfaces/IUserVaultRegistry.sol";
-import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-
 import {UserVaultHarness} from "../harness/UserVaultHarness.sol";
 import {UserVaultRegistry} from "../../src/self-repaying-loans/UserVaultRegistry.sol";
 

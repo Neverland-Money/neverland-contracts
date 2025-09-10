@@ -89,8 +89,8 @@ contract UserVault is IUserVault, Initializable {
     ) public onlyExecutor returns (uint256) {
         CommonChecksLibrary.revertIfZeroAddress(tokenIn);
         CommonChecksLibrary.revertIfZeroAddress(tokenOut);
-        CommonChecksLibrary.revertIfZeroAddress(aggregator);
         CommonChecksLibrary.revertIfZeroAmount(tokenInAmount);
+        CommonChecksLibrary.revertIfZeroAddress(aggregator);
         if (maxAllowedSlippageBps > userVaultRegistry.maxSwapSlippageBps()) revert MaxSlippageTooHigh();
 
         uint256 debtTokenSwapAmount = _swap(tokenIn, tokenInAmount, tokenOut, aggregator, aggregatorData);
@@ -204,9 +204,9 @@ contract UserVault is IUserVault, Initializable {
 
         if (actualSwapAmountInUsd < desiredSwapAmountInUsd) {
             uint256 actualSlippageBps =
-                (desiredSwapAmountInUsd - actualSwapAmountInUsd) / (desiredSwapAmountInUsd * 10_000);
+                (desiredSwapAmountInUsd - actualSwapAmountInUsd) * 10_000 / desiredSwapAmountInUsd;
 
-            if (actualSlippageBps < maxAllowedSlippageBps) revert SlippageExceeded();
+            if (actualSlippageBps > maxAllowedSlippageBps) revert SlippageExceeded();
         }
     }
 
