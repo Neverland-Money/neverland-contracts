@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {
     DustLockTransferStrategy,
     IDustLockTransferStrategy,
     IDustLock
-} from "../src/emissions/DustLockTransferStrategy.sol";
-import {IDustTransferStrategy} from "../src/interfaces/IDustTransferStrategy.sol";
+} from "../../src/emissions/DustLockTransferStrategy.sol";
+import {IDustTransferStrategy} from "../../src/interfaces/IDustTransferStrategy.sol";
 
-import {CommonChecksLibrary} from "../src/libraries/CommonChecksLibrary.sol";
+import {CommonChecksLibrary} from "../../src/libraries/CommonChecksLibrary.sol";
 
-import "./BaseTest.sol";
+import "../BaseTestLocal.sol";
 
-contract DustLockTransferStrategyTest is BaseTest {
+contract DustLockTransferStrategyTest is BaseTestLocal {
     DustLockTransferStrategy public transferStrategy;
     address internal dustVault;
     address internal incentivesController;

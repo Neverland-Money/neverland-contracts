@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
-import "../BaseTest.sol";
+import "../BaseTestLocal.sol";
 import "forge-std/console2.sol";
 
 /**
@@ -24,7 +24,7 @@ import "forge-std/console2.sol";
  * - Tests edge cases and boundary conditions with precise expectations
  * - Ensures our PRB Math implementation matches theoretical calculations
  */
-contract DustLockFlow is BaseTest {
+contract DustLockFlow is BaseTestLocal {
     function _setUp() internal override {
         // Initial time => 1 sec after the start of week1
         assertEq(block.timestamp, 1 weeks + 1);

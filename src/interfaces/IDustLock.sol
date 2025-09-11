@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
-import {IERC165, IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 
 import {IRevenueReward} from "./IRevenueReward.sol";
@@ -163,6 +164,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
         uint256 locktime,
         uint256 ts
     );
+
     /**
      * @notice Emitted when tokens are withdrawn before the lock expiry with a penalty
      * @param provider Address receiving the withdrawn tokens
@@ -174,6 +176,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     event EarlyWithdraw(
         address indexed provider, uint256 indexed tokenId, uint256 value, uint256 amountReturned, uint256 ts
     );
+
     /**
      * @notice Emitted when tokens are withdrawn after the lock expiry
      * @param provider Address receiving the withdrawn tokens
@@ -182,6 +185,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param ts Timestamp when the withdrawal occurred
      */
     event Withdraw(address indexed provider, uint256 indexed tokenId, uint256 value, uint256 ts);
+
     /**
      * @notice Emitted when a lock is converted to a permanent lock
      * @param _owner Address that owns the veNFT
@@ -190,6 +194,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param _ts Timestamp when the permanent lock was created
      */
     event LockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
+
     /**
      * @notice Emitted when a permanent lock is unlocked by governance
      * @param _owner Address that owns the veNFT
@@ -198,12 +203,14 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @param _ts Timestamp when the permanent lock was unlocked
      */
     event UnlockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
+
     /**
      * @notice Emitted when the total supply of locked tokens changes
      * @param prevSupply Previous total locked supply
      * @param supply New total locked supply
      */
     event Supply(uint256 prevSupply, uint256 supply);
+
     /**
      * @notice Emitted when two veNFTs are merged
      * @param _sender Address initiating the merge
@@ -225,6 +232,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
         uint256 _locktime,
         uint256 _ts
     );
+
     /**
      * @notice Emitted when a veNFT is split into two separate veNFTs
      * @param _from Original veNFT ID being split (burned in the process)
@@ -310,11 +318,20 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      */
     event BaseURIUpdated(string oldBaseURI, string newBaseURI);
 
-    // State variables
-    /// @notice Address of Meta-tx Forwarder
+    /*//////////////////////////////////////////////////////////////
+                                STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Address of Meta-tx Forwarder
+     * @return The trusted forwarder address used for meta-transactions
+     */
     function forwarder() external view returns (address);
 
-    /// @notice Address of token (DUST) used to create a veNFT
+    /**
+     * @notice Address of token (DUST) used to create a veNFT
+     * @return The ERC20 token address used to lock and mint veNFTs
+     */
     function token() external view returns (address);
 
     /**
@@ -329,12 +346,9 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      */
     function pendingTeam() external view returns (address);
 
-    /**
-     * @notice Current total count of veNFT tokens
-     * @dev Used as a counter for minting new tokens and assigning IDs
-     * @return The current highest token ID value
-     */
-    function tokenId() external view returns (uint256);
+    /*//////////////////////////////////////////////////////////////
+                                ADMIN
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Proposes a new team address for two-step ownership transfer
@@ -393,11 +407,23 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      */
     function setBaseURI(string memory newBaseURI) external;
 
+    /**
+     * @notice Current total count of veNFT tokens
+     * @dev Used as a counter for minting new tokens and assigning IDs
+     * @return The current highest token ID value
+     */
+    function tokenId() external view returns (uint256);
+
     /*//////////////////////////////////////////////////////////////
                       ERC721 BALANCE/OWNER STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Mapping from owner address to mapping of index to tokenId
+    /**
+     * @notice Returns the tokenId owned by `_owner` at position `_index`
+     * @param _owner Owner address to query
+     * @param _index Index of the token within the owner's list
+     * @return _tokenId The tokenId at the given index for the owner
+     */
     function ownerToNFTokenIdList(address _owner, uint256 _index) external view returns (uint256 _tokenId);
 
     /// @inheritdoc IERC721
@@ -420,6 +446,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @notice Check whether spender is owner or an approved user for a given veNFT
      * @param _spender The address to approve for the tokenId
      * @param _tokenId The ID of the veNFT to be approved
+     * @return True if `_spender` is owner or approved for `_tokenId`, false otherwise
      */
     function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool);
 
@@ -461,7 +488,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
 
     /**
      * @notice Total amount of tokens currently locked in the contract
-     * @return The total supply of locked tokens (excluding permanently locked tokens)
+     * @return The total supply of locked tokens
      */
     function supply() external view returns (uint256);
 
@@ -578,6 +605,27 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     function createLockFor(uint256 _value, uint256 _lockDuration, address _to) external returns (uint256);
 
     /**
+     * @notice Create a new lock for the caller and immediately make it permanent
+     * @dev UX convenience to perform "create lock" and "make permanent" in a single transaction
+     *      Follows the same validation as `createLock` (min amount, duration bounds, week rounding)
+     * @param _value Amount of tokens to deposit and lock
+     * @param _lockDuration Number of seconds to lock tokens for (rounded down to nearest week)
+     * @return tokenId The ID of the newly created veNFT
+     */
+    function createLockPermanent(uint256 _value, uint256 _lockDuration) external returns (uint256);
+
+    /**
+     * @notice Create a new lock for `to` and immediately make it permanent
+     * @dev UX convenience to mint the veNFT to `to` and set permanence in one transaction
+     *      Uses `to` as the owner for auth semantics; validation mirrors `createLock`
+     * @param _value Amount of tokens to deposit and lock
+     * @param _lockDuration Number of seconds to lock tokens for (rounded down to nearest week)
+     * @param _to The address that will own the newly created veNFT
+     * @return tokenId The ID of the newly created veNFT
+     */
+    function createLockPermanentFor(uint256 _value, uint256 _lockDuration, address _to) external returns (uint256);
+
+    /**
      * @notice Deposit additional tokens for an existing veNFT without modifying the unlock time
      * @dev Increases the amount of tokens in a lock while keeping the same unlock date
      *      Can only be called by the owner of the veNFT or an approved address
@@ -611,11 +659,11 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /**
      * @notice Withdraw tokens from a lock before it expires, with a time-proportional penalty
      * @dev Allows users to exit a lock early but with a penalty fee applied
-     *      The penalty is proportional to both earlyWithdrawPenalty and remaining time until unlock
-     *      Penalty fees are sent to the earlyWithdrawTreasury address
-     *      This function burns the veNFT and returns the non-penalized portion of tokens to the owner
-     *      Cannot be used on permanent locks
-     *      Can only be called by the owner of the veNFT or an approved address
+     *      The penalty is proportional to both `earlyWithdrawPenalty` and remaining time until unlock
+     *      If the lock is permanent, it is internally converted back to a standard time-lock first and
+     *      the early withdraw penalty is computed using the restored lock window. Penalty fees are sent
+     *      to the `earlyWithdrawTreasury` address. Burns the veNFT and returns the non‑penalized portion
+     *      of tokens to the owner. Can only be called by the owner of the veNFT or an approved address
      * @param _tokenId The ID of the veNFT to withdraw early from
      */
     function earlyWithdraw(uint256 _tokenId) external;
@@ -639,9 +687,12 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
     /**
      * @notice Merges two veNFTs by combining their locked tokens into a single veNFT
      * @dev The source veNFT is burned and its tokens are added to the destination veNFT
-     *      The lock duration of the destination veNFT is preserved
-     *      Cannot merge source veNFTs that are permanent or have voted in the current epoch
-     *      Cannot merge into destination veNFTs that have already expired
+     *      The lock duration/semantics of the destination veNFT are preserved
+     *      Rules:
+     *      - permanent + permanent: allowed (destination stays permanent)
+     *      - non‑permanent + permanent: allowed (permanent principal increases)
+     *      - permanent + non‑permanent: reverts
+     *      - expired source or destination: reverts
      *      Can only be called by an address that owns or is approved for both veNFTs
      * @param _from The ID of the source veNFT to merge from (will be burned)
      * @param _to The ID of the destination veNFT to merge into (will receive the combined tokens)
@@ -654,8 +705,9 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      *      Both new veNFTs maintain the same lock end time as the original
      *      Can only be called by an address that has split permission, and owns or is approved for the veNFT
      *      If called by an approved address, that address will NOT have approval on the new veNFTs
+     *      (approvals on the parent do not carry over to children)
      *      Requires that the caller is either the owner or specifically has been granted split permission
-     *      Cannot split permanent locks or locks that have already voted in the current epoch
+     *      Cannot split permanent locks
      * @param _from The ID of the veNFT to split (will be burned)
      * @param _amount The precise token amount to allocate to the second new veNFT
      * @return _tokenId1 ID of the first new veNFT with (original amount - _amount) tokens
@@ -679,6 +731,9 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @dev Converts a standard time-locked veNFT to a permanent lock
      *      Once permanent, the veNFT cannot be withdrawn normally (even after the original lock time)
      *      Permanent locks have constant voting power equal to the locked token amount with no time decay
+     *      Note: time served prior to permanence is not preserved for penalty calculations — if the owner
+     *      later calls `earlyWithdraw`, the position is first unlocked and the penalty window resets to a
+     *      full MAXTIME from the current timestamp
      *      Can only be called by the owner of the veNFT or an approved address
      *      Cannot be called on a lock that is already permanent
      * @param _tokenId The ID of the veNFT to permanently lock
@@ -691,7 +746,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      *      After unlocking, the veNFT's voting power will decay based on the remaining lock time
      *      The lock time will be the original lock end time from before it was made permanent
      *      If the original lock time has already passed, the lock will be immediately withdrawable
-     *      Can only be called by authorized addresses (typically controlled by governance)
+     *      Can only be called by the owner or an approved operator
      *      Only callable on veNFTs that are currently permanently locked
      * @param _tokenId The ID of the veNFT to revert from permanent to standard lock
      */

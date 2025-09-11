@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
 import {RewardsDistributor} from "@aave-v3-periphery/contracts/rewards/RewardsDistributor.sol";
@@ -12,40 +12,73 @@ import {IDustRewardsController} from "../interfaces/IDustRewardsController.sol";
 import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
+import {CommonLibrary} from "../libraries/CommonLibrary.sol";
 
 /**
  * @title DustRewardsController
+ * @author Original implementation by Aave
+ * @author Extended by Neverland
  * @notice Modified Aave's RewardsController contract to pass lockTime and
  *         tokenId to the `IDustTransferStrategy` and remove rewards oracles.
- * @author Aave
- * @author Neverland
  */
 contract DustRewardsController is RewardsDistributor, VersionedInitializable, IDustRewardsController {
     using SafeCast for uint256;
 
+    /*//////////////////////////////////////////////////////////////
+                             CONSTANTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Implementation revision number for proxy upgrades bookkeeping
     uint256 public constant REVISION = 1;
 
-    // This mapping allows whitelisted addresses to claim on behalf of others
-    // useful for contracts that hold tokens to be rewarded but don't have any native logic to claim Liquidity Mining rewards
+    /*//////////////////////////////////////////////////////////////
+                          STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Mapping of users to their authorized claimers for reward delegation.
+     *      Useful for contracts holding rewarded tokens without native claiming logic
+     */
     mapping(address => address) internal _authorizedClaimers;
 
-    // reward => transfer strategy implementation contract
-    // The TransferStrategy contract abstracts the logic regarding
-    // the source of the reward and how to transfer it to the user.
+    /**
+     * @dev Mapping of reward tokens to their corresponding transfer strategy contracts.
+     *      Transfer strategies abstract reward source logic and transfer mechanisms
+     */
     mapping(address => IDustTransferStrategy) internal _transferStrategy;
+
+    /*//////////////////////////////////////////////////////////////
+                           ACCESS CONTROL
+    //////////////////////////////////////////////////////////////*/
 
     modifier onlyAuthorizedClaimers(address claimer, address user) {
         if (_authorizedClaimers[user] != claimer) revert ClaimerUnauthorized();
         _;
     }
 
-    constructor(address emissionManager) RewardsDistributor(emissionManager) {}
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Initialize for RewardsController
+     * @notice Constructs the rewards controller
+     * @param emissionManager The address of the emission manager (Aave semantics)
+     */
+    constructor(address emissionManager) RewardsDistributor(emissionManager) {}
+
+    /*//////////////////////////////////////////////////////////////
+                           INITIALIZER
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Initialize for RewardsController (no-op)
      * @dev It expects an address as argument since its initialized via PoolAddressesProvider._updateImpl()
      */
     function initialize(address) external initializer {}
+
+    /*//////////////////////////////////////////////////////////////
+                                VIEWS
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustRewardsController
     function getClaimer(address user) external view override returns (address) {
@@ -53,6 +86,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /**
+     * @notice Returns the implementation revision used by Aave's initializer pattern
      * @dev Returns the revision of the implementation contract
      * @return uint256, current revision version
      */
@@ -65,20 +99,27 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         return address(_transferStrategy[reward]);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                               ADMIN
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IDustRewardsController
-    function configureAssets(RewardsDataTypes.RewardsConfigInput[] memory config)
+    function configureAssets(RewardsDataTypes.RewardsConfigInput[] calldata config)
         external
         override
         onlyEmissionManager
     {
-        for (uint256 i = 0; i < config.length; i++) {
+        RewardsDataTypes.RewardsConfigInput[] memory configCopy = config;
+        for (uint256 i = 0; i < config.length; ++i) {
             // Get the current Scaled Total Supply of AToken or Debt token
-            config[i].totalSupply = IScaledBalanceToken(config[i].asset).scaledTotalSupply();
+            configCopy[i].totalSupply = IScaledBalanceToken(configCopy[i].asset).scaledTotalSupply();
 
             // Install TransferStrategy logic at IncentivesController
-            _installTransferStrategy(config[i].reward, IDustTransferStrategy(address(config[i].transferStrategy)));
+            _installTransferStrategy(
+                configCopy[i].reward, IDustTransferStrategy(address(configCopy[i].transferStrategy))
+            );
         }
-        _configureAssets(config);
+        _configureAssets(configCopy);
     }
 
     /// @inheritdoc IDustRewardsController
@@ -87,9 +128,26 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /// @inheritdoc IDustRewardsController
+    function setClaimer(address user, address claimer) external override {
+        if (msg.sender != user && msg.sender != EMISSION_MANAGER) revert OnlyEmissionManagerOrSelf();
+
+        _authorizedClaimers[user] = claimer;
+
+        emit ClaimerSet(user, claimer);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            REWARDS ACTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IDustRewardsController
     function handleAction(address user, uint256 totalSupply, uint256 userBalance) external override {
         _updateData(msg.sender, user, userBalance, totalSupply);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                           REWARDS CLAIMING
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustRewardsController
     function claimRewards(
@@ -171,17 +229,12 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         return _claimAllRewards(assets, msg.sender, msg.sender, msg.sender, lockTime, tokenId);
     }
 
-    /// @inheritdoc IDustRewardsController
-    function setClaimer(address user, address caller) external override {
-        if (msg.sender != user) {
-            // If not the user themselves, require admin permission
-            if (msg.sender != _emissionManager) revert OnlyEmissionManagerOrSelf();
-        }
-        _authorizedClaimers[user] = caller;
-        emit ClaimerSet(user, caller);
-    }
+    /*//////////////////////////////////////////////////////////////
+                               INTERNAL
+    //////////////////////////////////////////////////////////////*/
 
     /**
+     * @notice Get user balances and total supply for a list of assets
      * @dev Get user balances and total supply of all the assets specified by the assets parameter
      * @param assets List of assets to retrieve user balance and total supply
      * @param user Address of the user
@@ -194,7 +247,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         returns (RewardsDataTypes.UserAssetBalance[] memory userAssetBalances)
     {
         userAssetBalances = new RewardsDataTypes.UserAssetBalance[](assets.length);
-        for (uint256 i = 0; i < assets.length; i++) {
+        for (uint256 i = 0; i < assets.length; ++i) {
             userAssetBalances[i].asset = assets[i];
             (userAssetBalances[i].userBalance, userAssetBalances[i].totalSupply) =
                 IScaledBalanceToken(assets[i]).getScaledUserBalanceAndSupply(user);
@@ -203,6 +256,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /**
+     * @notice Internal helper to claim a single reward type across assets
      * @dev Claims one type of reward for a user on behalf, on all the assets of the pool, accumulating the pending rewards.
      * @param assets List of assets to check eligible distributions before claiming rewards
      * @param amount Amount of rewards to claim
@@ -230,7 +284,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         uint256 totalRewards;
 
         _updateDataMultiple(user, _getUserAssetBalances(assets, user));
-        for (uint256 i = 0; i < assets.length; i++) {
+        for (uint256 i = 0; i < assets.length; ++i) {
             address asset = assets[i];
             totalRewards += _assets[asset].rewards[reward].usersData[user].accrued;
 
@@ -249,12 +303,13 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         }
 
         _transferRewards(to, reward, totalRewards, lockTime, tokenId);
-        emit RewardsClaimed(user, reward, to, claimer, totalRewards);
 
+        emit RewardsClaimed(user, reward, to, claimer, totalRewards);
         return totalRewards;
     }
 
     /**
+     * @notice Internal helper to claim all reward types across assets
      * @dev Claims one type of reward for a user on behalf, on all the assets of the pool, accumulating the pending rewards.
      * @param assets List of assets to check eligible distributions before claiming rewards
      * @param claimer Address of the claimer on behalf of user
@@ -262,9 +317,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
      * @param to Address that will be receiving the rewards
      * @param lockTime Optional lock time for supported rewards
      * @param tokenId Optional tokenId for supported rewards
-     * @return
-     *   rewardsList List of reward addresses
-     *   claimedAmount List of claimed amounts, follows "rewardsList" items order
+     * @return rewardsList List of reward addresses
+     * @return claimedAmounts List of claimed amounts, follows "rewardsList" items order
      */
     function _claimAllRewards(
         address[] calldata assets,
@@ -280,9 +334,9 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
 
         _updateDataMultiple(user, _getUserAssetBalances(assets, user));
 
-        for (uint256 i = 0; i < assets.length; i++) {
+        for (uint256 i = 0; i < assets.length; ++i) {
             address asset = assets[i];
-            for (uint256 j = 0; j < rewardsListLength; j++) {
+            for (uint256 j = 0; j < rewardsListLength; ++j) {
                 if (rewardsList[j] == address(0)) {
                     rewardsList[j] = _rewardsList[j];
                 }
@@ -293,17 +347,18 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
                 }
             }
         }
-        for (uint256 i = 0; i < rewardsListLength; i++) {
+        for (uint256 i = 0; i < rewardsListLength; ++i) {
             _transferRewards(to, rewardsList[i], claimedAmounts[i], lockTime, tokenId);
+
             emit RewardsClaimed(user, rewardsList[i], to, claimer, claimedAmounts[i]);
         }
         return (rewardsList, claimedAmounts);
     }
 
     /**
-     * @dev Internal function to transfer rewards to the recipient using the configured transfer strategy
-     * @notice This function delegates the actual reward transfer to the strategy contract specified for each reward token
-     * @notice The transfer strategy may handle specialized behaviors like creating/extending locks
+     * @notice Internal function to transfer rewards to the recipient using the configured transfer strategy
+     * @dev This function delegates the actual reward transfer to the strategy contract specified for each reward token.
+     *      The transfer strategy may handle specialized behaviors like creating/extending locks
      * @param to Recipient address to receive the rewards
      * @param reward Address of the reward token being transferred
      * @param amount Amount of reward tokens to transfer
@@ -319,32 +374,15 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /**
-     * @dev Returns true if `account` is a contract.
-     * @param account The address of the account
-     * @return bool, true if contract, false otherwise
-     */
-    function _isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
-
-        uint256 size;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            size := extcodesize(account)
-        }
-        return size > 0;
-    }
-
-    /**
-     * @dev Internal function to call the optional install hook at the TransferStrategy
+     * @notice Installs or updates the transfer strategy for a reward token
+     * @dev Internal function to register the TransferStrategy implementation for a reward token
      * @param reward The address of the reward token
      * @param transferStrategy The address of the reward TransferStrategy
      */
     function _installTransferStrategy(address reward, IDustTransferStrategy transferStrategy) internal {
         if (reward == address(0)) revert InvalidRewardAddress();
         if (address(transferStrategy) == address(0)) revert StrategyZeroAddress();
-        if (_isContract(address(transferStrategy)) != true) revert StrategyNotContract();
+        if (!CommonLibrary.isContract(address(transferStrategy))) revert StrategyNotContract();
 
         _transferStrategy[reward] = transferStrategy;
 

@@ -1,25 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Script} from "forge-std/Script.sol";
 import {Test} from "forge-std/Test.sol";
 
-import {IDustLock} from "../src/interfaces/IDustLock.sol";
-import {RevenueReward} from "../src/rewards/RevenueReward.sol";
-import {Dust} from "../src/tokens/Dust.sol";
-import {DustLock} from "../src/tokens/DustLock.sol";
-import {MockERC20} from "./utils/MockERC20.sol";
-
 abstract contract BaseTest is Script, Test {
-    Dust internal DUST;
-    DustLock internal dustLock;
-    RevenueReward internal revenueReward;
-    MockERC20 internal mockUSDC;
-    MockERC20 internal mockERC20;
-
-    uint256 constant BASIS_POINTS = 10000;
-
     uint256 constant USDC_1_UNIT = 1; // 1/100th of a cent
     uint256 constant USDC_1_CENT = 10000; // 0.01 USDC
     uint256 constant USDC_1 = 1e6;
@@ -39,15 +24,9 @@ abstract contract BaseTest is Script, Test {
     uint256 constant TOKEN_50M = 5e25; // 5e7 = 50M tokens with 18 decimals
     uint256 constant TOKEN_100M = 1e26; // 1e8 = 100M tokens with 18 decimals
 
+    address internal FORWARDER = address(0xF0);
     address internal ZERO_ADDRESS = address(0);
-
-    address internal admin = address(0xad1);
-    address internal user = address(this);
-    address internal user1 = address(0x1);
-    address internal user2 = address(0x2);
-    address internal user3 = address(0x3);
-    address internal user4 = address(0x4);
-    address internal user5 = address(0x5);
+    address internal NON_ZERO_ADDRESS = address(0x64);
 
     uint256 constant MINTIME = 4 weeks;
     uint256 constant MAXTIME = 1 * 365 * 86400;
@@ -56,8 +35,26 @@ abstract contract BaseTest is Script, Test {
     uint256 constant MIN_LOCK_AMOUNT = 1e18;
 
     uint256 constant PRECISION_TOLERANCE = 1; // 1 wei tolerance for rounding
+    uint256 constant BASIS_POINTS = 10000;
+
+    address internal automation = address(0xad2);
+    address internal admin = address(0xad1);
+    address internal user = address(this);
+    address internal user1 = address(0x1);
+    address internal user2 = address(0x2);
+    address internal user3 = address(0x3);
+    address internal user4 = address(0x4);
+    address internal user5 = address(0x5);
 
     function setUp() public virtual {
+        vm.label(automation, "automation");
+        vm.label(admin, "admin");
+        vm.label(address(this), "user");
+        vm.label(user1, "user1");
+        vm.label(user2, "user2");
+        vm.label(user3, "user3");
+        vm.label(user4, "user4");
+
         _testSetup();
         _setUp();
     }
@@ -65,41 +62,7 @@ abstract contract BaseTest is Script, Test {
     /// @dev Implement this if you want a custom configured deployment
     function _setUp() internal virtual {}
 
-    function _testSetup() internal {
-        // seed set up with initial time
-        skip(1 weeks);
-
-        // deploy DUST
-        Dust dustImpl = new Dust();
-        TransparentUpgradeableProxy dustProxy = new TransparentUpgradeableProxy(address(dustImpl), address(admin), "");
-        DUST = Dust(address(dustProxy));
-        DUST.initialize(admin);
-
-        // deploy USDC
-        mockUSDC = new MockERC20("USDC", "USDC", 6);
-        mockERC20 = new MockERC20("mERC20", "mERC20", 18);
-
-        // deploy DustLock
-        string memory baseUrl = "https://neverland.money/nfts/";
-        dustLock = new DustLock(address(0xF0), address(DUST), baseUrl);
-
-        // deploy RevenueReward
-        revenueReward = new RevenueReward(address(0xF1), address(dustLock), admin);
-
-        // set RevenueReward to DustLock
-        dustLock.setRevenueReward(revenueReward);
-
-        // add log labels
-        vm.label(address(admin), "admin");
-        vm.label(address(this), "user");
-        vm.label(address(user1), "user1");
-        vm.label(address(user2), "user2");
-        vm.label(address(user3), "user3");
-        vm.label(address(user4), "user4");
-
-        vm.label(address(DUST), "DUST");
-        vm.label(address(dustLock), "DustLock");
-    }
+    function _testSetup() internal virtual {}
 
     /* ========== HELPER FUNCTIONS ========== */
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
@@ -10,17 +10,33 @@ import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 /**
  * @title DustTransferStrategyBase
+ * @author Original implementation by Aave
+ * @author Extended by Neverland
  * @notice Modified Aave's TransferStrategyBase contract to pass lockTime and
  *         tokenId to the `IDustTransferStrategy`.
- * @author Aave
- * @author Neverland
  */
 abstract contract DustTransferStrategyBase is IDustTransferStrategy {
     using GPv2SafeERC20 for IERC20;
 
+    /*//////////////////////////////////////////////////////////////
+                          STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev The incentives controller contract address
     address internal immutable INCENTIVES_CONTROLLER;
+
+    /// @dev The rewards admin address for administrative functions
     address internal immutable REWARDS_ADMIN;
 
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Constructs the base transfer strategy
+     * @param incentivesController The incentives controller authorized to call performTransfer
+     * @param rewardsAdmin The rewards admin authorized for emergency actions
+     */
     constructor(address incentivesController, address rewardsAdmin) {
         CommonChecksLibrary.revertIfZeroAddress(incentivesController);
         CommonChecksLibrary.revertIfZeroAddress(rewardsAdmin);
@@ -28,6 +44,10 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
         INCENTIVES_CONTROLLER = incentivesController;
         REWARDS_ADMIN = rewardsAdmin;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                           ACCESS CONTROL
+    //////////////////////////////////////////////////////////////*/
 
     /// @dev Modifier for incentives controller only functions
     modifier onlyIncentivesController() {
@@ -41,6 +61,10 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
         _;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                VIEWS
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IDustTransferStrategy
     function getIncentivesController() external view override returns (address) {
         return INCENTIVES_CONTROLLER;
@@ -51,11 +75,19 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
         return REWARDS_ADMIN;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                         TRANSFER STRATEGY
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IDustTransferStrategy
     function performTransfer(address to, address reward, uint256 amount, uint256 lockTime, uint256 tokenId)
         external
         virtual
         returns (bool);
+
+    /*//////////////////////////////////////////////////////////////
+                               ADMIN
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustTransferStrategy
     function emergencyWithdrawal(address token, address to, uint256 amount) external onlyRewardsAdmin {

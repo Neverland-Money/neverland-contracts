@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {IRewardsDistributor} from "@aave-v3-periphery/contracts/rewards/interfaces/IRewardsDistributor.sol";
 import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
@@ -8,8 +8,8 @@ import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 
 /**
  * @title IDustRewardsController
- * @author Aave
- * @author Neverland
+ * @author Original implementation by Aave
+ * @author Extended by Neverland
  * @notice Defines the interface for the DustRewardsController that manages token rewards distribution
  * @dev Extends Aave's IRewardsDistributor with additional functionality for Neverland's veNFT system
  *      This controller manages the distribution of rewards to veNFT holders with options for
@@ -18,8 +18,6 @@ import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
  *      enabling integration with Neverland's veNFT locking ecosystem
  */
 interface IDustRewardsController is IRewardsDistributor {
-    /// Errors
-
     /// @notice Error thrown when a user is not authorized to claim rewards on behalf of another user
     error ClaimerUnauthorized();
 
@@ -40,8 +38,6 @@ interface IDustRewardsController is IRewardsDistributor {
 
     /// @notice Error thrown when a reward token address is invalid (zero)
     error InvalidRewardAddress();
-
-    /// Events
 
     /**
      * @notice Emitted when a new address is whitelisted as claimer of rewards on behalf of a user
@@ -69,7 +65,31 @@ interface IDustRewardsController is IRewardsDistributor {
      */
     event TransferStrategyInstalled(address indexed reward, address indexed transferStrategy);
 
-    /// Functions
+    /*//////////////////////////////////////////////////////////////
+                                 VIEWS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Returns the address authorized to claim rewards on behalf of a specific user
+     * @dev Used to verify permission when claimRewardsOnBehalf is called
+     *      Returns the zero address if no claimer has been set
+     * @param user The address of the user whose authorized claimer is being queried
+     * @return The address authorized to claim on behalf of the user, or address(0) if none
+     */
+    function getClaimer(address user) external view returns (address);
+
+    /**
+     * @notice Returns the transfer strategy implementation for a specific reward token
+     * @dev Each reward token can have its own dedicated transfer strategy implementation
+     *      The returned address implements the IDustTransferStrategy interface
+     * @param reward The address of the reward token
+     * @return The address of the transfer strategy contract for the specified reward token
+     */
+    function getTransferStrategy(address reward) external view returns (address);
+
+    /*//////////////////////////////////////////////////////////////
+                                 ADMIN
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Authorizes an address to claim rewards on behalf of another user
@@ -94,24 +114,6 @@ interface IDustRewardsController is IRewardsDistributor {
     function setTransferStrategy(address reward, IDustTransferStrategy transferStrategy) external;
 
     /**
-     * @notice Returns the address authorized to claim rewards on behalf of a specific user
-     * @dev Used to verify permission when claimRewardsOnBehalf is called
-     *      Returns the zero address if no claimer has been set
-     * @param user The address of the user whose authorized claimer is being queried
-     * @return The address authorized to claim on behalf of the user, or address(0) if none
-     */
-    function getClaimer(address user) external view returns (address);
-
-    /**
-     * @notice Returns the transfer strategy implementation for a specific reward token
-     * @dev Each reward token can have its own dedicated transfer strategy implementation
-     *      The returned address implements the IDustTransferStrategy interface
-     * @param reward The address of the reward token
-     * @return The address of the transfer strategy contract for the specified reward token
-     */
-    function getTransferStrategy(address reward) external view returns (address);
-
-    /**
      * @notice Configures incentivized assets with emission schedules and reward rates
      * @dev Sets up reward distributions for assets with specified emission rates
      *      Each asset can be configured with its own reward token, distribution schedule, and transfer strategy
@@ -127,6 +129,10 @@ interface IDustRewardsController is IRewardsDistributor {
      */
     function configureAssets(RewardsDataTypes.RewardsConfigInput[] memory config) external;
 
+    /*//////////////////////////////////////////////////////////////
+                            REWARDS ACTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /**
      * @notice Updates reward accrual when a user's balance or asset state changes
      * @dev Called by incentivized assets as a hook during transfers or other balance-changing operations
@@ -137,6 +143,10 @@ interface IDustRewardsController is IRewardsDistributor {
      * @param userBalance The user's balance before the change is applied
      */
     function handleAction(address user, uint256 totalSupply, uint256 userBalance) external;
+
+    /*//////////////////////////////////////////////////////////////
+                           REWARDS CLAIMING
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Claims specified amount of rewards for a user across multiple assets
@@ -241,6 +251,7 @@ interface IDustRewardsController is IRewardsDistributor {
     ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts);
 
     /**
+     * @notice Claims all rewards for msg.sender across all configured reward tokens
      * @dev Claims all reward for msg.sender, on all the assets of the pool, accumulating the pending rewards
      * @param assets The list of assets to check eligible distributions before claiming rewards
      * @param lockTime Optional lock time for supported rewards

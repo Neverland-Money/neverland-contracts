@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {GPv2SafeERC20} from "@aave/core-v3/contracts/dependencies/gnosis/contracts/GPv2SafeERC20.sol";
 import {IERC20} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
@@ -14,35 +14,44 @@ import {DustTransferStrategyBase} from "./DustTransferStrategyBase.sol";
 
 /**
  * @title DustLockTransferStrategy
+ * @author Neverland
  * @notice Transfer strategy for DUST rewards, that sends user veDUST lock
  *         created from DUST rewards, or allows for early withdrawal.
  *         Adding DUST to an existing veDUST lock is also supported.
- * @author Neverland
  */
 contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransferStrategy {
     using GPv2SafeERC20 for IERC20;
 
-    /// Constants
+    /*//////////////////////////////////////////////////////////////
+                             CONSTANTS
+    //////////////////////////////////////////////////////////////*/
+
     uint256 internal constant BASIS_POINTS = 10_000;
 
-    /**
-     * @notice The DustLock contract that manages veNFTs
-     * @dev Used for creating new locks, adding to existing locks, and checking ownership
-     */
+    /*//////////////////////////////////////////////////////////////
+                          STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IDustLockTransferStrategy
     IDustLock public immutable DUST_LOCK;
 
-    /**
-     * @notice The vault address where DUST rewards are stored before distribution
-     * @dev Rewards are transferred from this vault when they are claimed
-     */
+    /// @inheritdoc IDustLockTransferStrategy
     address public immutable DUST_VAULT;
 
-    /**
-     * @notice The DUST token address
-     * @dev Retrieved from the DUST_LOCK contract during construction
-     */
+    /// @inheritdoc IDustLockTransferStrategy
     address public immutable DUST;
 
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Constructs the DUST lock transfer strategy
+     * @param incentivesController The incentives controller authorized to call performTransfer
+     * @param rewardsAdmin The rewards admin allowed to emergency withdraw tokens
+     * @param dustVault The vault address that holds DUST balances
+     * @param dustLock The DustLock contract address
+     */
     constructor(address incentivesController, address rewardsAdmin, address dustVault, address dustLock)
         DustTransferStrategyBase(incentivesController, rewardsAdmin)
     {
@@ -56,6 +65,10 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
         DUST = DUST_LOCK.token();
     }
 
+    /*//////////////////////////////////////////////////////////////
+                         TRANSFER STRATEGY
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc DustTransferStrategyBase
     function performTransfer(address to, address reward, uint256 amount, uint256 lockTime, uint256 tokenId)
         external
@@ -68,26 +81,32 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
         CommonChecksLibrary.revertIfInvalidToAddress(to);
         if (reward != DUST) revert InvalidRewardAddress();
 
-        IERC20(reward).safeTransferFrom(DUST_VAULT, address(this), amount);
-        // If tokenId is greater than 0, it means we are merging emissions with an existing lock
-        // If tokenId is 0, it means we are creating a new lock or performing an early withdrawal
+        IERC20 rewardToken = IERC20(reward);
+        rewardToken.safeTransferFrom(DUST_VAULT, address(this), amount);
+
+        // tokenId > 0                      -> add DUST to existing veDUST;
+        // tokenId == 0 && lockTime > 0     -> create new veDUST lock;
+        // tokenId == 0 && lockTime == 0    -> direct DUST transfer with earlyWithdrawPenalty;
         if (tokenId > 0) {
-            // Add DUST to an existing lock
-            address owner = DUST_LOCK.ownerOf(tokenId); // reverts if token doesn't exist
+            // Add DUST to existing veDUST
+            address owner = DUST_LOCK.ownerOf(tokenId);
             if (owner != to) revert NotTokenOwner();
-            SafeERC20.safeIncreaseAllowance(IERC20(reward), address(DUST_LOCK), amount);
+            SafeERC20.safeIncreaseAllowance(rewardToken, address(DUST_LOCK), amount);
             DUST_LOCK.depositFor(tokenId, amount);
-            SafeERC20.safeApprove(IERC20(reward), address(DUST_LOCK), 0);
+            SafeERC20.safeApprove(rewardToken, address(DUST_LOCK), 0);
         } else if (lockTime > 0) {
-            // Create a new lock
-            SafeERC20.safeIncreaseAllowance(IERC20(reward), address(DUST_LOCK), amount);
+            // Create new veDUST lock
+            SafeERC20.safeIncreaseAllowance(rewardToken, address(DUST_LOCK), amount);
             DUST_LOCK.createLockFor(amount, lockTime, to);
-            SafeERC20.safeApprove(IERC20(reward), address(DUST_LOCK), 0);
+            SafeERC20.safeApprove(rewardToken, address(DUST_LOCK), 0);
         } else {
-            // Early withdrawal w/ penalty
+            // Direct transfer with earlyWithdrawPenalty; overflow impossible within uint256 range
             uint256 treasuryValue = (amount * DUST_LOCK.earlyWithdrawPenalty()) / BASIS_POINTS;
-            IERC20(reward).safeTransfer(to, amount - treasuryValue);
-            IERC20(reward).safeTransfer(DUST_LOCK.earlyWithdrawTreasury(), treasuryValue);
+            address treasury = DUST_LOCK.earlyWithdrawTreasury();
+            CommonChecksLibrary.revertIfZeroAddress(treasury);
+
+            rewardToken.safeTransfer(to, amount - treasuryValue);
+            rewardToken.safeTransfer(treasury, treasuryValue);
         }
         return true;
     }

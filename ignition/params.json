@@ -1,0 +1,12 @@
+{
+    "UserVaultModule": {
+        "poolAddressesProviderRegistry": "0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F",
+        "executor": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+        "rewardDistributor": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
+    },
+    "EmissionsModule": {
+        "rewardsAdmin": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+        "dustVault": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+        "emissionsManager": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
+    }
+  }

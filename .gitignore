@@ -4,7 +4,6 @@ out/
 
 # Ignores development broadcast logs
 /broadcast
-/script
 
 # Docs
 docs/
@@ -15,3 +14,16 @@ docs/
 # IDEs
 .idea
 .vscode
+
+# hardhat 
+node_modules/
+artifacts/
+hh-debug.log
+cache_hardhat/
+typechain-v5/
+typechain-v6/
+
+# static analysis
+aderyn.md
+solhint.txt
+slither.md

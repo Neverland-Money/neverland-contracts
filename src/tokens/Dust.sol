@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -11,6 +11,11 @@ import {ERC20PermitUpgradeable} from
 
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
+/**
+ * @title Dust
+ * @author Neverland
+ * @notice ERC20 token with pausable transfers and permit
+ */
 contract Dust is
     Initializable,
     ERC20Upgradeable,
@@ -26,15 +31,17 @@ contract Dust is
     /**
      * @notice Initializes the contract
      * @param initialOwner The address that will own the contract after initialization
+     * @param ts TotalSupply of the token (in wei w/o decimals)
      */
-    function initialize(address initialOwner) public initializer {
+    function initialize(address initialOwner, uint256 ts) public initializer {
         CommonChecksLibrary.revertIfZeroAddress(initialOwner);
 
         __ERC20_init("Dust", "DUST");
         __ERC20Pausable_init();
-        __ERC20Permit_init("Dust");
         __Ownable2Step_init();
+        __ERC20Permit_init("Dust");
         _transferOwnership(initialOwner);
+        _mint(initialOwner, ts * 10 ** decimals());
     }
 
     /**

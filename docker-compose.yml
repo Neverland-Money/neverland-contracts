@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  eth-security-toolbox:
+    image: ghcr.io/trailofbits/eth-security-toolbox:nightly
+    container_name: eth-security-toolbox
+    tty: true
+    stdin_open: true
+    volumes:
+      - .:/share

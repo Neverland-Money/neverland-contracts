@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
-import "../BaseTest.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDustLock} from "../../src/interfaces/IDustLock.sol";
 import {RevenueReward} from "../../src/rewards/RevenueReward.sol";
+import "../BaseTestLocal.sol";
 
 /**
  * @title RevenueRewardFlow
  * @notice Tests for reward distribution based on voting power precision
  * @dev Tests that rewards are distributed proportionally to voting power
  */
-contract RevenueRewardFlow is BaseTest {
+contract RevenueRewardFlow is BaseTestLocal {
     // RevenueReward instances for precision testing
     RevenueReward internal testRevenueReward;
     RevenueReward internal testRevenueReward2;
@@ -48,9 +48,9 @@ contract RevenueRewardFlow is BaseTest {
 
         // Initialize RevenueReward instances for precision testing
         // Use user (address(this)) as rewardDistributor instead of admin (proxy admin)
-        testRevenueReward = new RevenueReward(address(0xF2), address(dustLock), user);
-        testRevenueReward2 = new RevenueReward(address(0xF3), address(dustLock), user);
-        testRevenueReward3 = new RevenueReward(address(0xF4), address(dustLock), user);
+        testRevenueReward = new RevenueReward(address(0xF2), dustLock, user, userVaultFactory);
+        testRevenueReward2 = new RevenueReward(address(0xF3), dustLock, user, userVaultFactory);
+        testRevenueReward3 = new RevenueReward(address(0xF4), dustLock, user, userVaultFactory);
 
         skip(1 hours);
 

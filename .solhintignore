@@ -1,0 +1,10 @@
+# common folders to ignore
+node_modules/**
+lib/**
+src/libraries/**
+out/**
+cache/**
+script/**
+test/**
+foundry-test/**
+src/test/**
