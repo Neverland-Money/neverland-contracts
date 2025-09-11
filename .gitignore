@@ -23,3 +23,7 @@ hh-debug.log
 cache_hardhat/
 typechain-v5/
 typechain-v6/
+
+# static analysis
+solhint.txt
+slither.md
