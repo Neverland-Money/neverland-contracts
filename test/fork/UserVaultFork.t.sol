@@ -6,10 +6,10 @@ import {HarnessFactory} from "../harness/HarnessFactory.sol";
 
 import {BaseTestLocal} from "../BaseTestLocal.sol";
 import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
-import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
+import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 
 import {UserVaultHarness} from "../harness/UserVaultHarness.sol";
@@ -19,14 +19,17 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
     HarnessFactory harnessFactory;
 
     // testnet chain data
-    address poolAddressProvider = 0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499;
-    address aaveOracleAddress = 0x58207F48394a02c933dec4Ee45feC8A55e9cdf38;
+    address poolAddressProviderRegistryAddress = 0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F;
+    address poolAddressProviderAddress = 0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499;
 
     address USDC = 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea;
     address WETH = 0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37;
     address WBTC = 0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d;
     address WMON = 0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701;
     address USDT = 0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D;
+
+    IPoolAddressesProviderRegistry _poolAddressProviderRegistry;
+    IPoolAddressesProvider _poolAddressProvider;
 
     function _testSetup() internal override(BaseTestMonadTestnetFork, BaseTestLocal) {
         BaseTestMonadTestnetFork._testSetup();
@@ -44,10 +47,12 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         mintETH(usersToMintEth, ethAmountToMint);
 
         harnessFactory = new HarnessFactory();
+        _poolAddressProviderRegistry = IPoolAddressesProviderRegistry(poolAddressProviderRegistryAddress);
+        _poolAddressProvider = IPoolAddressesProvider(poolAddressProviderAddress);
     }
 
     function testRepayDebt() public {
-        return; // skip test
+        // return; // skip test
 
         // chain data
         // uint256 MONAD_TESTNET_BLOCK_NUMBER = 30753577;
@@ -57,16 +62,13 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
 
         // arrange
         (UserVaultHarness _userVault,,,) =
-            harnessFactory.createUserVaultHarness(poolUser, revenueReward, NON_ZERO_ADDRESS, automation);
+            harnessFactory.createUserVaultHarness(poolUser, revenueReward, _poolAddressProviderRegistry, automation);
 
         mintErc20Token(USDT, address(_userVault), userDebtUSDTWei);
 
-        IPoolAddressesProvider pap = IPoolAddressesProvider(poolAddressProvider);
-        address poolAddress = pap.getPool();
-
         // act
         vm.prank(automation);
-        _userVault.repayDebt(poolAddress, USDT, userDebtUSDTWei);
+        _userVault.repayDebt(poolAddressProviderAddress, USDT, userDebtUSDTWei);
 
         // assert
         // expect no revert
@@ -79,8 +81,9 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
 
         // arrange
+
         (UserVaultHarness _userVault,,,) =
-            harnessFactory.createUserVaultHarness(poolUser, revenueReward, aaveOracleAddress, automation);
+            harnessFactory.createUserVaultHarness(poolUser, revenueReward, _poolAddressProviderRegistry, automation);
 
         // act
         address[] memory assets = new address[](5);
@@ -90,9 +93,9 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         assets[3] = WMON;
         assets[4] = USDT;
 
-        uint256[] memory prices1 = _userVault.exposed_getAssetsPrices(USDC, WETH);
-        uint256[] memory prices2 = _userVault.exposed_getAssetsPrices(WBTC, WMON);
-        uint256[] memory prices3 = _userVault.exposed_getAssetsPrices(USDT, address(0));
+        uint256[] memory prices1 = _userVault.exposed_getAssetsPrices(USDC, WETH, _poolAddressProvider);
+        uint256[] memory prices2 = _userVault.exposed_getAssetsPrices(WBTC, WMON, _poolAddressProvider);
+        uint256[] memory prices3 = _userVault.exposed_getAssetsPrices(USDT, address(0), _poolAddressProvider);
 
         // assert
         emit log_named_uint("USDC", prices1[0]);

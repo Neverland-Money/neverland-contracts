@@ -17,7 +17,7 @@ contract RevenueRewardsTest is BaseTestLocal {
     function testVerifySlippage() public {
         // arrange
         (UserVaultHarness _userVault,, IUserVaultRegistry _userVaultRegistry,) =
-            harnessFactory.createUserVaultHarness(user, revenueReward, NON_ZERO_ADDRESS, automation);
+            harnessFactory.createUserVaultHarness(user, revenueReward, poolAddressProviderRegistry, automation);
 
         // act/assert
 

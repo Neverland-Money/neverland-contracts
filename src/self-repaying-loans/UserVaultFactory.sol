@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
 
 import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
 import {IUserVaultRegistry} from "../interfaces/IUserVaultRegistry.sol";
@@ -15,7 +15,7 @@ import {UserVault} from "./UserVault.sol";
 contract UserVaultFactory is IUserVaultFactory, Initializable {
     address private userVaultBeacon;
     IUserVaultRegistry userVaultRegistry;
-    IAaveOracle aaveOracle;
+    IPoolAddressesProviderRegistry poolAddressProviderRegistry;
     IRevenueReward revenueReward;
 
     // user => UserVault
@@ -24,17 +24,17 @@ contract UserVaultFactory is IUserVaultFactory, Initializable {
     function initialize(
         address _userVaultBeacon,
         IUserVaultRegistry _userVaultRegistry,
-        IAaveOracle _aaveOracle,
+        IPoolAddressesProviderRegistry _poolAddressProviderRegistry,
         IRevenueReward _revenueReward
     ) external initializer {
         CommonChecksLibrary.revertIfZeroAddress(_userVaultBeacon);
         CommonChecksLibrary.revertIfZeroAddress(address(_userVaultRegistry));
-        CommonChecksLibrary.revertIfZeroAddress(address(_aaveOracle));
+        CommonChecksLibrary.revertIfZeroAddress(address(_poolAddressProviderRegistry));
         CommonChecksLibrary.revertIfZeroAddress(address(_revenueReward));
 
         userVaultBeacon = _userVaultBeacon;
         userVaultRegistry = _userVaultRegistry;
-        aaveOracle = _aaveOracle;
+        poolAddressProviderRegistry = _poolAddressProviderRegistry;
         revenueReward = _revenueReward;
     }
 
@@ -57,7 +57,7 @@ contract UserVaultFactory is IUserVaultFactory, Initializable {
     function _createUserVault(address user) internal returns (address) {
         BeaconProxy userVaultBeaconProxy = new BeaconProxy(userVaultBeacon, "");
         UserVault deployedUserVault = UserVault(address(userVaultBeaconProxy));
-        deployedUserVault.initialize(user, revenueReward, userVaultRegistry, aaveOracle);
+        deployedUserVault.initialize(user, revenueReward, userVaultRegistry, poolAddressProviderRegistry);
 
         return address(deployedUserVault);
     }

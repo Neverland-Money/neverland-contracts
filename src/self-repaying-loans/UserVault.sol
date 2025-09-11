@@ -5,18 +5,22 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
+import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {IUserVaultRegistry} from "../interfaces/IUserVaultRegistry.sol";
 import {IUserVault} from "../interfaces/IUserVault.sol";
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
+import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 
 contract UserVault is IUserVault, Initializable {
     IUserVaultRegistry userVaultRegistry;
-    IAaveOracle aaveOracle;
     IRevenueReward revenueReward;
+    IPoolAddressesProviderRegistry poolAddressProviderRegistry;
+
     address user;
 
     constructor() {
@@ -27,17 +31,17 @@ contract UserVault is IUserVault, Initializable {
         address _user,
         IRevenueReward _revenueReward,
         IUserVaultRegistry _userVaultRegistry,
-        IAaveOracle _aaveOracle
+        IPoolAddressesProviderRegistry _poolAddressProviderRegistry
     ) external initializer {
         CommonChecksLibrary.revertIfZeroAddress(address(_userVaultRegistry));
-        CommonChecksLibrary.revertIfZeroAddress(address(_aaveOracle));
+        CommonChecksLibrary.revertIfZeroAddress(address(_poolAddressProviderRegistry));
         CommonChecksLibrary.revertIfZeroAddress(address(_revenueReward));
         CommonChecksLibrary.revertIfZeroAddress(_user);
 
         user = _user;
         revenueReward = _revenueReward;
         userVaultRegistry = _userVaultRegistry;
-        aaveOracle = _aaveOracle;
+        poolAddressProviderRegistry = _poolAddressProviderRegistry;
     }
 
     /// @inheritdoc IUserVault
@@ -50,12 +54,13 @@ contract UserVault is IUserVault, Initializable {
             params.debtToken,
             params.aggregatorAddress,
             params.aggregatorData,
+            params.poolAddressProvider,
             params.maxSlippageBps
         );
 
-        repayDebt(params.poolAddress, params.debtToken, debtTokenSwapAmount);
+        repayDebt(params.poolAddressProvider, params.debtToken, debtTokenSwapAmount);
 
-        emit LoanSelfRepaid(user, address(this), params.poolAddress, params.debtToken, debtTokenSwapAmount);
+        emit LoanSelfRepaid(user, address(this), params.poolAddressProvider, params.debtToken, debtTokenSwapAmount);
     }
 
     /// @inheritdoc IUserVault
@@ -85,8 +90,9 @@ contract UserVault is IUserVault, Initializable {
         address tokenOut,
         address aggregator,
         bytes memory aggregatorData,
+        address poolAddressProvider,
         uint256 maxAllowedSlippageBps
-    ) public onlyExecutor returns (uint256) {
+    ) public onlyExecutor poolAddressProviderShouldBeValid(poolAddressProvider) returns (uint256) {
         CommonChecksLibrary.revertIfZeroAddress(tokenIn);
         CommonChecksLibrary.revertIfZeroAddress(tokenOut);
         CommonChecksLibrary.revertIfZeroAmount(tokenInAmount);
@@ -95,7 +101,8 @@ contract UserVault is IUserVault, Initializable {
 
         uint256 debtTokenSwapAmount = _swap(tokenIn, tokenInAmount, tokenOut, aggregator, aggregatorData);
 
-        uint256[] memory tokenPricesInUSD_8dec = _getTokenPricesInUsd_8dec(tokenIn, tokenOut);
+        uint256[] memory tokenPricesInUSD_8dec =
+            _getTokenPricesInUsd_8dec(tokenIn, tokenOut, IPoolAddressesProvider(poolAddressProvider));
         _verifySlippage(
             tokenInAmount,
             tokenPricesInUSD_8dec[0],
@@ -108,7 +115,12 @@ contract UserVault is IUserVault, Initializable {
     }
 
     /// @inheritdoc IUserVault
-    function repayDebt(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
+    function repayDebt(address poolAddressProvider, address debtToken, uint256 amount)
+        public
+        onlyExecutor
+        poolAddressProviderShouldBeValid(poolAddressProvider)
+    {
+        address poolAddress = IPoolAddressesProvider(poolAddressProvider).getPool();
         IERC20(debtToken).approve(poolAddress, amount);
         IPool(poolAddress).repay(debtToken, amount, 2, user);
     }
@@ -170,12 +182,16 @@ contract UserVault is IUserVault, Initializable {
      * @param token2 token2 address
      * @return The prices of the given assets
      */
-    function _getTokenPricesInUsd_8dec(address token1, address token2) internal view returns (uint256[] memory) {
+    function _getTokenPricesInUsd_8dec(address token1, address token2, IPoolAddressesProvider poolAddressProvider)
+        internal
+        view
+        returns (uint256[] memory)
+    {
         address[] memory tokens = new address[](2);
         tokens[0] = token1;
         tokens[1] = token2;
 
-        return aaveOracle.getAssetsPrices(tokens);
+        return IAaveOracle(poolAddressProvider.getPriceOracle()).getAssetsPrices(tokens);
     }
 
     /**
@@ -225,6 +241,12 @@ contract UserVault is IUserVault, Initializable {
         if (userVaultRegistry.executor() != msg.sender || user != msg.sender) {
             revert CommonChecksLibrary.UnauthorizedAccess();
         }
+        _;
+    }
+
+    modifier poolAddressProviderShouldBeValid(address poolAddressProvider) {
+        uint256 poolAddressProviderId = poolAddressProviderRegistry.getAddressesProviderIdByAddress(poolAddressProvider);
+        if (poolAddressProviderId == 0) revert InvalidPoolAddressProvider();
         _;
     }
 }

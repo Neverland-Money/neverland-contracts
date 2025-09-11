@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
 
 import {IUserVaultRegistry} from "../../src/interfaces/IUserVaultRegistry.sol";
 import {IRevenueReward} from "../../src/interfaces/IRevenueReward.sol";
@@ -15,11 +15,9 @@ contract HarnessFactory {
     function createUserVaultHarness(
         address user,
         IRevenueReward revenueReward,
-        address aaveOracleAddress,
+        IPoolAddressesProviderRegistry poolAddressesProviderRegistry,
         address executor
-    ) public returns (UserVaultHarness, IRevenueReward, IUserVaultRegistry, IAaveOracle) {
-        IAaveOracle _aaveOracle = IAaveOracle(aaveOracleAddress);
-
+    ) public returns (UserVaultHarness, IRevenueReward, IUserVaultRegistry, IPoolAddressesProviderRegistry) {
         IUserVaultRegistry _userVaultRegistry = new UserVaultRegistry();
         _userVaultRegistry.setExecutor(executor);
 
@@ -31,8 +29,8 @@ contract HarnessFactory {
             BeaconProxy _userVaultBeaconProxy = new BeaconProxy(address(_userVaultBeacon), "");
             _userVault = UserVaultHarness(address(_userVaultBeaconProxy));
         }
-        _userVault.initialize(user, revenueReward, _userVaultRegistry, _aaveOracle);
+        _userVault.initialize(user, revenueReward, _userVaultRegistry, poolAddressesProviderRegistry);
 
-        return (_userVault, revenueReward, _userVaultRegistry, _aaveOracle);
+        return (_userVault, revenueReward, _userVaultRegistry, poolAddressesProviderRegistry);
     }
 }
