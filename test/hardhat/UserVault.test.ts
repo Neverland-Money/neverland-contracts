@@ -16,8 +16,8 @@ const WMON = getAddress("0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701");
 const USER_WITH_DEBT = getAddress("0x0000B06460777398083CB501793a4d6393900000");
 const MONORAIL_AGGREGATOR = getAddress("0x525b929fcd6a64aff834f4eecc6e860486ced700");
 const AAVE_ORACLE = getAddress("0x58207F48394a02c933dec4Ee45feC8A55e9cdf38");
-const TESTNET_POOL_ADDRESS_PROVIDER_REGISTRY = getAddress("0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F");
-const TESTNET_POOL_ADDRESS_PROVIDER = getAddress("0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499");
+const TESTNET_POOL_ADDRESSES_PROVIDER_REGISTRY = getAddress("0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F");
+const TESTNET_POOL_ADDRESSES_PROVIDER = getAddress("0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499");
 const TESTNET_POOL_DATA_PROVIDER = getAddress("0xDbeeD68b6F2a955dc81ABaDE8Fab6539aB0f85a4");
 // Define your Monorail app ID
 const MONORAIL_APP_ID = '456175259108973';
@@ -42,7 +42,7 @@ describe('UserVault E2E', function () {
 		const userVaultModule = await ignition.deploy(UserVaultModule, {
 			parameters: {
 				UserVaultModule: {
-					poolAddressProviderRegistry: TESTNET_POOL_ADDRESS_PROVIDER_REGISTRY,
+					poolAddressesProviderRegistry: TESTNET_POOL_ADDRESSES_PROVIDER_REGISTRY,
 					executor: deployer.address,
 					rewardDistributor: deployer.address,
 				},
@@ -171,7 +171,7 @@ describe('UserVault E2E', function () {
 
 			const repayUserDebtParmas : IUserVault.RepayUserDebtParamsStruct = {
 				debtToken: USDT,
-				poolAddressProvider: TESTNET_POOL_ADDRESS_PROVIDER,
+				poolAddressesProvider: TESTNET_POOL_ADDRESSES_PROVIDER,
 				tokenIds: [],
 				rewardToken: USDC,
 				rewardTokenAmountToSwap: 9000000n,
@@ -232,7 +232,7 @@ describe('UserVault E2E', function () {
 
 			const repayUserDebtParmas : IUserVault.RepayUserDebtParamsStruct = {
 				debtToken: USDT,
-				poolAddressProvider: TESTNET_POOL_ADDRESS_PROVIDER,
+				poolAddressesProvider: TESTNET_POOL_ADDRESSES_PROVIDER,
 				tokenIds: [tokenId],
 				rewardToken: USDC,
 				rewardTokenAmountToSwap: 9000000n,
@@ -317,7 +317,7 @@ describe('UserVault E2E', function () {
 				USDT,
 				quote.transaction!.to,
 				quote.transaction!.data!,
-				TESTNET_POOL_ADDRESS_PROVIDER,
+				TESTNET_POOL_ADDRESSES_PROVIDER,
 				100n
 			);
 			
@@ -364,7 +364,7 @@ describe('UserVault E2E', function () {
 				"0x268E4E24E0051EC27b3D27A95977E71cE6875a05",
 				quote.transaction!.to,
 				quote.transaction!.data!,
-				TESTNET_POOL_ADDRESS_PROVIDER,
+				TESTNET_POOL_ADDRESSES_PROVIDER,
 				100n
 			);
 			
@@ -390,7 +390,7 @@ describe('UserVault E2E', function () {
 			const debtBefore = userReserveDataBefore.currentVariableDebt;
 
 			await userVault.repayDebt(
-				TESTNET_POOL_ADDRESS_PROVIDER,
+				TESTNET_POOL_ADDRESSES_PROVIDER,
 				USDT,
 				9000000n
 			);
@@ -414,7 +414,7 @@ describe('UserVault E2E', function () {
 			expect(await usdc.balanceOf(userVault)).to.equal(9000000n);
 
 			let action = userVault.repayDebt(
-				TESTNET_POOL_ADDRESS_PROVIDER,
+				TESTNET_POOL_ADDRESSES_PROVIDER,
 				USDC,
 				9000000n
 			);
@@ -442,7 +442,7 @@ describe('UserVault E2E', function () {
 			const usdcDalanceBefore = userReserveDataBefore.currentATokenBalance * reserveDataBefore.liquidityIndex / (10n ** 27n);
 
 			await userVault.depositCollateral(
-				TESTNET_POOL_ADDRESS_PROVIDER,
+				TESTNET_POOL_ADDRESSES_PROVIDER,
 				USDC,
 				9000000n
 			);

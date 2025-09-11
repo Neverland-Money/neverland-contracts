@@ -15,7 +15,7 @@ import {UserVault} from "./UserVault.sol";
 contract UserVaultFactory is IUserVaultFactory, Initializable {
     address private userVaultBeacon;
     IUserVaultRegistry userVaultRegistry;
-    IPoolAddressesProviderRegistry poolAddressProviderRegistry;
+    IPoolAddressesProviderRegistry poolAddressesProviderRegistry;
     IRevenueReward revenueReward;
 
     // user => UserVault
@@ -24,17 +24,17 @@ contract UserVaultFactory is IUserVaultFactory, Initializable {
     function initialize(
         address _userVaultBeacon,
         IUserVaultRegistry _userVaultRegistry,
-        IPoolAddressesProviderRegistry _poolAddressProviderRegistry,
+        IPoolAddressesProviderRegistry _poolAddressesProviderRegistry,
         IRevenueReward _revenueReward
     ) external initializer {
         CommonChecksLibrary.revertIfZeroAddress(_userVaultBeacon);
         CommonChecksLibrary.revertIfZeroAddress(address(_userVaultRegistry));
-        CommonChecksLibrary.revertIfZeroAddress(address(_poolAddressProviderRegistry));
+        CommonChecksLibrary.revertIfZeroAddress(address(_poolAddressesProviderRegistry));
         CommonChecksLibrary.revertIfZeroAddress(address(_revenueReward));
 
         userVaultBeacon = _userVaultBeacon;
         userVaultRegistry = _userVaultRegistry;
-        poolAddressProviderRegistry = _poolAddressProviderRegistry;
+        poolAddressesProviderRegistry = _poolAddressesProviderRegistry;
         revenueReward = _revenueReward;
     }
 
@@ -57,7 +57,7 @@ contract UserVaultFactory is IUserVaultFactory, Initializable {
     function _createUserVault(address user) internal returns (address) {
         BeaconProxy userVaultBeaconProxy = new BeaconProxy(userVaultBeacon, "");
         UserVault deployedUserVault = UserVault(address(userVaultBeaconProxy));
-        deployedUserVault.initialize(user, revenueReward, userVaultRegistry, poolAddressProviderRegistry);
+        deployedUserVault.initialize(user, revenueReward, userVaultRegistry, poolAddressesProviderRegistry);
 
         return address(deployedUserVault);
     }

@@ -2,7 +2,7 @@ import {buildModule} from '@nomicfoundation/hardhat-ignition/modules';
 import DustLockModule from './DustLockModule';
 
 const UserVaultModule = buildModule('UserVaultModule', (m) => {
-	const poolAddressProviderRegistry = m.getParameter('poolAddressProviderRegistry');
+	const poolAddressesProviderRegistry = m.getParameter('poolAddressesProviderRegistry');
 	const executor = m.getParameter('executor');
 	const rewardDIstributor = m.getParameter('rewardDistributor');
 
@@ -22,7 +22,7 @@ const UserVaultModule = buildModule('UserVaultModule', (m) => {
 
 	const revenueReward = m.contract("RevenueReward", [forwarder, dustLock, rewardDIstributor, userVaultFactory]);
 
-	m.call(userVaultFactory, 'initialize', [userVaultBeacon, userVaultRegistry, poolAddressProviderRegistry, revenueReward]);
+	m.call(userVaultFactory, 'initialize', [userVaultBeacon, userVaultRegistry, poolAddressesProviderRegistry, revenueReward]);
 
 	return {userVaultImpl, userVaultRegistry, userVaultBeacon, userVaultFactory, revenueReward};
 });

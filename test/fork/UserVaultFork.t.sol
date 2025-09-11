@@ -19,8 +19,8 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
     HarnessFactory harnessFactory;
 
     // testnet chain data
-    address poolAddressProviderRegistryAddress = 0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F;
-    address poolAddressProviderAddress = 0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499;
+    address poolAddressesProviderRegistryAddress = 0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F;
+    address poolAddressesProviderAddress = 0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499;
 
     address USDC = 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea;
     address WETH = 0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37;
@@ -28,8 +28,8 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
     address WMON = 0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701;
     address USDT = 0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D;
 
-    IPoolAddressesProviderRegistry _poolAddressProviderRegistry;
-    IPoolAddressesProvider _poolAddressProvider;
+    IPoolAddressesProviderRegistry _poolAddressesProviderRegistry;
+    IPoolAddressesProvider _poolAddressesProvider;
 
     function _testSetup() internal override(BaseTestMonadTestnetFork, BaseTestLocal) {
         BaseTestMonadTestnetFork._testSetup();
@@ -47,8 +47,8 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         mintETH(usersToMintEth, ethAmountToMint);
 
         harnessFactory = new HarnessFactory();
-        _poolAddressProviderRegistry = IPoolAddressesProviderRegistry(poolAddressProviderRegistryAddress);
-        _poolAddressProvider = IPoolAddressesProvider(poolAddressProviderAddress);
+        _poolAddressesProviderRegistry = IPoolAddressesProviderRegistry(poolAddressesProviderRegistryAddress);
+        _poolAddressesProvider = IPoolAddressesProvider(poolAddressesProviderAddress);
     }
 
     function testRepayDebt() public {
@@ -62,13 +62,13 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
 
         // arrange
         (UserVaultHarness _userVault,,,) =
-            harnessFactory.createUserVaultHarness(poolUser, revenueReward, _poolAddressProviderRegistry, automation);
+            harnessFactory.createUserVaultHarness(poolUser, revenueReward, _poolAddressesProviderRegistry, automation);
 
         mintErc20Token(USDT, address(_userVault), userDebtUSDTWei);
 
         // act
         vm.prank(automation);
-        _userVault.repayDebt(poolAddressProviderAddress, USDT, userDebtUSDTWei);
+        _userVault.repayDebt(poolAddressesProviderAddress, USDT, userDebtUSDTWei);
 
         // assert
         // expect no revert
@@ -83,7 +83,7 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         // arrange
 
         (UserVaultHarness _userVault,,,) =
-            harnessFactory.createUserVaultHarness(poolUser, revenueReward, _poolAddressProviderRegistry, automation);
+            harnessFactory.createUserVaultHarness(poolUser, revenueReward, _poolAddressesProviderRegistry, automation);
 
         // act
         address[] memory assets = new address[](5);
@@ -93,9 +93,9 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
         assets[3] = WMON;
         assets[4] = USDT;
 
-        uint256[] memory prices1 = _userVault.exposed_getAssetsPrices(USDC, WETH, _poolAddressProvider);
-        uint256[] memory prices2 = _userVault.exposed_getAssetsPrices(WBTC, WMON, _poolAddressProvider);
-        uint256[] memory prices3 = _userVault.exposed_getAssetsPrices(USDT, address(0), _poolAddressProvider);
+        uint256[] memory prices1 = _userVault.exposed_getAssetsPrices(USDC, WETH, _poolAddressesProvider);
+        uint256[] memory prices2 = _userVault.exposed_getAssetsPrices(WBTC, WMON, _poolAddressesProvider);
+        uint256[] memory prices3 = _userVault.exposed_getAssetsPrices(USDT, address(0), _poolAddressesProvider);
 
         // assert
         emit log_named_uint("USDC", prices1[0]);

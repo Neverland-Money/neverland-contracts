@@ -19,7 +19,7 @@ import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 contract UserVault is IUserVault, Initializable {
     IUserVaultRegistry userVaultRegistry;
     IRevenueReward revenueReward;
-    IPoolAddressesProviderRegistry poolAddressProviderRegistry;
+    IPoolAddressesProviderRegistry poolAddressesProviderRegistry;
 
     address user;
 
@@ -31,17 +31,17 @@ contract UserVault is IUserVault, Initializable {
         address _user,
         IRevenueReward _revenueReward,
         IUserVaultRegistry _userVaultRegistry,
-        IPoolAddressesProviderRegistry _poolAddressProviderRegistry
+        IPoolAddressesProviderRegistry _poolAddressesProviderRegistry
     ) external initializer {
         CommonChecksLibrary.revertIfZeroAddress(address(_userVaultRegistry));
-        CommonChecksLibrary.revertIfZeroAddress(address(_poolAddressProviderRegistry));
+        CommonChecksLibrary.revertIfZeroAddress(address(_poolAddressesProviderRegistry));
         CommonChecksLibrary.revertIfZeroAddress(address(_revenueReward));
         CommonChecksLibrary.revertIfZeroAddress(_user);
 
         user = _user;
         revenueReward = _revenueReward;
         userVaultRegistry = _userVaultRegistry;
-        poolAddressProviderRegistry = _poolAddressProviderRegistry;
+        poolAddressesProviderRegistry = _poolAddressesProviderRegistry;
     }
 
     /// @inheritdoc IUserVault
@@ -54,13 +54,13 @@ contract UserVault is IUserVault, Initializable {
             params.debtToken,
             params.aggregatorAddress,
             params.aggregatorData,
-            params.poolAddressProvider,
+            params.poolAddressesProvider,
             params.maxSlippageBps
         );
 
-        repayDebt(params.poolAddressProvider, params.debtToken, debtTokenSwapAmount);
+        repayDebt(params.poolAddressesProvider, params.debtToken, debtTokenSwapAmount);
 
-        emit LoanSelfRepaid(user, address(this), params.poolAddressProvider, params.debtToken, debtTokenSwapAmount);
+        emit LoanSelfRepaid(user, address(this), params.poolAddressesProvider, params.debtToken, debtTokenSwapAmount);
     }
 
     /// @inheritdoc IUserVault
@@ -90,9 +90,9 @@ contract UserVault is IUserVault, Initializable {
         address tokenOut,
         address aggregator,
         bytes memory aggregatorData,
-        address poolAddressProvider,
+        address poolAddressesProvider,
         uint256 maxAllowedSlippageBps
-    ) public onlyExecutor poolAddressProviderShouldBeValid(poolAddressProvider) returns (uint256) {
+    ) public onlyExecutor poolAddressesProviderShouldBeValid(poolAddressesProvider) returns (uint256) {
         CommonChecksLibrary.revertIfZeroAddress(tokenIn);
         CommonChecksLibrary.revertIfZeroAddress(tokenOut);
         CommonChecksLibrary.revertIfZeroAmount(tokenInAmount);
@@ -102,7 +102,7 @@ contract UserVault is IUserVault, Initializable {
         uint256 debtTokenSwapAmount = _swap(tokenIn, tokenInAmount, tokenOut, aggregator, aggregatorData);
 
         uint256[] memory tokenPricesInUSD_8dec =
-            _getTokenPricesInUsd_8dec(tokenIn, tokenOut, IPoolAddressesProvider(poolAddressProvider));
+            _getTokenPricesInUsd_8dec(tokenIn, tokenOut, IPoolAddressesProvider(poolAddressesProvider));
         _verifySlippage(
             tokenInAmount,
             tokenPricesInUSD_8dec[0],
@@ -115,23 +115,23 @@ contract UserVault is IUserVault, Initializable {
     }
 
     /// @inheritdoc IUserVault
-    function repayDebt(address poolAddressProvider, address debtToken, uint256 amount)
+    function repayDebt(address poolAddressesProvider, address debtToken, uint256 amount)
         public
         onlyExecutor
-        poolAddressProviderShouldBeValid(poolAddressProvider)
+        poolAddressesProviderShouldBeValid(poolAddressesProvider)
     {
-        address poolAddress = IPoolAddressesProvider(poolAddressProvider).getPool();
+        address poolAddress = IPoolAddressesProvider(poolAddressesProvider).getPool();
         IERC20(debtToken).approve(poolAddress, amount);
         IPool(poolAddress).repay(debtToken, amount, 2, user);
     }
 
     /// @inheritdoc IUserVault
-    function depositCollateral(address poolAddressProvider, address debtToken, uint256 amount)
+    function depositCollateral(address poolAddressesProvider, address debtToken, uint256 amount)
         public
         onlyExecutor
-        poolAddressProviderShouldBeValid(poolAddressProvider)
+        poolAddressesProviderShouldBeValid(poolAddressesProvider)
     {
-        address poolAddress = IPoolAddressesProvider(poolAddressProvider).getPool();
+        address poolAddress = IPoolAddressesProvider(poolAddressesProvider).getPool();
         IERC20(debtToken).approve(poolAddress, amount);
         IPool(poolAddress).supply(debtToken, amount, user, 0);
     }
@@ -187,7 +187,7 @@ contract UserVault is IUserVault, Initializable {
      * @param token2 token2 address
      * @return The prices of the given assets
      */
-    function _getTokenPricesInUsd_8dec(address token1, address token2, IPoolAddressesProvider poolAddressProvider)
+    function _getTokenPricesInUsd_8dec(address token1, address token2, IPoolAddressesProvider poolAddressesProvider)
         internal
         view
         returns (uint256[] memory)
@@ -196,7 +196,7 @@ contract UserVault is IUserVault, Initializable {
         tokens[0] = token1;
         tokens[1] = token2;
 
-        return IAaveOracle(poolAddressProvider.getPriceOracle()).getAssetsPrices(tokens);
+        return IAaveOracle(poolAddressesProvider.getPriceOracle()).getAssetsPrices(tokens);
     }
 
     /**
@@ -249,9 +249,9 @@ contract UserVault is IUserVault, Initializable {
         _;
     }
 
-    modifier poolAddressProviderShouldBeValid(address poolAddressProvider) {
-        uint256 poolAddressProviderId = poolAddressProviderRegistry.getAddressesProviderIdByAddress(poolAddressProvider);
-        if (poolAddressProviderId == 0) revert InvalidPoolAddressProvider();
+    modifier poolAddressesProviderShouldBeValid(address poolAddressesProvider) {
+        uint256 poolAddressesProviderId = poolAddressesProviderRegistry.getAddressesProviderIdByAddress(poolAddressesProvider);
+        if (poolAddressesProviderId == 0) revert InvalidPoolAddressesProvider();
         _;
     }
 }

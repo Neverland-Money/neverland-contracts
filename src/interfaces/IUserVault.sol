@@ -21,12 +21,12 @@ interface IUserVault {
     error InvalidUserVaultForToken();
     // @notice Emitted max slippage set by execute is more than max allowed.
     error MaxSlippageTooHigh();
-    // @notice Emitted user poolAddressProvider is not registered in PoolAddressProviderRegistry.
-    error InvalidPoolAddressProvider();
+    // @notice Emitted user poolAddressesProvider is not registered in poolAddressesProviderRegistry.
+    error InvalidPoolAddressesProvider();
 
     // EVENTS
     event LoanSelfRepaid(
-        address indexed user, address indexed userVault, address poolAddressProvider, address debtToken, uint256 amount
+        address indexed user, address indexed userVault, address poolAddressesProvider, address debtToken, uint256 amount
     );
 
     // Structs
@@ -38,7 +38,7 @@ interface IUserVault {
      * - Set aggregatorAddress and aggregatorData only if a swap is required (e.g., swapping rewards to the debt token).
      * - maxSlippageBps is expressed in basis points (1 bps = 0.01%).
      * @param debtToken The address of the debt token to be repaid.
-     * @param poolAddressProvider The pool address provider where the debt exists.
+     * @param poolAddressesProvider The pool address provider of the pool, where the debt exists.
      * @param tokenIds List of token IDs involved in the operation.
      * @param rewardToken The reward token to claim and optionally swap before repayment.
      * @param rewardTokenAmountToSwap Amount of rewardToken to swap into the debt token.
@@ -48,7 +48,7 @@ interface IUserVault {
      */
     struct RepayUserDebtParams {
         address debtToken;
-        address poolAddressProvider;
+        address poolAddressesProvider;
         uint256[] tokenIds;
         address rewardToken;
         uint256 rewardTokenAmountToSwap;
@@ -93,7 +93,7 @@ interface IUserVault {
      * @param tokenOut The ERC20 token address to receive.
      * @param aggregator The swap aggregator contract to execute the swap.
      * @param aggregatorData Calldata to be sent to the aggregator for performing the swap.
-     * @param poolAddressProvider The pool address provider where the debt exists.
+     * @param poolAddressesProvider The pool addresses provider of the pool, where the debt exists.
      * @param maxAllowedSlippageBps Maximum acceptable slippage in basis points (1 bps = 0.01%).
      * @return The amount of tokenOut received from the swap.
      */
@@ -103,25 +103,25 @@ interface IUserVault {
         address tokenOut,
         address aggregator,
         bytes memory aggregatorData,
-        address poolAddressProvider,
+        address poolAddressesProvider,
         uint256 maxAllowedSlippageBps
     ) external returns (uint256);
 
     /**
      * @notice Repays debt for a given pool with a specified token and amount.
-     * @param poolAddress The address of the lending pool.
+     * @param poolAddressesProvider The pool addresses provider of the pool, where the debt exists.
      * @param debtToken The address of the token to repay.
      * @param amount The amount of the token to repay.
      */
-    function repayDebt(address poolAddress, address debtToken, uint256 amount) external;
+    function repayDebt(address poolAddressesProvider, address debtToken, uint256 amount) external;
 
     /**
      * @notice Deposits collateral for a user into a lending pool.
-     * @param poolAddress The address of the lending pool.
+     * @param poolAddressesProvider The pool addresses provider of the pool.
      * @param debtToken The address of the collateral token.
      * @param amount The amount of collateral to deposit.
      */
-    function depositCollateral(address poolAddress, address debtToken, uint256 amount) external;
+    function depositCollateral(address poolAddressesProvider, address debtToken, uint256 amount) external;
 
     /**
      * @notice Allows recovery of ERC20 tokens that may be stuck in the vault back to the user.

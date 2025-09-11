@@ -9,12 +9,12 @@ import {UserVault} from "../../src/self-repaying-loans/UserVault.sol";
 contract UserVaultHarness is UserVault {
     constructor() UserVault() {}
 
-    function exposed_getAssetsPrices(address token1, address token2, IPoolAddressesProvider poolAddressProvider)
+    function exposed_getAssetsPrices(address token1, address token2, IPoolAddressesProvider poolAddressesProvider)
         external
         view
         returns (uint256[] memory)
     {
-        return _getTokenPricesInUsd_8dec(token1, token2, poolAddressProvider);
+        return _getTokenPricesInUsd_8dec(token1, token2, poolAddressesProvider);
     }
 
     function exposed_verifySlippage(

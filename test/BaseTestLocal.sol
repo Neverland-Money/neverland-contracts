@@ -32,8 +32,8 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 
 abstract contract BaseTestLocal is BaseTest {
     // AAVE
-    IPoolAddressesProviderRegistry public poolAddressProviderRegistry;
-    IPoolAddressesProvider public poolAddressProvider;
+    IPoolAddressesProviderRegistry public poolAddressesProviderRegistry;
+    IPoolAddressesProvider public poolAddressesProvider;
 
     address public AAVE_ADMIN = user;
     uint256 public PROVIDER_ID = 1;
@@ -57,21 +57,21 @@ abstract contract BaseTestLocal is BaseTest {
 
     function _testSetUpAave() internal {
         // Deploy the registry with owner
-        poolAddressProviderRegistry = new PoolAddressesProviderRegistry(AAVE_ADMIN);
+        poolAddressesProviderRegistry = new PoolAddressesProviderRegistry(AAVE_ADMIN);
 
         // Deploy addresses provider with marketId and owner
-        poolAddressProvider = new PoolAddressesProvider(MARKET_ID, AAVE_ADMIN);
+        poolAddressesProvider = new PoolAddressesProvider(MARKET_ID, AAVE_ADMIN);
 
         // IMPORTANT: Set ACL Admin BEFORE deploying ACL Manager
-        poolAddressProvider.setACLAdmin(AAVE_ADMIN);
+        poolAddressesProvider.setACLAdmin(AAVE_ADMIN);
 
         // Now deploy ACL Manager (it will call getACLAdmin() during construction)
-        IACLManager aclManager = new ACLManager(poolAddressProvider);
-        poolAddressProvider.setACLManager(address(aclManager));
+        IACLManager aclManager = new ACLManager(poolAddressesProvider);
+        poolAddressesProvider.setACLManager(address(aclManager));
 
         // Deploy Pool implementation
-        IPool poolImpl = new Pool(poolAddressProvider);
-        poolAddressProvider.setPoolImpl(address(poolImpl));
+        IPool poolImpl = new Pool(poolAddressesProvider);
+        poolAddressesProvider.setPoolImpl(address(poolImpl));
 
         // Set up oracle with minimal configuration
         address[] memory assets = new address[](0);
@@ -79,14 +79,14 @@ abstract contract BaseTestLocal is BaseTest {
         address fallbackOracle = address(0);
 
         IAaveOracle oracle =
-            new AaveOracle(poolAddressProvider, assets, sources, fallbackOracle, BASE_CURRENCY, BASE_CURRENCY_UNIT);
-        poolAddressProvider.setPriceOracle(address(oracle));
+            new AaveOracle(poolAddressesProvider, assets, sources, fallbackOracle, BASE_CURRENCY, BASE_CURRENCY_UNIT);
+        poolAddressesProvider.setPriceOracle(address(oracle));
 
         // Register the addresses provider
-        poolAddressProviderRegistry.registerAddressesProvider(address(poolAddressProvider), PROVIDER_ID);
+        poolAddressesProviderRegistry.registerAddressesProvider(address(poolAddressesProvider), PROVIDER_ID);
 
         // add address labels
-        vm.label(address(poolAddressProviderRegistry), "PoolAddressesProviderRegistry");
+        vm.label(address(poolAddressesProviderRegistry), "PoolAddressesProviderRegistry");
     }
 
     function _testSetUpDust() internal {
@@ -122,7 +122,7 @@ abstract contract BaseTestLocal is BaseTest {
         // initializers
         DUST.initialize(admin, 0);
         _userVaultFactory.initialize(
-            address(userVaultBeacon), userVaultRegistry, poolAddressProviderRegistry, revenueReward
+            address(userVaultBeacon), userVaultRegistry, poolAddressesProviderRegistry, revenueReward
         );
 
         dustLock.setRevenueReward(revenueReward);
