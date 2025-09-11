@@ -47,6 +47,14 @@ abstract contract BaseTest is Script, Test {
     address internal user5 = address(0x5);
 
     function setUp() public virtual {
+        vm.label(automation, "automation");
+        vm.label(admin, "admin");
+        vm.label(address(this), "user");
+        vm.label(user1, "user1");
+        vm.label(user2, "user2");
+        vm.label(user3, "user3");
+        vm.label(user4, "user4");
+
         _testSetup();
         _setUp();
     }

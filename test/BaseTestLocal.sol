@@ -6,7 +6,17 @@ import {BaseTest} from "./BaseTest.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
+import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
+import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
+import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+import {IACLManager} from "@aave/core-v3/contracts/interfaces/IACLManager.sol";
+import {PoolAddressesProviderRegistry} from
+    "@aave/core-v3/contracts/protocol/configuration/PoolAddressesProviderRegistry.sol";
+import {PoolAddressesProvider} from "@aave/core-v3/contracts/protocol/configuration/PoolAddressesProvider.sol";
+import {Pool} from "@aave/core-v3/contracts/protocol/pool/Pool.sol";
+import {ACLManager} from "@aave/core-v3/contracts/protocol/configuration/ACLManager.sol";
+import {AaveOracle} from "@aave/core-v3/contracts/misc/AaveOracle.sol";
 
 import {IDustLock} from "../src/interfaces/IDustLock.sol";
 import {IUserVaultRegistry} from "../src/interfaces/IUserVaultRegistry.sol";
@@ -21,6 +31,20 @@ import {UserVaultRegistry} from "../src/self-repaying-loans/UserVaultRegistry.so
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 abstract contract BaseTestLocal is BaseTest {
+    // AAVE
+    IPoolAddressesProviderRegistry public registry;
+    IPoolAddressesProvider public addressesProvider;
+    IPool public poolImpl;
+    IAaveOracle public oracle;
+    IACLManager public aclManager;
+
+    address public AAVE_ADMIN = user;
+    uint256 public PROVIDER_ID = 1;
+    string public MARKET_ID = "TestMarket";
+    address public BASE_CURRENCY = address(0x1); // eg Mock USDC
+    uint256 public BASE_CURRENCY_UNIT = 1e8;
+
+    // DUST
     Dust internal DUST;
     IDustLock internal dustLock;
     RevenueReward internal revenueReward;
@@ -30,6 +54,47 @@ abstract contract BaseTestLocal is BaseTest {
     IUserVaultRegistry internal userVaultRegistry;
 
     function _testSetup() internal virtual override {
+        _testSetUpAave();
+        _testSetUpDust();
+    }
+
+    function _testSetUpAave() internal {
+        // Deploy the registry with owner
+        registry = new PoolAddressesProviderRegistry(AAVE_ADMIN);
+
+        // Deploy addresses provider with marketId and owner
+        addressesProvider = new PoolAddressesProvider(MARKET_ID, AAVE_ADMIN);
+
+        // IMPORTANT: Set ACL Admin BEFORE deploying ACL Manager
+        addressesProvider.setACLAdmin(AAVE_ADMIN);
+
+        // Now deploy ACL Manager (it will call getACLAdmin() during construction)
+        aclManager = new ACLManager(addressesProvider);
+        addressesProvider.setACLManager(address(aclManager));
+
+        // Deploy Pool implementation
+        poolImpl = new Pool(addressesProvider);
+        addressesProvider.setPoolImpl(address(poolImpl));
+
+        // Set up oracle with minimal configuration
+        address[] memory assets = new address[](0);
+        address[] memory sources = new address[](0);
+        address fallbackOracle = address(0);
+
+        oracle = new AaveOracle(addressesProvider, assets, sources, fallbackOracle, BASE_CURRENCY, BASE_CURRENCY_UNIT);
+        addressesProvider.setPriceOracle(address(oracle));
+
+        // Register the addresses provider
+        registry.registerAddressesProvider(address(addressesProvider), PROVIDER_ID);
+
+        // add address labels
+        vm.label(address(registry), "PoolAddressesProviderRegistry");
+        vm.label(address(addressesProvider), "PoolAddressesProvider");
+        vm.label(address(aclManager), "ACLManager");
+        vm.label(address(oracle), "AaveOracle");
+    }
+
+    function _testSetUpDust() internal {
         // seed set up with initial time
         skip(1 weeks);
 
@@ -48,9 +113,6 @@ abstract contract BaseTestLocal is BaseTest {
         string memory baseUrl = "https://neverland.money/nfts/";
         dustLock = new DustLock(FORWARDER, address(DUST), baseUrl);
 
-        // deploy UserVault
-        IAaveOracle aaveOracle = IAaveOracle(NON_ZERO_ADDRESS);
-
         userVaultRegistry = new UserVaultRegistry();
         userVaultRegistry.setExecutor(automation);
 
@@ -64,19 +126,11 @@ abstract contract BaseTestLocal is BaseTest {
 
         // initializers
         DUST.initialize(admin, 0);
-        _userVaultFactory.initialize(address(userVaultBeacon), userVaultRegistry, aaveOracle, revenueReward);
+        _userVaultFactory.initialize(address(userVaultBeacon), userVaultRegistry, oracle, revenueReward);
 
         dustLock.setRevenueReward(revenueReward);
 
-        // add log labels
-        vm.label(automation, "automation");
-        vm.label(admin, "admin");
-        vm.label(address(this), "user");
-        vm.label(user1, "user1");
-        vm.label(user2, "user2");
-        vm.label(user3, "user3");
-        vm.label(user4, "user4");
-
+        // add address labels
         vm.label(address(DUST), "DUST");
         vm.label(address(dustLock), "DustLock");
         vm.label(address(userVaultRegistry), "UserVaultRegistry");
