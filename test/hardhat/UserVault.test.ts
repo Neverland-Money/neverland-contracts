@@ -2,7 +2,7 @@ import {loadFixture} from '@nomicfoundation/hardhat-toolbox/network-helpers';
 import UserVaultModule from '../../ignition/modules/UserVaultModule';
 import {ethers, ignition} from 'hardhat';
 import {expect} from 'chai';
-import { UserVaultFactory, UserVault, UserVaultRegistry, RevenueReward, IUserVault, DustLock, Dust } from '../../typechain-v6';
+import { UserVaultFactory, UserVault, UserVaultRegistry, RevenueReward, IUserVault, DustLock, Dust, IPoolDataProvider, IUiPoolDataProviderV3 } from '../../typechain-v6';
 import {MonorailClient} from '../../script/hardhat/api/monorail';
 import { getAddress } from 'ethers';
 
@@ -16,6 +16,9 @@ const WMON = getAddress("0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701");
 const USER_WITH_DEBT = getAddress("0x0000B06460777398083CB501793a4d6393900000");
 const MONORAIL_AGGREGATOR = getAddress("0x525b929fcd6a64aff834f4eecc6e860486ced700");
 const AAVE_ORACLE = getAddress("0x58207F48394a02c933dec4Ee45feC8A55e9cdf38");
+const TESTNET_POOL_ADDRESS_PROVIDER_REGISTRY = getAddress("0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F");
+const TESTNET_POOL_ADDRESS_PROVIDER = getAddress("0x0bAe833178A7Ef0C5b47ca10D844736F65CBd499");
+const TESTNET_POOL_DATA_PROVIDER = getAddress("0xDbeeD68b6F2a955dc81ABaDE8Fab6539aB0f85a4");
 // Define your Monorail app ID
 const MONORAIL_APP_ID = '456175259108973';
 
@@ -39,7 +42,7 @@ describe('UserVault E2E', function () {
 		const userVaultModule = await ignition.deploy(UserVaultModule, {
 			parameters: {
 				UserVaultModule: {
-					aaveOracle: AAVE_ORACLE,
+					poolAddressProviderRegistry: TESTNET_POOL_ADDRESS_PROVIDER_REGISTRY,
 					executor: deployer.address,
 					rewardDistributor: deployer.address,
 				},
@@ -98,6 +101,11 @@ describe('UserVault E2E', function () {
 		await usdc.approve(revenueReward, 9000000n);
 		await revenueReward.notifyRewardAmount(USDC, 9000000n);
 
+		const poolDataProvider = await ethers.getContractAt(
+			"IPoolDataProvider",
+			TESTNET_POOL_DATA_PROVIDER
+		) as IPoolDataProvider;
+
         return {
             deployer, 
             user, 
@@ -115,7 +123,8 @@ describe('UserVault E2E', function () {
 			userVault,
 			dustLock,
 			monorail,
-			tokenId
+			tokenId,
+			poolDataProvider
         };
     }
 
@@ -127,7 +136,7 @@ describe('UserVault E2E', function () {
 
 	describe('RepayUserDebt', function () {
 		it('Should repay debt correctly w/o claiming rewards', async function () {
-			const {userVaultRegistry, usdc, usdt, userVault, monorail} = await loadFixture(deployProtocolFixture);
+			const {userVaultRegistry, usdc, usdt, userVault, poolDataProvider, monorail} = await loadFixture(deployProtocolFixture);
 
 			const usdcWhaleAddress = "0xFA735CcA8424e4eF30980653bf9015331d9929dB";
 
@@ -138,6 +147,9 @@ describe('UserVault E2E', function () {
 			await usdc.connect(usdcWhale).transfer(userVault, 9000000n);
 
 			expect(await usdc.balanceOf(userVault)).to.equal(9000000n);
+
+			const userReserveDataBefore = await poolDataProvider.getUserReserveData(USDT, USER_WITH_DEBT);
+			const debtBefore = userReserveDataBefore.currentVariableDebt;
 
 			// Get a quote using the SDK
 			const quote = await monorail.getQuote({
@@ -159,7 +171,7 @@ describe('UserVault E2E', function () {
 
 			const repayUserDebtParmas : IUserVault.RepayUserDebtParamsStruct = {
 				debtToken: USDT,
-				poolAddress: "0x9861f6a26050e02Ff0C079657F5a3AFcD8D4af52",
+				poolAddressProvider: TESTNET_POOL_ADDRESS_PROVIDER,
 				tokenIds: [],
 				rewardToken: USDC,
 				rewardTokenAmountToSwap: 9000000n,
@@ -171,15 +183,16 @@ describe('UserVault E2E', function () {
 			await userVault.repayUserDebt(
 				repayUserDebtParmas
 			);
-			
-			const usdtAfter = await usdt.balanceOf(userVault);
-			expect(usdtAfter).to.be.gte(0);
+
+			const userReserveDataAfter = await poolDataProvider.getUserReserveData(USDT, USER_WITH_DEBT);
+			const debtAfter = userReserveDataAfter.currentVariableDebt;
+			console.log(debtAfter, debtBefore);
+			expect(debtAfter).to.be.lte(debtBefore - 9000000n + 100n); 
 			expect(await usdc.balanceOf(userVault)).to.equal(0n);
-			// TODO check debt is repaid
 		});
 
 		it('Should repay debt correctly w/ claiming rewards', async function () {
-			const {userVaultRegistry, usdc, userVault, tokenId, monorail, revenueReward} = await loadFixture(deployProtocolFixture);
+			const {userVaultRegistry, usdc, userVault, tokenId, poolDataProvider, monorail, revenueReward} = await loadFixture(deployProtocolFixture);
 
 			const timestamp1 = (await ethers.provider.getBlock('latest')).timestamp;
 			console.log("Current block timestamp:", timestamp1);
@@ -195,6 +208,9 @@ describe('UserVault E2E', function () {
 			console.log("Earned rewards:", earnedRewards[1][0].toString());
 			expect(earnedRewards[1][0]).to.be.gte(0);
 			expect(await revenueReward.tokenRewardReceiver(tokenId)).eq(userVault);
+
+			const userReserveDataBefore = await poolDataProvider.getUserReserveData(USDT, USER_WITH_DEBT);
+			const debtBefore = userReserveDataBefore.currentVariableDebt;
 
 			// Get a quote using the SDK
 			const quote = await monorail.getQuote({
@@ -216,7 +232,7 @@ describe('UserVault E2E', function () {
 
 			const repayUserDebtParmas : IUserVault.RepayUserDebtParamsStruct = {
 				debtToken: USDT,
-				poolAddress: "0x9861f6a26050e02Ff0C079657F5a3AFcD8D4af52",
+				poolAddressProvider: TESTNET_POOL_ADDRESS_PROVIDER,
 				tokenIds: [tokenId],
 				rewardToken: USDC,
 				rewardTokenAmountToSwap: 9000000n,
@@ -229,8 +245,11 @@ describe('UserVault E2E', function () {
 				repayUserDebtParmas
 			);
 			
+			const userReserveDataAfter = await poolDataProvider.getUserReserveData(USDT, USER_WITH_DEBT);
+			const debtAfter = userReserveDataAfter.currentVariableDebt;
+			console.log(debtAfter, debtBefore);
+			expect(debtAfter).to.be.lte(debtBefore - 9000000n + 100n); 
 			expect(await usdc.balanceOf(userVault)).to.equal(0n);
-			// TODO check the debt is repaid
 		});
 	});
 
@@ -298,6 +317,7 @@ describe('UserVault E2E', function () {
 				USDT,
 				quote.transaction!.to,
 				quote.transaction!.data!,
+				TESTNET_POOL_ADDRESS_PROVIDER,
 				100n
 			);
 			
@@ -344,6 +364,7 @@ describe('UserVault E2E', function () {
 				"0x268E4E24E0051EC27b3D27A95977E71cE6875a05",
 				quote.transaction!.to,
 				quote.transaction!.data!,
+				TESTNET_POOL_ADDRESS_PROVIDER,
 				100n
 			);
 			
@@ -353,7 +374,7 @@ describe('UserVault E2E', function () {
 
 	describe('repayDebt', function () {
 		it('Should repay debt correctly', async function () {
-			const {usdt, userVault} = await loadFixture(deployProtocolFixture);
+			const {usdt, userVault, poolDataProvider} = await loadFixture(deployProtocolFixture);
 
 			const usdcWhaleAddress = "0xFA735CcA8424e4eF30980653bf9015331d9929dB";
 
@@ -365,13 +386,18 @@ describe('UserVault E2E', function () {
 
 			expect(await usdt.balanceOf(userVault)).to.equal(9000000n);
 
+			const userReserveDataBefore = await poolDataProvider.getUserReserveData(USDT, USER_WITH_DEBT);
+			const debtBefore = userReserveDataBefore.currentVariableDebt;
+
 			await userVault.repayDebt(
-				"0x9861f6a26050e02Ff0C079657F5a3AFcD8D4af52",
+				TESTNET_POOL_ADDRESS_PROVIDER,
 				USDT,
 				9000000n
 			);
 
-			// TODO check the debt is repaid
+			const userReserveDataAfter = await poolDataProvider.getUserReserveData(USDT, USER_WITH_DEBT);
+			const debtAfter = userReserveDataAfter.currentVariableDebt;
+			expect(debtAfter).to.be.lte(debtBefore - 9000000n + 10n); // 10n buffer for accruing interest
 		});
 
 		it('Should revert if user has no particular debt', async function () {
@@ -388,7 +414,7 @@ describe('UserVault E2E', function () {
 			expect(await usdc.balanceOf(userVault)).to.equal(9000000n);
 
 			let action = userVault.repayDebt(
-				"0x9861f6a26050e02Ff0C079657F5a3AFcD8D4af52",
+				TESTNET_POOL_ADDRESS_PROVIDER,
 				USDC,
 				9000000n
 			);
@@ -399,7 +425,7 @@ describe('UserVault E2E', function () {
 
 	describe('depositCollateral', function () {
 		it('Should deposit collateral correctly', async function () {
-			const {usdc, userVault} = await loadFixture(deployProtocolFixture);
+			const {usdc, userVault, poolDataProvider} = await loadFixture(deployProtocolFixture);
 
 			const usdcWhaleAddress = "0xFA735CcA8424e4eF30980653bf9015331d9929dB";
 
@@ -411,13 +437,21 @@ describe('UserVault E2E', function () {
 
 			expect(await usdc.balanceOf(userVault)).to.equal(9000000n);
 
+			const userReserveDataBefore = await poolDataProvider.getUserReserveData(USDC, USER_WITH_DEBT);
+			const reserveDataBefore = await poolDataProvider.getReserveData(USDC);
+			const usdcDalanceBefore = userReserveDataBefore.currentATokenBalance * reserveDataBefore.liquidityIndex / (10n ** 27n);
+
 			await userVault.depositCollateral(
-				"0x9861f6a26050e02Ff0C079657F5a3AFcD8D4af52",
+				TESTNET_POOL_ADDRESS_PROVIDER,
 				USDC,
 				9000000n
 			);
 
-			// TODO: Check if collateral was deposited
+			const reserveDataAfter = await poolDataProvider.getReserveData(USDC);
+			const userReserveDataAfter = await poolDataProvider.getUserReserveData(USDC, USER_WITH_DEBT);
+			const usdcDalanceAfter = userReserveDataAfter.currentATokenBalance * reserveDataAfter.liquidityIndex / (10n ** 27n);
+
+			expect(usdcDalanceAfter).to.be.gte(usdcDalanceBefore + 9000000n);
 		});
 	});
 });

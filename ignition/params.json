@@ -1,6 +1,6 @@
 {
     "UserVaultModule": {
-        "aaveOracle": "0x406846114B2A9b65a8A2Ab702C2C57d27784dBA2",
+        "poolAddressProviderRegistry": "0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F",
         "executor": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
         "rewardDistributor": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
     },

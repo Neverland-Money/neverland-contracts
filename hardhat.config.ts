@@ -1,4 +1,5 @@
 import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-foundry";
 import "@nomicfoundation/hardhat-ignition-ethers";
 import "@openzeppelin/hardhat-upgrades";

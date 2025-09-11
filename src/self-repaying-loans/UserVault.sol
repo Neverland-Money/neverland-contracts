@@ -126,7 +126,12 @@ contract UserVault is IUserVault, Initializable {
     }
 
     /// @inheritdoc IUserVault
-    function depositCollateral(address poolAddress, address debtToken, uint256 amount) public onlyExecutor {
+    function depositCollateral(address poolAddressProvider, address debtToken, uint256 amount)
+        public
+        onlyExecutor
+        poolAddressProviderShouldBeValid(poolAddressProvider)
+    {
+        address poolAddress = IPoolAddressesProvider(poolAddressProvider).getPool();
         IERC20(debtToken).approve(poolAddress, amount);
         IPool(poolAddress).supply(debtToken, amount, user, 0);
     }
