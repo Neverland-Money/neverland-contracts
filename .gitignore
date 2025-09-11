@@ -25,5 +25,6 @@ typechain-v5/
 typechain-v6/
 
 # static analysis
+aderyn.md
 solhint.txt
 slither.md
