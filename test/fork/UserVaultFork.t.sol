@@ -52,7 +52,7 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
     }
 
     function testRepayDebt() public {
-        // return; // skip test
+        vm.skip(true);
 
         // chain data
         // uint256 MONAD_TESTNET_BLOCK_NUMBER = 30753577;
@@ -75,7 +75,7 @@ contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
     }
 
     function testAaveOracle() public {
-        return; // skip test
+        vm.skip(true);
 
         // chain data
         address poolUser = 0x0000B06460777398083CB501793a4d6393900000;
