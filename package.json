@@ -4,8 +4,9 @@
   "description": "Neverland Protocol Smart Contracts",
   "license": "BUSL-1.1",
   "scripts": {
-    "solihint": "solhint 'src/**/*.sol' > solhint.txt",
-    "slither": "docker compose run --rm eth-security-toolbox sh -c \"cd /share && slither . --filter-paths lib,node_modules,test --checklist > slither.md\""
+    "solhint": "solhint 'src/**/*.sol'",
+    "solhint:report": "solhint 'src/**/*.sol' > solhint.txt 2>&1 || true",
+    "slither:report": "docker compose run --rm eth-security-toolbox sh -c 'cd /share && slither . --filter-paths lib,node_modules,test --checklist > slither.md'"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
