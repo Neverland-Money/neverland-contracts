@@ -8,9 +8,6 @@ pragma solidity 0.8.30;
  *         Allows creation and retrieval of user-specific vaults.
  */
 interface IUserVaultFactory {
-    /// @notice Emitted when a concurrent vault creation for the same user is in progress
-    error CreationInProgress();
-
     /*//////////////////////////////////////////////////////////////
                                 VIEWS
     //////////////////////////////////////////////////////////////*/

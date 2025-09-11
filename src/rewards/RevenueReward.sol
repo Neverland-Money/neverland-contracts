@@ -73,7 +73,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IRevenueReward
     IDustLock public immutable dustLock;
     /// @inheritdoc IRevenueReward
-    IUserVaultFactory public userVaultFactory;
+    IUserVaultFactory public immutable userVaultFactory;
     /// @inheritdoc IRevenueReward
     address public rewardDistributor;
 
