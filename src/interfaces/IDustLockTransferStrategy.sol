@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {IDustTransferStrategy} from "./IDustTransferStrategy.sol";
 import {IDustLock} from "./IDustLock.sol";

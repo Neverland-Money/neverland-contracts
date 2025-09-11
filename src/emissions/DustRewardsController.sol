@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
 import {RewardsDistributor} from "@aave-v3-periphery/contracts/rewards/RewardsDistributor.sol";

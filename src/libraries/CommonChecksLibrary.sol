@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 library CommonChecksLibrary {
     /// @notice Used when a zero address is provided where not allowed.

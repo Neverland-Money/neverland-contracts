@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -250,7 +250,8 @@ contract UserVault is IUserVault, Initializable {
     }
 
     modifier poolAddressesProviderShouldBeValid(address poolAddressesProvider) {
-        uint256 poolAddressesProviderId = poolAddressesProviderRegistry.getAddressesProviderIdByAddress(poolAddressesProvider);
+        uint256 poolAddressesProviderId =
+            poolAddressesProviderRegistry.getAddressesProviderIdByAddress(poolAddressesProvider);
         if (poolAddressesProviderId == 0) revert InvalidPoolAddressesProvider();
         _;
     }

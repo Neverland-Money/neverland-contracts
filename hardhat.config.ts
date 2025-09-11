@@ -19,7 +19,7 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
 
 export default {
   solidity: {
-    version: "0.8.19",
+    version: "0.8.30",
     settings: {
       optimizer: { enabled: true, runs: 200 }
     }
@@ -35,7 +35,7 @@ export default {
     monadTestnet: {
       url: `https://testnet-rpc.monad.xyz`,
       chainId: 10143,
-      accounts: [PRIVATE_KEY],
+      // accounts: [PRIVATE_KEY],
     },
   },
   typechain: {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {ud60x18, convert} from "@prb/math/src/UD60x18.sol";

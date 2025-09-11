@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 /// @title IUserVault
 /// @notice Interface for the UserVault contract that manages user collateral, repayments, swaps, and recovery of tokens or ETH.
@@ -26,7 +26,11 @@ interface IUserVault {
 
     // EVENTS
     event LoanSelfRepaid(
-        address indexed user, address indexed userVault, address poolAddressesProvider, address debtToken, uint256 amount
+        address indexed user,
+        address indexed userVault,
+        address poolAddressesProvider,
+        address debtToken,
+        uint256 amount
     );
 
     // Structs

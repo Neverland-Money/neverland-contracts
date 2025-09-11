@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.8.19;
+pragma solidity 0.8.30;
 
 import {IRewardsDistributor} from "@aave-v3-periphery/contracts/rewards/interfaces/IRewardsDistributor.sol";
 import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/RewardsDataTypes.sol";
