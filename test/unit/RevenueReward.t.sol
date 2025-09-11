@@ -1194,7 +1194,32 @@ contract RevenueRewardsTest is BaseTestLocal {
         vm.stopPrank();
     }
 
-    // TODO: Add tests for checking account that calls getReward
+    function testGetRewardCalledByTheTokenRewardReceiver() public {
+        // arrange
+        uint256 tokenId = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K); // adds reward at the start of next epoch
+
+        revenueReward.enableSelfRepayLoan(tokenId);
+
+        skipToNextEpoch(1);
+
+        address userVault = userVaultFactory.getUserVault(user);
+        assertEq(revenueReward.tokenRewardReceiver(tokenId), userVault);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // act/assert
+        vm.prank(userVault);
+        revenueReward.getReward(tokenId, tokens);
+
+        emit log_named_uint("[self-repay] USDC to userVault", mockUSDC.balanceOf(userVault));
+        assertEqApprThreeWei(mockUSDC.balanceOf(userVault), USDC_10K);
+
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.NotOwner.selector));
+        revenueReward.getReward(tokenId, tokens);
+    }
 
     function testEnableSelfRepayLoan() public {
         // arrange
