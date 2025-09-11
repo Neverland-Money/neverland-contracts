@@ -11,8 +11,8 @@
     "build": "yarn run build:foundy && yarn run build:hardhat",
     "build:foundy": "forge build",
     "build:hardhat": "hardhat compile",
-    "tests": "yarn run tests:foundy && yarn run tests:hardhat",
-    "tests:foundy": "forge test -v",
+    "tests": "yarn run tests:foundry && yarn run tests:hardhat",
+    "tests:foundry": "forge test -v",
     "tests:hardhat": "hardhat test"
   },
   "devDependencies": {
