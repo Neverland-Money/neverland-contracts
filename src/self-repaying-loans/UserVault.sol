@@ -243,7 +243,7 @@ contract UserVault is IUserVault, Initializable {
     }
 
     modifier onlyExecutorOrUser() {
-        if (userVaultRegistry.executor() != msg.sender || user != msg.sender) {
+        if (!(userVaultRegistry.executor() == msg.sender || user == msg.sender)) {
             revert CommonChecksLibrary.UnauthorizedAccess();
         }
         _;
