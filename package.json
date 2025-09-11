@@ -4,10 +4,10 @@
   "description": "Neverland Protocol Smart Contracts",
   "license": "BUSL-1.1",
   "scripts": {
-    "adelyn": "aderyn -o aderyn.md",
     "solhint": "solhint 'src/**/*.sol'",
     "solhint:report": "solhint 'src/**/*.sol' > solhint.txt 2>&1 || true",
-    "slither:report": "docker compose run --rm eth-security-toolbox sh -c 'cd /share && slither . --filter-paths lib,node_modules,test --checklist > slither.md'"
+    "slither:report": "docker compose run --rm eth-security-toolbox sh -c 'cd /share && slither . --filter-paths lib,node_modules,test --checklist > slither.md'",
+    "adelyn:report": "aderyn -o aderyn.md"
   },
   "devDependencies": {
     "@cyfrin/aderyn": "^0.5.13",
