@@ -24,20 +24,20 @@ contract UserVault is IUserVault, Initializable {
     }
 
     function initialize(
-        IUserVaultRegistry _userVaultRegistry,
-        IAaveOracle _aaveOracle,
+        address _user,
         IRevenueReward _revenueReward,
-        address _user
+        IUserVaultRegistry _userVaultRegistry,
+        IAaveOracle _aaveOracle
     ) external initializer {
         CommonChecksLibrary.revertIfZeroAddress(address(_userVaultRegistry));
         CommonChecksLibrary.revertIfZeroAddress(address(_aaveOracle));
         CommonChecksLibrary.revertIfZeroAddress(address(_revenueReward));
         CommonChecksLibrary.revertIfZeroAddress(_user);
 
+        user = _user;
+        revenueReward = _revenueReward;
         userVaultRegistry = _userVaultRegistry;
         aaveOracle = _aaveOracle;
-        revenueReward = _revenueReward;
-        user = _user;
     }
 
     /// @inheritdoc IUserVault

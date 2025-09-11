@@ -57,7 +57,7 @@ contract UserVaultFactory is IUserVaultFactory, Initializable {
     function _createUserVault(address user) internal returns (address) {
         BeaconProxy userVaultBeaconProxy = new BeaconProxy(userVaultBeacon, "");
         UserVault deployedUserVault = UserVault(address(userVaultBeaconProxy));
-        deployedUserVault.initialize(userVaultRegistry, aaveOracle, revenueReward, user);
+        deployedUserVault.initialize(user, revenueReward, userVaultRegistry, aaveOracle);
 
         return address(deployedUserVault);
     }

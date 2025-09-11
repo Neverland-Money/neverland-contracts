@@ -31,7 +31,7 @@ contract HarnessFactory {
             BeaconProxy _userVaultBeaconProxy = new BeaconProxy(address(_userVaultBeacon), "");
             _userVault = UserVaultHarness(address(_userVaultBeaconProxy));
         }
-        _userVault.initialize(_userVaultRegistry, _aaveOracle, revenueReward, user);
+        _userVault.initialize(user, revenueReward, _userVaultRegistry, _aaveOracle);
 
         return (_userVault, revenueReward, _userVaultRegistry, _aaveOracle);
     }
