@@ -2,10 +2,12 @@
 pragma solidity 0.8.30;
 
 import {IDustLock} from "../interfaces/IDustLock.sol";
+
 import {IUserVaultFactory} from "./IUserVaultFactory.sol";
 
 /**
  * @title IRevenueReward Interface
+ * @author Neverland
  * @notice Interface for the RevenueReward contract that manages token rewards distribution
  * @dev Handles reward epochs, claiming rewards, and self-repaying loan functionality
  */
@@ -93,11 +95,13 @@ interface IRevenueReward {
 
     /**
      * @notice Maximum number of tokenIds allowed in a single batch claim.
+     * @return The maximum number of tokenIds accepted in batch calls
      */
     function MAX_TOKENIDS() external view returns (uint256);
 
     /**
      * @notice Maximum number of reward tokens allowed in a single batch claim.
+     * @return The maximum number of reward tokens accepted in batch calls
      */
     function MAX_TOKENS() external view returns (uint256);
 
@@ -158,6 +162,13 @@ interface IRevenueReward {
      * @return The amount of rewards allocated for the token at that epoch start
      */
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);
+
+    /**
+     * @notice Returns the timestamp when a veNFT was minted
+     * @param tokenId The ID of the veNFT
+     * @return The timestamp when the veNFT was minted
+     */
+    function tokenMintTime(uint256 tokenId) external view returns (uint256);
 
     /**
      * @notice Returns the accumulated fractional remainder of rewards for a veNFT and token, scaled by 1e18.

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.30;
 
+/**
+ * @title CommonChecksLibrary
+ * @author Neverland
+ * @notice Shared require/revert helpers for zero/invalid values used across contracts
+ */
 library CommonChecksLibrary {
     /// @notice Used when a zero address is provided where not allowed.
     error AddressZero();
@@ -24,74 +29,74 @@ library CommonChecksLibrary {
     error UnauthorizedAccess();
 
     /**
-     * @dev Reverts if the address is zero.
-     * @param addressToCheck The address to check.
+     * @notice Reverts if the provided address is zero
+     * @param addressToCheck The address to check
      */
     function revertIfZeroAddress(address addressToCheck) internal pure {
         if (addressToCheck == address(0)) revert AddressZero();
     }
 
     /**
-     * @dev Reverts if the amount is zero.
-     * @param amount The amount to check.
+     * @notice Reverts if the provided amount is zero
+     * @param amount The amount to check
      */
     function revertIfZeroAmount(uint256 amount) internal pure {
         if (amount == 0) revert ZeroAmount();
     }
 
     /**
-     * @dev Reverts if the range is invalid.
-     * @param from The start of the range.
-     * @param to The end of the range.
+     * @notice Reverts if the [from, to] range is invalid (from > to)
+     * @param from The start of the range
+     * @param to The end of the range
      */
     function revertIfInvalidRange(uint256 from, uint256 to) internal pure {
         if (from > to) revert InvalidRange();
     }
 
     /**
-     * @dev Reverts if the addresses are the same.
-     * @param first The first address to check.
-     * @param second The second address to check.
+     * @notice Reverts if the two addresses are the same
+     * @param first The first address to check
+     * @param second The second address to check
      */
     function revertIfSameAddress(address first, address second) internal pure {
         if (first == second) revert SameAddress();
     }
 
     /**
-     * @dev Reverts if the balance is zero.
-     * @param balance The balance to check.
+     * @notice Reverts if the balance is zero
+     * @param balance The balance to check
      */
     function revertIfZeroBalance(uint256 balance) internal pure {
         if (balance == 0) revert ZeroBalance();
     }
 
     /**
-     * @dev Reverts if the tokenId is invalid.
-     * @param owner The owner of the tokenId.
+     * @notice Reverts if the tokenId owner is the zero address
+     * @param owner The owner of the tokenId
      */
     function revertIfInvalidTokenId(address owner) internal pure {
         if (owner == address(0)) revert InvalidTokenId();
     }
 
     /**
-     * @dev Reverts if the from address is invalid.
-     * @param from The from address to check.
+     * @notice Reverts if the from address is zero
+     * @param from The from address to check
      */
     function revertIfInvalidFromAddress(address from) internal pure {
         if (from == address(0)) revert InvalidFromAddress();
     }
 
     /**
-     * @dev Reverts if the to address is invalid.
-     * @param to The to address to check.
+     * @notice Reverts if the to address is zero
+     * @param to The to address to check
      */
     function revertIfInvalidToAddress(address to) internal pure {
         if (to == address(0)) revert InvalidToAddress();
     }
 
     /**
-     * @dev Reverts if the user address is invalid.
-     * @param user The user address to check.
+     * @notice Reverts if the user address is zero
+     * @param user The user address to check
      */
     function revertIfInvalidUserAddress(address user) internal pure {
         if (user == address(0)) revert InvalidUserAddress();

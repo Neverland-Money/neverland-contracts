@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.30;
 
+/**
+ * @title EpochTimeLibrary
+ * @author Extended by Neverland
+ * @notice Shared helpers for epoch time calculations
+ */
 library EpochTimeLibrary {
     uint256 internal constant WEEK = 7 days;
 

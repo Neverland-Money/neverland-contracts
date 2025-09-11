@@ -20,14 +20,14 @@ contract UserVaultHarness is UserVault {
     function exposed_verifySlippage(
         uint256 desiredSwapAmountInTokenA,
         uint256 tokenAUnitPriceInUSD_8dec,
-        uint256 actualSwapedAmountInTokenB,
+        uint256 actualSwappedAmountInTokenB,
         uint256 tokenBUnitPriceInUSD_8dec,
         uint256 maxAllowedSlippageBps
     ) external pure {
         _verifySlippage(
             desiredSwapAmountInTokenA,
             tokenAUnitPriceInUSD_8dec,
-            actualSwapedAmountInTokenB,
+            actualSwappedAmountInTokenB,
             tokenBUnitPriceInUSD_8dec,
             maxAllowedSlippageBps
         );

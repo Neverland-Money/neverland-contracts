@@ -11,6 +11,11 @@ import {ERC20PermitUpgradeable} from
 
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
+/**
+ * @title Dust
+ * @author Neverland
+ * @notice ERC20 token with pausable transfers and permit
+ */
 contract Dust is
     Initializable,
     ERC20Upgradeable,

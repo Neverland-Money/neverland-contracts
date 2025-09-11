@@ -7,14 +7,17 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
 import {IUserVaultFactory} from "../interfaces/IUserVaultFactory.sol";
 import {IDustLock} from "../interfaces/IDustLock.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
+
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
 
 /**
  * @title RevenueReward
+ * @author Neverland
  * @notice Stores ERC20 token rewards and provides them to veDUST owners
  */
 contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
@@ -26,6 +29,13 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Initializes the contract
+     * @param _forwarder address of trusted forwarder
+     * @param _dustLock address of DustLock contract
+     * @param _rewardDistributor address of DustRewardsController contract
+     * @param _userVaultFactory address of UserVaultFactory contract
+     */
     constructor(
         address _forwarder,
         IDustLock _dustLock,
@@ -80,7 +90,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => mapping(uint256 => uint256)) public lastEarnTime;
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsRemainingAccScaled;
-    /// @dev Mapping of tokenIds to block.timestamp of token_id minted
+    /// @inheritdoc IRevenueReward
     mapping(uint256 => uint256) public tokenMintTime;
 
     /// @inheritdoc IRevenueReward
@@ -141,7 +151,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         if (_msgSender() != rewardDistributor) revert NotRewardDistributor();
 
         uint256 len = rewardTokens.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             address token = rewardTokens[i];
             uint256 balance = IERC20(token).balanceOf(address(this));
             uint256 credited = totalRewardsPerToken[token];
@@ -197,7 +207,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         _claimRewardsTo(fromToken, owner);
 
         uint256 len = rewardTokens.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             tokenRewardsRemainingAccScaled[rewardTokens[i]][toToken] +=
                 tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken];
             tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] = 0;
@@ -223,7 +233,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 newTokenAmount = token1Amount + token2Amount;
 
         uint256 len = rewardTokens.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             uint256 acc = tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken];
             if (acc != 0) {
                 uint256 a1 = Math.mulDiv(token1Amount, acc, newTokenAmount);
@@ -274,13 +284,13 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         address sender = _msgSender();
         uint256 len = tokenIds.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             _getRewardUntilTsSingle(tokenIds[i], tokens, rewardPeriodEndTs, sender);
         }
     }
 
     /**
-     * @dev Claims accumulated rewards for a specific veNFT across multiple reward tokens up to a specified timestamp
+     * @notice Claims accumulated rewards for a specific veNFT across multiple reward tokens up to a specified timestamp
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
@@ -323,7 +333,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         internal
     {
         uint256 len = tokens.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             address token = tokens[i];
             if (!isRewardToken[token]) revert UnknownRewardToken();
 
@@ -355,7 +365,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         address sender = _msgSender();
         uint256 len = tokenIds.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             _enableSelfRepayLoan(tokenIds[i], sender);
         }
     }
@@ -371,12 +381,13 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         address sender = _msgSender();
         uint256 len = tokenIds.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             _disableSelfRepayLoan(tokenIds[i], sender);
         }
     }
 
     /**
+     * @notice Enables self-repaying loan for a token
      * @dev Enables self-repaying loan for a token
      * @param tokenId The ID of the token to enable self-repaying loan for
      * @param sender The address that called the function
@@ -394,7 +405,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Disables self-repaying loan for a token
+     * @notice Disables self-repaying loan for a token
      * @param tokenId The ID of the token to disable self-repaying loan for
      * @param sender The address that called the function
      */
@@ -408,7 +419,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Removes a token from the self-repaying loan list
+     * @notice Removes a token from the self-repaying loan list
      * @param tokenId The ID of the token to remove
      * @param tokenOwner The owner of the token
      */
@@ -425,7 +436,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Validates array lengths for single token operations
+     * @notice Validates array lengths for single token operations
      * @param tokensLength Length of tokens array
      */
     function _validateTokensArray(uint256 tokensLength) private pure {
@@ -433,7 +444,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Validates tokenIds array is not empty
+     * @notice Validates tokenIds array is not empty
      * @param tokenIdsLength Length of tokenIds array
      */
     function _validateTokenIdsArray(uint256 tokenIdsLength) private pure {
@@ -441,7 +452,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Validates array lengths for batch operations
+     * @notice Validates array lengths for batch operations
      * @param tokensLength Length of tokens array
      * @param tokenIdsLength Length of tokenIds array
      */
@@ -478,10 +489,10 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         totals = new uint256[](numTokens);
         matrix = new uint256[][](numTokenIds);
-        for (uint256 i = 0; i < numTokenIds; i++) {
+        for (uint256 i = 0; i < numTokenIds; ++i) {
             uint256 tokenId = tokenIds[i];
             uint256[] memory row = new uint256[](numTokens);
-            for (uint256 j = 0; j < numTokens; j++) {
+            for (uint256 j = 0; j < numTokens; ++j) {
                 address token = tokens[j];
                 uint256 amount = earnedRewards(token, tokenId, endTs);
                 row[j] = amount;
@@ -519,7 +530,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
 
         uint256 resLen = to - from;
         address[] memory users = new address[](resLen);
-        for (uint256 i = 0; i < resLen; i++) {
+        for (uint256 i = 0; i < resLen; ++i) {
             users[i] = usersWithSelfRepayingLoan.at(from + i);
         }
         return users;
@@ -534,7 +545,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     {
         uint256 len = userTokensWithSelfRepayingLoan[user].length();
         tokenIds = new uint256[](len);
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             tokenIds[i] = userTokensWithSelfRepayingLoan[user].at(i);
         }
     }
@@ -580,7 +591,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 accumulatedRemainder = tokenRewardsRemainingAccScaled[token][tokenId];
 
         uint256 numEpochs = (endTsEpoch - startTs) / DURATION;
-        for (uint256 i = 0; i <= numEpochs; i++) {
+        for (uint256 i = 0; i <= numEpochs; ++i) {
             uint256 tokenSupplyBalanceCurrTs = dustLock.totalSupplyAt(currTs);
             if (tokenSupplyBalanceCurrTs == 0) {
                 currTs += DURATION;

@@ -318,11 +318,20 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      */
     event BaseURIUpdated(string oldBaseURI, string newBaseURI);
 
-    // State variables
-    /// @notice Address of Meta-tx Forwarder
+    /*//////////////////////////////////////////////////////////////
+                                STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Address of Meta-tx Forwarder
+     * @return The trusted forwarder address used for meta-transactions
+     */
     function forwarder() external view returns (address);
 
-    /// @notice Address of token (DUST) used to create a veNFT
+    /**
+     * @notice Address of token (DUST) used to create a veNFT
+     * @return The ERC20 token address used to lock and mint veNFTs
+     */
     function token() external view returns (address);
 
     /**
@@ -409,7 +418,12 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
                       ERC721 BALANCE/OWNER STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Mapping from owner address to mapping of index to tokenId
+    /**
+     * @notice Returns the tokenId owned by `_owner` at position `_index`
+     * @param _owner Owner address to query
+     * @param _index Index of the token within the owner's list
+     * @return _tokenId The tokenId at the given index for the owner
+     */
     function ownerToNFTokenIdList(address _owner, uint256 _index) external view returns (uint256 _tokenId);
 
     /// @inheritdoc IERC721
@@ -432,6 +446,7 @@ interface IDustLock is IERC4906, IERC6372, IERC721Metadata {
      * @notice Check whether spender is owner or an approved user for a given veNFT
      * @param _spender The address to approve for the tokenId
      * @param _tokenId The ID of the veNFT to be approved
+     * @return True if `_spender` is owner or approved for `_tokenId`, false otherwise
      */
     function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool);
 

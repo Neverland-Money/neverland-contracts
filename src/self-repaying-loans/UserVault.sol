@@ -3,8 +3,8 @@ pragma solidity 0.8.30;
 
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
 import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
@@ -12,21 +12,39 @@ import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {IUserVaultRegistry} from "../interfaces/IUserVaultRegistry.sol";
 import {IUserVault} from "../interfaces/IUserVault.sol";
+
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
-import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
-import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 
+/**
+ * @title UserVault
+ * @author Neverland
+ * @notice User vault contract for self-repaying loans
+ */
 contract UserVault is IUserVault, Initializable {
-    IUserVaultRegistry userVaultRegistry;
-    IRevenueReward revenueReward;
-    IPoolAddressesProviderRegistry poolAddressesProviderRegistry;
+    using SafeERC20 for IERC20;
 
-    address user;
+    /// @notice UserVaultRegistry contract
+    IUserVaultRegistry public userVaultRegistry;
+    /// @notice RevenueReward contract
+    IRevenueReward public revenueReward;
+    /// @notice AAVE PoolAddressesProviderRegistry contract
+    IPoolAddressesProviderRegistry public poolAddressesProviderRegistry;
 
+    /// @notice User address
+    address public user;
+
+    /// @notice Initializes the contract
     constructor() {
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the contract
+     * @param _user User address
+     * @param _revenueReward RevenueReward address
+     * @param _userVaultRegistry UserVaultRegistry address
+     * @param _poolAddressesProviderRegistry PoolAddressesProviderRegistry address
+     */
     function initialize(
         address _user,
         IRevenueReward _revenueReward,
@@ -71,7 +89,7 @@ contract UserVault is IUserVault, Initializable {
 
         address[] memory rewardTokens = new address[](1);
         rewardTokens[0] = address(rewardToken);
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ++i) {
             if (revenueReward.tokenRewardReceiver(tokenIds[i]) != address(this)) {
                 revert InvalidUserVaultForToken();
             }
@@ -121,8 +139,9 @@ contract UserVault is IUserVault, Initializable {
         poolAddressesProviderShouldBeValid(poolAddressesProvider)
     {
         address poolAddress = IPoolAddressesProvider(poolAddressesProvider).getPool();
-        IERC20(debtToken).approve(poolAddress, amount);
+        IERC20(debtToken).safeApprove(poolAddress, amount);
         IPool(poolAddress).repay(debtToken, amount, 2, user);
+        IERC20(debtToken).safeApprove(poolAddress, 0);
     }
 
     /// @inheritdoc IUserVault
@@ -132,18 +151,20 @@ contract UserVault is IUserVault, Initializable {
         poolAddressesProviderShouldBeValid(poolAddressesProvider)
     {
         address poolAddress = IPoolAddressesProvider(poolAddressesProvider).getPool();
-        IERC20(debtToken).approve(poolAddress, amount);
+        IERC20(debtToken).safeApprove(poolAddress, amount);
         IPool(poolAddress).supply(debtToken, amount, user, 0);
+        IERC20(debtToken).safeApprove(poolAddress, 0);
     }
 
     /// @inheritdoc IUserVault
     function recoverERC20(address token, uint256 amount) public onlyExecutorOrUser {
-        IERC20(token).transfer(user, amount);
+        IERC20(token).safeTransfer(user, amount);
     }
 
     /// @inheritdoc IUserVault
     function recoverETH(uint256 amount) public onlyExecutorOrUser {
-        payable(user).transfer(amount);
+        (bool ok,) = payable(user).call{value: amount}("");
+        if (!ok) revert IUserVault.ETHSendFailed();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -157,6 +178,7 @@ contract UserVault is IUserVault, Initializable {
      * @param tokenOut The address of the token swapped out.
      * @param aggregator The address of the swap aggregator contract to use for performing the swap.
      * @param aggregatorData The calldata required by the aggregator contract for the swap execution.
+     * @return Amount of tokens swapped out
      */
     function _swap(
         address tokenIn,
@@ -170,13 +192,15 @@ contract UserVault is IUserVault, Initializable {
         if (!userVaultRegistry.isSupportedAggregator(aggregator)) {
             revert AggregatorNotSupported();
         }
-        IERC20(tokenIn).approve(aggregator, tokenInAmount);
-        (bool success,) = aggregator.call(aggregatorData);
+        IERC20(tokenIn).safeApprove(aggregator, tokenInAmount);
 
+        (bool success,) = aggregator.call(aggregatorData);
         if (!success) revert SwapFailed();
 
         uint256 debtTokenBalanceAfter = _getErc20TokenBalance(tokenOut, address(this));
         uint256 debtTokenSwapAmount = debtTokenBalanceAfter - debtTokenBalanceBefore;
+
+        IERC20(tokenIn).safeApprove(aggregator, 0);
 
         return debtTokenSwapAmount;
     }
@@ -213,15 +237,23 @@ contract UserVault is IUserVault, Initializable {
                             CALCULATIONS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Verifies that the slippage between the desired swap amount and the actual swapped amount is within the allowed slippage
+     * @param desiredSwapAmountInTokenA The desired amount of token A to swap
+     * @param tokenAUnitPriceInUSD_8dec The price of token A in USD with 8 decimals
+     * @param actualSwappedAmountInTokenB The actual amount of token B that was swapped
+     * @param tokenBUnitPriceInUSD_8dec The price of token B in USD with 8 decimals
+     * @param maxAllowedSlippageBps The maximum allowed slippage in basis points
+     */
     function _verifySlippage(
         uint256 desiredSwapAmountInTokenA,
         uint256 tokenAUnitPriceInUSD_8dec,
-        uint256 actualSwapedAmountInTokenB,
+        uint256 actualSwappedAmountInTokenB,
         uint256 tokenBUnitPriceInUSD_8dec,
         uint256 maxAllowedSlippageBps
     ) internal pure {
         uint256 desiredSwapAmountInUsd = desiredSwapAmountInTokenA * tokenAUnitPriceInUSD_8dec;
-        uint256 actualSwapAmountInUsd = actualSwapedAmountInTokenB * tokenBUnitPriceInUSD_8dec;
+        uint256 actualSwapAmountInUsd = actualSwappedAmountInTokenB * tokenBUnitPriceInUSD_8dec;
 
         if (actualSwapAmountInUsd < desiredSwapAmountInUsd) {
             uint256 actualSlippageBps =
@@ -235,6 +267,7 @@ contract UserVault is IUserVault, Initializable {
                              MODIFIERS
      //////////////////////////////////////////////////////////////*/
 
+    /// @notice Modifier to check if the caller is the executor
     modifier onlyExecutor() {
         if (userVaultRegistry.executor() != msg.sender) {
             revert NotExecutor();
@@ -242,6 +275,7 @@ contract UserVault is IUserVault, Initializable {
         _;
     }
 
+    /// @notice Modifier to check if the caller is the executor or the user
     modifier onlyExecutorOrUser() {
         if (!(userVaultRegistry.executor() == msg.sender || user == msg.sender)) {
             revert CommonChecksLibrary.UnauthorizedAccess();
@@ -249,6 +283,7 @@ contract UserVault is IUserVault, Initializable {
         _;
     }
 
+    /// @notice Modifier to check if the pool addresses provider is valid
     modifier poolAddressesProviderShouldBeValid(address poolAddressesProvider) {
         uint256 poolAddressesProviderId =
             poolAddressesProviderRegistry.getAddressesProviderIdByAddress(poolAddressesProvider);

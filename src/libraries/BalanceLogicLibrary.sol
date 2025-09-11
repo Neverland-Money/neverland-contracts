@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.30;
 
-import {IDustLock} from "../interfaces/IDustLock.sol";
 import {ud60x18, convert} from "@prb/math/src/UD60x18.sol";
+
+import {IDustLock} from "../interfaces/IDustLock.sol";
 
 import {SafeCastLibrary} from "./SafeCastLibrary.sol";
 
+/**
+ * @title BalanceLogicLibrary
+ * @author Extended by Neverland
+ * @notice Read-only helpers for historical voting power and supply calculations for veDUST
+ */
 library BalanceLogicLibrary {
     using SafeCastLibrary for uint256;
     using SafeCastLibrary for int128;
@@ -143,22 +149,22 @@ library BalanceLogicLibrary {
         int256 bias = _point.bias;
         int256 slope = _point.slope;
         uint256 ts = _point.ts;
-        uint256 t_i = (ts / WEEK) * WEEK;
+        uint256 tCurr = (ts / WEEK) * WEEK;
         for (uint256 i = 0; i < MAX_CHECKPOINT_ITERATIONS; ++i) {
-            t_i += WEEK;
+            tCurr += WEEK;
             int256 dSlope = 0;
-            if (t_i > _t) {
-                t_i = _t;
+            if (tCurr > _t) {
+                tCurr = _t;
             } else {
-                dSlope = _slopeChanges[t_i];
+                dSlope = _slopeChanges[tCurr];
             }
             // Time difference in seconds, slope is in WAD format
-            bias -= slope * int256(t_i - ts);
-            if (t_i == _t) {
+            bias -= slope * int256(tCurr - ts);
+            if (tCurr == _t) {
                 break;
             }
             slope += dSlope;
-            ts = t_i;
+            ts = tCurr;
         }
 
         if (bias < 0) {

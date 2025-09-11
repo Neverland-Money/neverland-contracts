@@ -8,8 +8,8 @@ import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 
 /**
  * @title IDustRewardsController
- * @author Aave
- * @author Neverland
+ * @author Original implementation by Aave
+ * @author Extended by Neverland
  * @notice Defines the interface for the DustRewardsController that manages token rewards distribution
  * @dev Extends Aave's IRewardsDistributor with additional functionality for Neverland's veNFT system
  *      This controller manages the distribution of rewards to veNFT holders with options for
@@ -251,6 +251,7 @@ interface IDustRewardsController is IRewardsDistributor {
     ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts);
 
     /**
+     * @notice Claims all rewards for msg.sender across all configured reward tokens
      * @dev Claims all reward for msg.sender, on all the assets of the pool, accumulating the pending rewards
      * @param assets The list of assets to check eligible distributions before claiming rewards
      * @param lockTime Optional lock time for supported rewards

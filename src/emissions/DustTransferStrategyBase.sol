@@ -10,10 +10,10 @@ import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 
 /**
  * @title DustTransferStrategyBase
+ * @author Original implementation by Aave
+ * @author Extended by Neverland
  * @notice Modified Aave's TransferStrategyBase contract to pass lockTime and
  *         tokenId to the `IDustTransferStrategy`.
- * @author Aave
- * @author Neverland
  */
 abstract contract DustTransferStrategyBase is IDustTransferStrategy {
     using GPv2SafeERC20 for IERC20;
@@ -32,6 +32,11 @@ abstract contract DustTransferStrategyBase is IDustTransferStrategy {
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Constructs the base transfer strategy
+     * @param incentivesController The incentives controller authorized to call performTransfer
+     * @param rewardsAdmin The rewards admin authorized for emergency actions
+     */
     constructor(address incentivesController, address rewardsAdmin) {
         CommonChecksLibrary.revertIfZeroAddress(incentivesController);
         CommonChecksLibrary.revertIfZeroAddress(rewardsAdmin);

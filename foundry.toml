@@ -5,5 +5,6 @@ libs = ["lib"]
 optimizer = true
 optimizer-runs = 200
 extra_output_files = ["abi", "metadata"]
+ignored_error_codes = ["license","code-size","init-code-size","transient-storage",8760,2519,3628]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -4,7 +4,6 @@ pragma solidity 0.8.30;
 import "../BaseTestLocal.sol";
 import {HarnessFactory} from "../harness/HarnessFactory.sol";
 import {UserVaultHarness} from "../harness/UserVaultHarness.sol";
-import {UserVaultHarness} from "../harness/UserVaultHarness.sol";
 import {IUserVault} from "../../src/interfaces/IUserVault.sol";
 
 contract RevenueRewardsTest is BaseTestLocal {
@@ -16,7 +15,7 @@ contract RevenueRewardsTest is BaseTestLocal {
 
     function testVerifySlippage() public {
         // arrange
-        (UserVaultHarness _userVault,, IUserVaultRegistry _userVaultRegistry,) =
+        (UserVaultHarness _userVault,,,) =
             harnessFactory.createUserVaultHarness(user, revenueReward, poolAddressesProviderRegistry, automation);
 
         // act/assert

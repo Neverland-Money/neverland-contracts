@@ -17,6 +17,7 @@ import {IRevenueReward} from "../interfaces/IRevenueReward.sol";
 import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
+import {CommonLibrary} from "../libraries/CommonLibrary.sol";
 
 /**
  * @title DustLock
@@ -66,8 +67,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     uint256 public override tokenId;
 
     /**
+     * @notice Constructor
      * @param _forwarder address of trusted forwarder
      * @param _token `DUST` token address
+     * @param _baseURI base URI for NFT metadata
      */
     constructor(address _forwarder, address _token, string memory _baseURI) ERC2771Context(_forwarder) {
         CommonChecksLibrary.revertIfZeroAddress(_forwarder);
@@ -134,27 +137,35 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                              METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Token name
     string public constant name = "Voting Escrow DUST";
+    /// @notice Token symbol
     string public constant symbol = "veDUST";
+    /// @notice Token version
     string public constant version = "2.0.0";
-
+    /// @notice Base URI for token metadata
     string internal baseURI;
+
+    /*///////////////////////////////////////////////////////////////
+                                ERC721 LOGIC
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IERC721Metadata
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
         _ownerOfOrRevert(_tokenId);
 
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId.toString())) : "";
+        return bytes(baseURI).length > 0 ? string.concat(baseURI, _tokenId.toString()) : "";
     }
 
     /// @inheritdoc IDustLock
-    function setBaseURI(string memory newBaseURI) external override {
+    function setBaseURI(string calldata newBaseURI) external override {
         if (_msgSender() != team) revert NotTeam();
 
-        string memory old = baseURI;
-        baseURI = newBaseURI;
+        string memory oldBaseURIMemory = baseURI;
+        string memory newBaseURIMemory = newBaseURI;
+        baseURI = newBaseURIMemory;
 
-        emit BaseURIUpdated(old, newBaseURI);
+        emit BaseURIUpdated(oldBaseURIMemory, newBaseURIMemory);
         if (tokenId > 0) emit BatchMetadataUpdate(1, tokenId);
     }
 
@@ -168,11 +179,23 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @dev Mapping from owner address to count of his tokens.
     mapping(address => uint256) internal ownerToNFTokenCount;
 
+    /**
+     * @notice Returns the owner address of a token without reverting.
+     * @dev Returns address(0) if the token does not exist.
+     * @param _tokenId The veNFT id to query ownership for.
+     * @return The current owner address or address(0) if unminted.
+     */
     function _ownerOf(uint256 _tokenId) internal view returns (address) {
         address owner = idToOwner[_tokenId];
         return owner;
     }
 
+    /**
+     * @notice Returns the owner address of a token or reverts if it is not minted.
+     * @dev Uses CommonChecksLibrary to revert when owner is address(0).
+     * @param _tokenId The veNFT id to query.
+     * @return owner The current owner address.
+     */
     function _ownerOfOrRevert(uint256 _tokenId) internal view returns (address owner) {
         owner = _ownerOf(_tokenId);
         CommonChecksLibrary.revertIfInvalidTokenId(owner);
@@ -215,6 +238,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         return _isApprovedOrOwner(_spender, _tokenId);
     }
 
+    /**
+     * @notice Checks whether `_spender` is allowed to manage `_tokenId`.
+     * @dev True if `_spender` is the owner, approved for the token, or approved for all.
+     * @param _spender The address to check permissions for.
+     * @param _tokenId The token id to check against.
+     * @return True if `_spender` is owner or approved.
+     */
     function _isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
         address owner = _ownerOf(_tokenId);
         bool spenderIsOwner = owner == _spender;
@@ -260,6 +290,16 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                            TRANSFER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Transfers `_tokenId` from `_from` to `_to` and performs bookkeeping.
+     * @dev Clears approvals, updates owner counts and index mappings, sets flash-vote block,
+     *      notifies external hooks, and emits the Transfer event. Reverts on invalid ownership
+     *      or insufficient approvals.
+     * @param _from Current owner of the token.
+     * @param _to Recipient address (must be non-zero).
+     * @param _tokenId The token id being transferred.
+     * @param _sender The original caller used for approval checks and receiver callbacks.
+     */
     function _transferFrom(address _from, address _to, uint256 _tokenId, address _sender) internal {
         CommonChecksLibrary.revertIfZeroAddress(_to);
         // Check requirements
@@ -291,25 +331,31 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         _safeTransferFrom(_from, _to, _tokenId, "", _msgSender());
     }
 
-    function _isContract(address account) internal view returns (bool) {
-        return account.code.length > 0;
-    }
-
     /// @inheritdoc IDustLock
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory _data)
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes calldata _data)
         external
         override
         nonReentrant
     {
-        _safeTransferFrom(_from, _to, _tokenId, _data, _msgSender());
+        bytes memory data = _data;
+        _safeTransferFrom(_from, _to, _tokenId, data, _msgSender());
     }
 
+    /**
+     * @notice Safe transfer variant that invokes `onERC721Received` when `_to` is a contract.
+     * @dev Reverts if the target contract rejects the transfer.
+     * @param _from Current owner of the token.
+     * @param _to Recipient address.
+     * @param _tokenId The token id being transferred.
+     * @param _data Additional data forwarded to the receiver hook.
+     * @param sender Original caller used in receiver callback.
+     */
     function _safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory _data, address sender)
         internal
     {
         _transferFrom(_from, _to, _tokenId, sender);
 
-        if (_isContract(_to)) {
+        if (CommonLibrary.isContract(_to)) {
             // Throws if transfer destination is a contract which does not implement 'onERC721Received'
             try IERC721Receiver(_to).onERC721Received(sender, _from, _tokenId, _data) returns (bytes4 response) {
                 if (response != IERC721Receiver(_to).onERC721Received.selector) {
@@ -343,11 +389,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     mapping(address => mapping(uint256 => uint256)) public override ownerToNFTokenIdList;
 
-    /// @dev Mapping from NFT ID to index of owner
+    /// @notice Mapping from NFT ID to index of owner
     mapping(uint256 => uint256) internal tokenToOwnerIndex;
 
     /**
-     * @dev Add a NFT to an index mapping to a given address
+     * @notice Internal function to add a NFT to an index mapping to a given address
      * @param _to address of the receiver
      * @param _tokenId uint ID Of the token to be added
      */
@@ -359,7 +405,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Add a NFT to a given address
+     * @notice Internal function to add a NFT to a given address
      * @param _to address of the receiver
      * @param _tokenId uint ID Of the token to be added
      */
@@ -372,11 +418,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Update owner token index tracking
         _addTokenToOwnerList(_to, _tokenId);
         // Change count tracking
-        ownerToNFTokenCount[_to] += 1;
+        ++ownerToNFTokenCount[_to];
     }
 
     /**
-     * @dev Function to mint tokens
+     * @notice Internal function to mint tokens
      * @param _to The address that will receive the minted tokens.
      * @param _tokenId The token id to mint.
      * @return A boolean that indicates if the operation was successful.
@@ -393,7 +439,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Remove a NFT from an index mapping to a given address
+     * @notice Internal function to remove a NFT from an index mapping to a given address
      * @param _from address of the sender
      * @param _tokenId uint ID Of the token to be removed
      */
@@ -425,7 +471,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Remove a NFT from a given address
+     * @notice Remove a NFT from a given address
      * @param _from address of the sender
      * @param _tokenId uint ID Of the token to be removed
      */
@@ -438,12 +484,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         // Update owner token index tracking
         _removeTokenFromOwnerList(_from, _tokenId);
         // Change count tracking
-        ownerToNFTokenCount[_from] -= 1;
+        --ownerToNFTokenCount[_from];
     }
 
     /**
-     * @dev Burns the veNFT token, removing ownership and permissions. Only callable by approved users or the owner of the token
-     * @notice Must be called prior to updating `LockedBalance`
+     * @notice Burns the veNFT token, removing ownership and permissions. Only callable by approved users or the owner of the token
+     * @dev Must be called prior to updating `LockedBalance`
      * @param _tokenId The ID of the veNFT token to burn
      */
     function _burn(uint256 _tokenId) internal {
@@ -478,9 +524,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     uint256 public override supply;
 
+    /// @notice Mapping from veNFT id to locked balance
     mapping(uint256 => LockedBalance) internal _locked;
+    /// @notice Mapping from veNFT id to user point history
     mapping(uint256 => UserPoint[MAX_USER_POINTS]) internal _userPointHistory;
+    /// @notice Mapping from veNFT id to user point epoch
     mapping(uint256 => uint256) public userPointEpoch;
+
     /// @inheritdoc IDustLock
     mapping(uint256 => int256) public override slopeChanges;
     /// @inheritdoc IDustLock
@@ -607,21 +657,21 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         // Go over weeks to fill history and calculate what the current point is
         {
-            uint256 t_i = (lastCheckpoint / WEEK) * WEEK;
+            uint256 tCurr = (lastCheckpoint / WEEK) * WEEK;
             for (uint256 i = 0; i < MAX_CHECKPOINT_ITERATIONS; ++i) {
                 // Hopefully it won't happen that this won't get used in 5 years!
                 // If it does, users will be able to withdraw but vote weight will be broken
-                t_i += WEEK; // Initial value of t_i is always larger than the ts of the last point
-                int256 d_slope = 0;
-                if (t_i > block.timestamp) {
-                    t_i = block.timestamp;
+                tCurr += WEEK; // Initial value of tCurr is always larger than the ts of the last point
+                int256 dSlope = 0;
+                if (tCurr > block.timestamp) {
+                    tCurr = block.timestamp;
                 } else {
-                    d_slope = slopeChanges[t_i];
+                    dSlope = slopeChanges[tCurr];
                 }
                 // Time difference in seconds, slope is in WAD format
                 // slope * time_seconds gives WAD result
-                lastPoint.bias -= lastPoint.slope * int256(t_i - lastCheckpoint);
-                lastPoint.slope += d_slope;
+                lastPoint.bias -= lastPoint.slope * int256(tCurr - lastCheckpoint);
+                lastPoint.slope += dSlope;
                 if (lastPoint.bias < 0) {
                     // This can happen
                     lastPoint.bias = 0;
@@ -630,11 +680,11 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                     // This cannot happen - just in case
                     lastPoint.slope = 0;
                 }
-                lastCheckpoint = t_i;
-                lastPoint.ts = t_i;
-                lastPoint.blk = initialLastPoint.blk + (blockSlope * (t_i - initialLastPoint.ts)) / MULTIPLIER;
-                _epoch += 1;
-                if (t_i == block.timestamp) {
+                lastCheckpoint = tCurr;
+                lastPoint.ts = tCurr;
+                lastPoint.blk = initialLastPoint.blk + (blockSlope * (tCurr - initialLastPoint.ts)) / MULTIPLIER;
+                ++_epoch;
+                if (tCurr == block.timestamp) {
                     lastPoint.blk = block.number;
                     break;
                 } else {
@@ -789,11 +839,13 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /**
+     * @notice Calculates weighted average start timestamp for two lock segments
      * @dev Calculates the weighted start time of two locks based on their amounts.
      * @param _amountA Amount of DUST in the first lock.
      * @param _startA Effective start time of the first lock.
      * @param _amountB Amount of DUST in the second lock.
      * @param _startB Effective start time of the second lock.
+     * @return Weighted start time across the two segments
      */
     function _calculateWeightedStart(uint256 _amountA, uint256 _startA, uint256 _amountB, uint256 _startB)
         internal
@@ -870,6 +922,12 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         return newTokenId;
     }
 
+    /**
+     * @notice Internal helper to increase the locked amount for a given veNFT
+     * @param _tokenId The veNFT id to increase the amount for
+     * @param _value The additional amount of DUST to add to the lock
+     * @param _depositType The deposit type (direct increase or depositFor)
+     */
     function _increaseAmountFor(uint256 _tokenId, uint256 _value, DepositType _depositType) internal {
         CommonChecksLibrary.revertIfZeroAmount(_value);
         if (_value < minLockAmount) revert AmountTooSmall();
@@ -1129,7 +1187,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Helper function to create a new veNFT as part of the split operation
+     * @notice Helper function to create a new veNFT as part of the split operation
      * @dev This function:
      *      1. Increments the global tokenId counter to get a new ID
      *      2. Sets the lock parameters for the new token
@@ -1161,6 +1219,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /**
+     * @notice Converts a time-locked veNFT into a permanent lock
      * @dev Core implementation to convert a time-locked veNFT into a permanent lock.
      *      Centralizes checks, checkpointing and events for reuse by wrappers.
      * @param caller Address used for approval/ownership checks (msg.sender).
@@ -1209,10 +1268,23 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                            GAUGE VOTING STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Computes voting power for `_tokenId` at timestamp `_t`.
+     * @dev Delegates to BalanceLogicLibrary; wraps internal storage mappings.
+     * @param _tokenId The veNFT id to query.
+     * @param _t The timestamp to evaluate voting power at.
+     * @return The voting power in token units.
+     */
     function _balanceOfNFTAt(uint256 _tokenId, uint256 _t) internal view returns (uint256) {
         return BalanceLogicLibrary.balanceOfNFTAt(userPointEpoch, _userPointHistory, _tokenId, _t);
     }
 
+    /**
+     * @notice Computes total voting power (supply) at a given timestamp.
+     * @dev Delegates to BalanceLogicLibrary; wraps internal storage mappings.
+     * @param _timestamp The timestamp to evaluate.
+     * @return Total voting power in token units.
+     */
     function _supplyAt(uint256 _timestamp) internal view returns (uint256) {
         return BalanceLogicLibrary.supplyAt(slopeChanges, _pointHistory, epoch, _timestamp);
     }
@@ -1255,6 +1327,8 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                           MIN LOCK AMOUNT
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Minimum amount of DUST required to create or increase a lock (18 decimals)
     uint256 public override minLockAmount = 1e18;
 
     /// @inheritdoc IDustLock
@@ -1272,6 +1346,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
                           NOTIFY CONTRACTS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Revenue reward contract used for distributing external rewards (address(0) if unset)
     IRevenueReward public override revenueReward;
 
     /// @inheritdoc IDustLock
@@ -1281,13 +1356,19 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         IRevenueReward old = revenueReward;
         address newReward = address(_revenueReward);
         // Allow disabling by setting to zero address; otherwise require a contract
-        if (newReward != address(0) && !_isContract(newReward)) revert InvalidRevenueRewardContract();
+        if (newReward != address(0) && !CommonLibrary.isContract(newReward)) revert InvalidRevenueRewardContract();
 
         revenueReward = _revenueReward;
 
         emit RevenueRewardUpdated(address(old), newReward);
     }
 
+    /**
+     * @notice Internal hook to notify the reward system after a token transfer.
+     * @dev No-op if `revenueReward` is unset.
+     * @param _tokenId The transferred token id.
+     * @param _previousOwner The address that previously owned the token.
+     */
     function _notifyAfterTokenTransferred(
         uint256 _tokenId,
         address _previousOwner,
@@ -1299,24 +1380,52 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Internal hook to notify the reward system after a token burn.
+     * @dev No-op if `revenueReward` is unset.
+     * @param _tokenId The burned token id.
+     * @param _previousOwner The address that previously owned the token.
+     */
     function _notifyAfterTokenBurned(uint256 _tokenId, address _previousOwner, address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
             revenueReward.notifyAfterTokenBurned(_tokenId, _previousOwner);
         }
     }
 
+    /**
+     * @notice Internal hook to notify the reward system after a token mint.
+     * @dev No-op if `revenueReward` is unset.
+     * @param _tokenId The newly minted token id.
+     */
     function _notifyTokenMinted(uint256 _tokenId, address, /* _owner */ address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
             revenueReward.notifyTokenMinted(_tokenId);
         }
     }
 
+    /**
+     * @notice Internal hook to notify the reward system after a token merge.
+     * @dev No-op if `revenueReward` is unset.
+     * @param _fromToken The source token id that was burned.
+     * @param _toToken The destination token id that persists.
+     * @param owner The owner involved in the merge.
+     */
     function _notifyAfterTokenMerged(uint256 _fromToken, uint256 _toToken, address owner) internal {
         if (address(revenueReward) != address(0)) {
             revenueReward.notifyAfterTokenMerged(_fromToken, _toToken, owner);
         }
     }
 
+    /**
+     * @notice Internal hook to notify the reward system after a token split.
+     * @dev No-op if `revenueReward` is unset.
+     * @param fromToken The original token id that was split.
+     * @param tokenId1 The first resulting token id.
+     * @param token1Amount Amount allocated to `tokenId1`.
+     * @param tokenId2 The second resulting token id.
+     * @param token2Amount Amount allocated to `tokenId2`.
+     * @param owner The owner involved in the split.
+     */
     function _notifyAfterTokenSplit(
         uint256 fromToken,
         uint256 tokenId1,

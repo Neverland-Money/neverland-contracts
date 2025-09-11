@@ -12,13 +12,14 @@ import {IDustRewardsController} from "../interfaces/IDustRewardsController.sol";
 import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";
 
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
+import {CommonLibrary} from "../libraries/CommonLibrary.sol";
 
 /**
  * @title DustRewardsController
+ * @author Original implementation by Aave
+ * @author Extended by Neverland
  * @notice Modified Aave's RewardsController contract to pass lockTime and
  *         tokenId to the `IDustTransferStrategy` and remove rewards oracles.
- * @author Aave
- * @author Neverland
  */
 contract DustRewardsController is RewardsDistributor, VersionedInitializable, IDustRewardsController {
     using SafeCast for uint256;
@@ -27,6 +28,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
                              CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Implementation revision number for proxy upgrades bookkeeping
     uint256 public constant REVISION = 1;
 
     /*//////////////////////////////////////////////////////////////
@@ -58,6 +60,10 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Constructs the rewards controller
+     * @param emissionManager The address of the emission manager (Aave semantics)
+     */
     constructor(address emissionManager) RewardsDistributor(emissionManager) {}
 
     /*//////////////////////////////////////////////////////////////
@@ -65,7 +71,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Initialize for RewardsController
+     * @notice Initialize for RewardsController (no-op)
      * @dev It expects an address as argument since its initialized via PoolAddressesProvider._updateImpl()
      */
     function initialize(address) external initializer {}
@@ -80,6 +86,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /**
+     * @notice Returns the implementation revision used by Aave's initializer pattern
      * @dev Returns the revision of the implementation contract
      * @return uint256, current revision version
      */
@@ -97,19 +104,22 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustRewardsController
-    function configureAssets(RewardsDataTypes.RewardsConfigInput[] memory config)
+    function configureAssets(RewardsDataTypes.RewardsConfigInput[] calldata config)
         external
         override
         onlyEmissionManager
     {
-        for (uint256 i = 0; i < config.length; i++) {
+        RewardsDataTypes.RewardsConfigInput[] memory configCopy = config;
+        for (uint256 i = 0; i < config.length; ++i) {
             // Get the current Scaled Total Supply of AToken or Debt token
-            config[i].totalSupply = IScaledBalanceToken(config[i].asset).scaledTotalSupply();
+            configCopy[i].totalSupply = IScaledBalanceToken(configCopy[i].asset).scaledTotalSupply();
 
             // Install TransferStrategy logic at IncentivesController
-            _installTransferStrategy(config[i].reward, IDustTransferStrategy(address(config[i].transferStrategy)));
+            _installTransferStrategy(
+                configCopy[i].reward, IDustTransferStrategy(address(configCopy[i].transferStrategy))
+            );
         }
-        _configureAssets(config);
+        _configureAssets(configCopy);
     }
 
     /// @inheritdoc IDustRewardsController
@@ -224,6 +234,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     //////////////////////////////////////////////////////////////*/
 
     /**
+     * @notice Get user balances and total supply for a list of assets
      * @dev Get user balances and total supply of all the assets specified by the assets parameter
      * @param assets List of assets to retrieve user balance and total supply
      * @param user Address of the user
@@ -236,7 +247,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         returns (RewardsDataTypes.UserAssetBalance[] memory userAssetBalances)
     {
         userAssetBalances = new RewardsDataTypes.UserAssetBalance[](assets.length);
-        for (uint256 i = 0; i < assets.length; i++) {
+        for (uint256 i = 0; i < assets.length; ++i) {
             userAssetBalances[i].asset = assets[i];
             (userAssetBalances[i].userBalance, userAssetBalances[i].totalSupply) =
                 IScaledBalanceToken(assets[i]).getScaledUserBalanceAndSupply(user);
@@ -245,6 +256,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /**
+     * @notice Internal helper to claim a single reward type across assets
      * @dev Claims one type of reward for a user on behalf, on all the assets of the pool, accumulating the pending rewards.
      * @param assets List of assets to check eligible distributions before claiming rewards
      * @param amount Amount of rewards to claim
@@ -272,7 +284,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         uint256 totalRewards;
 
         _updateDataMultiple(user, _getUserAssetBalances(assets, user));
-        for (uint256 i = 0; i < assets.length; i++) {
+        for (uint256 i = 0; i < assets.length; ++i) {
             address asset = assets[i];
             totalRewards += _assets[asset].rewards[reward].usersData[user].accrued;
 
@@ -297,6 +309,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /**
+     * @notice Internal helper to claim all reward types across assets
      * @dev Claims one type of reward for a user on behalf, on all the assets of the pool, accumulating the pending rewards.
      * @param assets List of assets to check eligible distributions before claiming rewards
      * @param claimer Address of the claimer on behalf of user
@@ -304,9 +317,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
      * @param to Address that will be receiving the rewards
      * @param lockTime Optional lock time for supported rewards
      * @param tokenId Optional tokenId for supported rewards
-     * @return
-     *   rewardsList List of reward addresses
-     *   claimedAmount List of claimed amounts, follows "rewardsList" items order
+     * @return rewardsList List of reward addresses
+     * @return claimedAmounts List of claimed amounts, follows "rewardsList" items order
      */
     function _claimAllRewards(
         address[] calldata assets,
@@ -322,9 +334,9 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
 
         _updateDataMultiple(user, _getUserAssetBalances(assets, user));
 
-        for (uint256 i = 0; i < assets.length; i++) {
+        for (uint256 i = 0; i < assets.length; ++i) {
             address asset = assets[i];
-            for (uint256 j = 0; j < rewardsListLength; j++) {
+            for (uint256 j = 0; j < rewardsListLength; ++j) {
                 if (rewardsList[j] == address(0)) {
                     rewardsList[j] = _rewardsList[j];
                 }
@@ -335,7 +347,7 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
                 }
             }
         }
-        for (uint256 i = 0; i < rewardsListLength; i++) {
+        for (uint256 i = 0; i < rewardsListLength; ++i) {
             _transferRewards(to, rewardsList[i], claimedAmounts[i], lockTime, tokenId);
 
             emit RewardsClaimed(user, rewardsList[i], to, claimer, claimedAmounts[i]);
@@ -362,32 +374,15 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
     }
 
     /**
-     * @dev Returns true if `account` is a contract.
-     * @param account The address of the account
-     * @return bool, true if contract, false otherwise
-     */
-    function _isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
-
-        uint256 size;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            size := extcodesize(account)
-        }
-        return size > 0;
-    }
-
-    /**
-     * @dev Internal function to call the optional install hook at the TransferStrategy
+     * @notice Installs or updates the transfer strategy for a reward token
+     * @dev Internal function to register the TransferStrategy implementation for a reward token
      * @param reward The address of the reward token
      * @param transferStrategy The address of the reward TransferStrategy
      */
     function _installTransferStrategy(address reward, IDustTransferStrategy transferStrategy) internal {
         if (reward == address(0)) revert InvalidRewardAddress();
         if (address(transferStrategy) == address(0)) revert StrategyZeroAddress();
-        if (_isContract(address(transferStrategy)) != true) revert StrategyNotContract();
+        if (!CommonLibrary.isContract(address(transferStrategy))) revert StrategyNotContract();
 
         _transferStrategy[reward] = transferStrategy;
 

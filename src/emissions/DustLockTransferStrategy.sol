@@ -14,10 +14,10 @@ import {DustTransferStrategyBase} from "./DustTransferStrategyBase.sol";
 
 /**
  * @title DustLockTransferStrategy
+ * @author Neverland
  * @notice Transfer strategy for DUST rewards, that sends user veDUST lock
  *         created from DUST rewards, or allows for early withdrawal.
  *         Adding DUST to an existing veDUST lock is also supported.
- * @author Neverland
  */
 contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransferStrategy {
     using GPv2SafeERC20 for IERC20;
@@ -45,6 +45,13 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Constructs the DUST lock transfer strategy
+     * @param incentivesController The incentives controller authorized to call performTransfer
+     * @param rewardsAdmin The rewards admin allowed to emergency withdraw tokens
+     * @param dustVault The vault address that holds DUST balances
+     * @param dustLock The DustLock contract address
+     */
     constructor(address incentivesController, address rewardsAdmin, address dustVault, address dustLock)
         DustTransferStrategyBase(incentivesController, rewardsAdmin)
     {
@@ -93,10 +100,13 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
             DUST_LOCK.createLockFor(amount, lockTime, to);
             SafeERC20.safeApprove(rewardToken, address(DUST_LOCK), 0);
         } else {
-            // Direct transfer with earlyWithdrawPenalty
+            // Direct transfer with earlyWithdrawPenalty; overflow impossible within uint256 range
             uint256 treasuryValue = (amount * DUST_LOCK.earlyWithdrawPenalty()) / BASIS_POINTS;
+            address treasury = DUST_LOCK.earlyWithdrawTreasury();
+            CommonChecksLibrary.revertIfZeroAddress(treasury);
+
             rewardToken.safeTransfer(to, amount - treasuryValue);
-            rewardToken.safeTransfer(DUST_LOCK.earlyWithdrawTreasury(), treasuryValue);
+            rewardToken.safeTransfer(treasury, treasuryValue);
         }
         return true;
     }
