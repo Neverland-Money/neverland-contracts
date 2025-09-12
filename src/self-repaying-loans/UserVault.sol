@@ -63,7 +63,7 @@ contract UserVault is IUserVault, Initializable {
     }
 
     /// @inheritdoc IUserVault
-    function repayUserDebt(RepayUserDebtParams calldata params) public onlyExecutor {
+    function repayUserDebt(RepayUserDebtParams calldata params) external onlyExecutor {
         getTokenIdsReward(params.tokenIds, params.rewardToken);
 
         uint256 debtTokenSwapAmount = swapAndVerify(
@@ -121,6 +121,12 @@ contract UserVault is IUserVault, Initializable {
 
         uint256[] memory tokenPricesInUSD_8dec =
             _getTokenPricesInUsd_8dec(tokenIn, tokenOut, IPoolAddressesProvider(poolAddressesProvider));
+
+        // Ensure oracle returned valid non-zero prices for both tokens
+        if (tokenPricesInUSD_8dec.length < 2 || tokenPricesInUSD_8dec[0] == 0 || tokenPricesInUSD_8dec[1] == 0) {
+            revert GettingAssetPriceFailed();
+        }
+
         _verifySlippage(
             tokenInAmount,
             tokenPricesInUSD_8dec[0],
@@ -146,7 +152,7 @@ contract UserVault is IUserVault, Initializable {
 
     /// @inheritdoc IUserVault
     function depositCollateral(address poolAddressesProvider, address debtToken, uint256 amount)
-        public
+        external
         onlyExecutor
         poolAddressesProviderShouldBeValid(poolAddressesProvider)
     {
@@ -157,12 +163,12 @@ contract UserVault is IUserVault, Initializable {
     }
 
     /// @inheritdoc IUserVault
-    function recoverERC20(address token, uint256 amount) public onlyExecutorOrUser {
+    function recoverERC20(address token, uint256 amount) external onlyExecutorOrUser {
         IERC20(token).safeTransfer(user, amount);
     }
 
     /// @inheritdoc IUserVault
-    function recoverETH(uint256 amount) public onlyExecutorOrUser {
+    function recoverETH(uint256 amount) external onlyExecutorOrUser {
         (bool ok,) = payable(user).call{value: amount}("");
         if (!ok) revert IUserVault.ETHSendFailed();
     }

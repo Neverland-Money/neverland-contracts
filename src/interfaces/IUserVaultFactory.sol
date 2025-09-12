@@ -8,6 +8,13 @@ pragma solidity 0.8.30;
  *         Allows creation and retrieval of user-specific vaults.
  */
 interface IUserVaultFactory {
+    /**
+     * @notice Emitted when a new user vault is created
+     * @param user The user for whom the vault was created
+     * @param vault The address of the created vault
+     */
+    event UserVaultCreated(address indexed user, address indexed vault);
+
     /*//////////////////////////////////////////////////////////////
                                 VIEWS
     //////////////////////////////////////////////////////////////*/

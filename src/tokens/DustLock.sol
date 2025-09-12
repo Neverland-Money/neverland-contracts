@@ -221,6 +221,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @dev Mapping from owner address to mapping of operator addresses.
     mapping(address => mapping(address => bool)) internal ownerToOperators;
 
+    /// @dev Mapping from NFT ID to the block number of the last ownership change.
     mapping(uint256 => uint256) internal ownershipChange;
 
     /// @inheritdoc IDustLock
@@ -858,8 +859,9 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     }
 
     /**
-     * @dev Creates a new lock position by depositing tokens for a specified address
      * @notice This internal function is used by createLock and createLockFor to create a new veNFT
+     * @dev Creates a new lock position by depositing tokens for a specified address.
+     *      Copies `_locked[_tokenId]` (storage) to memory when passed to `_depositFor`. No storage mutation occurs.
      * @param _value Amount of tokens to deposit
      * @param _lockDuration Number of seconds to lock tokens for (rounded down to nearest week)
      * @param _to Address that will own the newly created veNFT
@@ -1222,6 +1224,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
      * @notice Converts a time-locked veNFT into a permanent lock
      * @dev Core implementation to convert a time-locked veNFT into a permanent lock.
      *      Centralizes checks, checkpointing and events for reuse by wrappers.
+     *      Copies `_locked[_tokenId]` (storage) to memory when passed to `_checkpoint`. No storage mutation occurs.
      * @param caller Address used for approval/ownership checks (msg.sender).
      * @param _tokenId The veNFT id to make permanent.
      */

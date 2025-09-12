@@ -48,7 +48,7 @@ contract Dust is
      * @notice Pauses all token transfers
      * @dev Can only be called by the contract owner
      */
-    function pause() public onlyOwner {
+    function pause() external onlyOwner {
         _pause();
     }
 
@@ -56,7 +56,7 @@ contract Dust is
      * @notice Unpauses all token transfers
      * @dev Can only be called by the contract owner
      */
-    function unpause() public onlyOwner {
+    function unpause() external onlyOwner {
         _unpause();
     }
 

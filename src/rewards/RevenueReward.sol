@@ -312,6 +312,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
      * @notice Claims accumulated rewards for a veNFT across all registered reward tokens up to now
      * @dev Calculates earned rewards for each token using epoch-based accounting and transfers them to the receiver.
      *      Emits a ClaimRewards event per token. Advances lastEarnTime to now only if there were epochs to process.
+     *      Copies `rewardTokens` (storage) to memory when passing to `_claimRewardsUntilTs`; no storage mutation.
      * @param tokenId The ID of the veNFT to claim rewards for
      * @param receiver The address to receive the rewards
      */

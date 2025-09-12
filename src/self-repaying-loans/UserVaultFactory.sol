@@ -87,6 +87,8 @@ contract UserVaultFactory is IUserVaultFactory, Initializable, ReentrancyGuard {
         address deployedUserVaultAddress = _createUserVault(user);
         userVaults[user] = deployedUserVaultAddress;
 
+        emit UserVaultCreated(user, deployedUserVaultAddress);
+
         return deployedUserVaultAddress;
     }
 
