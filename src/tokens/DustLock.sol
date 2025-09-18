@@ -878,7 +878,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         uint256 _tokenId = ++tokenId;
         _mint(_to, _tokenId);
-        _notifyTokenMinted(_tokenId, _to, _msgSender());
 
         _depositFor(_tokenId, _value, unlockTime, _locked[_tokenId], DepositType.CREATE_LOCK_TYPE);
         return _tokenId;
@@ -1392,17 +1391,6 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     function _notifyAfterTokenBurned(uint256 _tokenId, address _previousOwner, address /* _sender */ ) internal {
         if (address(revenueReward) != address(0)) {
             revenueReward.notifyAfterTokenBurned(_tokenId, _previousOwner);
-        }
-    }
-
-    /**
-     * @notice Internal hook to notify the reward system after a token mint.
-     * @dev No-op if `revenueReward` is unset.
-     * @param _tokenId The newly minted token id.
-     */
-    function _notifyTokenMinted(uint256 _tokenId, address, /* _owner */ address /* _sender */ ) internal {
-        if (address(revenueReward) != address(0)) {
-            revenueReward.notifyTokenMinted(_tokenId);
         }
     }
 

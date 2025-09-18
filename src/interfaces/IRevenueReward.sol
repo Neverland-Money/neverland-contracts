@@ -164,13 +164,6 @@ interface IRevenueReward {
     function tokenRewardsPerEpoch(address token, uint256 epoch) external view returns (uint256);
 
     /**
-     * @notice Returns the timestamp when a veNFT was minted
-     * @param tokenId The ID of the veNFT
-     * @return The timestamp when the veNFT was minted
-     */
-    function tokenMintTime(uint256 tokenId) external view returns (uint256);
-
-    /**
      * @notice Returns the accumulated fractional remainder of rewards for a veNFT and token, scaled by 1e18.
      * @dev During per-epoch reward calculations, integer division can leave a remainder that cannot be paid out.
      *      This function exposes the running sum of those remainders for the given (token, tokenId) pair,
@@ -228,14 +221,6 @@ interface IRevenueReward {
     /*//////////////////////////////////////////////////////////////
                             NOTIFICATIONS
     //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Notifies the contract that a new token has been created
-     * @dev Intended to update internal state or trigger logic after a veNFT creation event
-     *      Can only be called by the DustLock contract.
-     * @param tokenId The ID of the token (veNFT) that has been created
-     */
-    function notifyTokenMinted(uint256 tokenId) external;
 
     /**
      * @notice Handles necessary operations after a veNFT token is transferred

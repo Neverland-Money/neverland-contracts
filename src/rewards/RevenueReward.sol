@@ -90,8 +90,6 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => mapping(uint256 => uint256)) public lastEarnTime;
     /// @inheritdoc IRevenueReward
     mapping(address => mapping(uint256 => uint256)) public tokenRewardsRemainingAccScaled;
-    /// @inheritdoc IRevenueReward
-    mapping(uint256 => uint256) public tokenMintTime;
 
     /// @inheritdoc IRevenueReward
     mapping(uint256 => address) public tokenRewardReceiver;
@@ -169,11 +167,6 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
-    function notifyTokenMinted(uint256 tokenId) external override onlyDustLock {
-        tokenMintTime[tokenId] = block.timestamp;
-    }
-
-    /// @inheritdoc IRevenueReward
     function notifyAfterTokenTransferred(uint256 tokenId, address from)
         external
         virtual
@@ -226,9 +219,6 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         address owner
     ) external override nonReentrant onlyDustLock {
         _claimRewardsTo(fromToken, owner);
-
-        tokenMintTime[tokenId1] = block.timestamp;
-        tokenMintTime[tokenId2] = block.timestamp;
 
         uint256 newTokenAmount = token1Amount + token2Amount;
 
@@ -582,7 +572,7 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     function _earned(address token, uint256 tokenId, uint256 endTs) internal view returns (EarnedResult memory) {
         if (endTs > block.timestamp) revert EndTimestampMoreThanCurrent();
 
-        uint256 lastTokenEarnTime = Math.max(lastEarnTime[token][tokenId], tokenMintTime[tokenId]);
+        uint256 lastTokenEarnTime = Math.max(lastEarnTime[token][tokenId], dustLock.locked(tokenId).effectiveStart);
         uint256 startTs = EpochTimeLibrary.epochNext(lastTokenEarnTime);
         uint256 endTsEpoch = EpochTimeLibrary.epochStart(endTs);
         if (startTs > endTsEpoch) return EarnedResult(0, 0, false);
