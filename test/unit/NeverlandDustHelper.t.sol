@@ -54,12 +54,12 @@ contract NeverlandDustHelperTest is Test {
 
     function test_UniswapV3Price_Parity() public {
         // Target price = 0.69 USD (8 decimals => 69_000_000)
-        // price = (Q192 * 10^dec1 * 1e8) / (priceX192 * 10^dec0)
-        // So: priceX192 = (Q192 * 10^dec1 * 1e8) / (price * 10^dec0)
+        // For V3 with DUST = token0, USD per DUST = (priceX192 / Q192) * 10^(dec0 - dec1) * 1e8
+        // Rearranged: priceX192 = (price * Q192 * 10^dec1) / (1e8 * 10^dec0)
         uint256 Q192 = uint256(1) << 192;
         uint8 d0 = 18; // DUST
         uint8 d1 = usdc.decimals(); // 6
-        uint256 targetX192 = (Q192 * (10 ** uint256(d1)) * 1e8) / (69_000_000 * (10 ** uint256(d0)));
+        uint256 targetX192 = (Q192 * 69_000_000 * (10 ** uint256(d1))) / (1e8 * (10 ** uint256(d0)));
         uint160 sqrtPriceX96 = uint160(_sqrt(targetX192));
         MockV3Pool pool = new MockV3Pool(address(dust), address(usdc), sqrtPriceX96);
         helper.setUniswapPair(address(pool));

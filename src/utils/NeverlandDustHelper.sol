@@ -404,11 +404,13 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
             uint256 priceX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96); // Q192
 
             if (address(dustToken) == t0) {
-                // price = (Q192 * 10^dec1 * USD_SCALE) / (priceX192 * 10^dec0) - USD per DUST
-                return Math.mulDiv(Q192, (10 ** uint256(d1)) * USD_SCALE, priceX192 * (10 ** uint256(d0)));
-            } else if (address(dustToken) == t1) {
-                // price = (priceX192 * 10^dec0 * USD_SCALE) / (Q192 * 10^dec1) - USD per DUST
+                // DUST is token0, USD per DUST = (priceX192 / Q192) * 10^(dec0 - dec1)
+                // Implemented as: (priceX192 * 10^dec0 * USD_SCALE) / (Q192 * 10^dec1)
                 return Math.mulDiv(priceX192, (10 ** uint256(d0)) * USD_SCALE, Q192 * (10 ** uint256(d1)));
+            } else if (address(dustToken) == t1) {
+                // DUST is token1, USD per DUST = (Q192 / priceX192) * 10^(dec1 - dec0)
+                // Implemented as: (Q192 * 10^dec1 * USD_SCALE) / (priceX192 * 10^dec0)
+                return Math.mulDiv(Q192, (10 ** uint256(d1)) * USD_SCALE, priceX192 * (10 ** uint256(d0)));
             } else {
                 return hardcodedPrice;
             }
