@@ -49,6 +49,7 @@ abstract contract BaseTestLocal is BaseTest {
     MockERC20 internal mockERC20;
     IUserVaultFactory internal userVaultFactory;
     IUserVaultRegistry internal userVaultRegistry;
+    ProxyAdmin public proxyAdmin;
 
     function _testSetup() internal virtual override {
         _testSetUpAave();
@@ -93,9 +94,9 @@ abstract contract BaseTestLocal is BaseTest {
         // seed set up with initial time
         skip(1 weeks);
 
-        // deploy DUST
+        // deploy DUST (shared ProxyAdmin)
         Dust dustImpl = new Dust();
-        ProxyAdmin proxyAdmin = new ProxyAdmin();
+        proxyAdmin = new ProxyAdmin();
         TransparentUpgradeableProxy dustProxy =
             new TransparentUpgradeableProxy(address(dustImpl), address(proxyAdmin), "");
         DUST = Dust(address(dustProxy));
@@ -104,9 +105,13 @@ abstract contract BaseTestLocal is BaseTest {
         mockUSDC = new MockERC20("USDC", "USDC", 6);
         mockERC20 = new MockERC20("mERC20", "mERC20", 18);
 
-        // deploy DustLock
+        // deploy DustLock (proxy + initialize)
         string memory baseUrl = "https://neverland.money/nfts/";
-        dustLock = new DustLock(FORWARDER, address(DUST), baseUrl);
+        DustLock dustLockImpl = new DustLock(FORWARDER);
+        TransparentUpgradeableProxy dustLockProxy =
+            new TransparentUpgradeableProxy(address(dustLockImpl), address(proxyAdmin), "");
+        dustLock = IDustLock(address(dustLockProxy));
+        DustLock(address(dustLockProxy)).initialize(FORWARDER, address(DUST), baseUrl);
 
         userVaultRegistry = new UserVaultRegistry();
         userVaultRegistry.setExecutor(automation);
@@ -116,8 +121,12 @@ abstract contract BaseTestLocal is BaseTest {
         UserVaultFactory _userVaultFactory = new UserVaultFactory();
         userVaultFactory = IUserVaultFactory(address(_userVaultFactory));
 
-        // deploy RevenueReward
-        revenueReward = new RevenueReward(FORWARDER, dustLock, admin, userVaultFactory);
+        // deploy RevenueReward (proxy + initialize)
+        RevenueReward revenueRewardImpl = new RevenueReward(FORWARDER);
+        TransparentUpgradeableProxy revenueRewardProxy =
+            new TransparentUpgradeableProxy(address(revenueRewardImpl), address(proxyAdmin), "");
+        revenueReward = RevenueReward(address(revenueRewardProxy));
+        revenueReward.initialize(FORWARDER, dustLock, admin, userVaultFactory);
 
         // initializers
         DUST.initialize(admin, 0);

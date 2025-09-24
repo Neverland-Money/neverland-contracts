@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.30;
 
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -20,13 +21,18 @@ import {EpochTimeLibrary} from "../libraries/EpochTimeLibrary.sol";
  * @author Neverland
  * @notice Stores ERC20 token rewards and provides them to veDUST owners
  */
-contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
+contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor(address _forwarder) ERC2771ContextUpgradeable(_forwarder) {
+        _disableInitializers();
+    }
+
     /*//////////////////////////////////////////////////////////////
-                            CONSTRUCTOR
+                           INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
     /**
@@ -36,16 +42,18 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
      * @param _rewardDistributor address of DustRewardsController contract
      * @param _userVaultFactory address of UserVaultFactory contract
      */
-    constructor(
+    function initialize(
         address _forwarder,
         IDustLock _dustLock,
         address _rewardDistributor,
         IUserVaultFactory _userVaultFactory
-    ) ERC2771Context(_forwarder) {
+    ) external initializer {
         CommonChecksLibrary.revertIfZeroAddress(_forwarder);
         CommonChecksLibrary.revertIfZeroAddress(address(_dustLock));
         CommonChecksLibrary.revertIfZeroAddress(_rewardDistributor);
         CommonChecksLibrary.revertIfZeroAddress(address(_userVaultFactory));
+
+        __ReentrancyGuard_init();
 
         dustLock = _dustLock;
         rewardDistributor = _rewardDistributor;
@@ -71,9 +79,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IRevenueReward
-    IDustLock public immutable dustLock;
+    IDustLock public dustLock;
     /// @inheritdoc IRevenueReward
-    IUserVaultFactory public immutable userVaultFactory;
+    IUserVaultFactory public userVaultFactory;
     /// @inheritdoc IRevenueReward
     address public rewardDistributor;
 
@@ -99,6 +107,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
     mapping(address => EnumerableSet.UintSet) private userTokensWithSelfRepayingLoan;
     /// @dev Set of user addresses with self-repaying loan enabled
     EnumerableSet.AddressSet private usersWithSelfRepayingLoan;
+
+    // Storage gap for upgradeability
+    uint256[50] private __gap;
 
     /*//////////////////////////////////////////////////////////////
                            ACCESS CONTROL

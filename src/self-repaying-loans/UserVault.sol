@@ -33,7 +33,7 @@ contract UserVault is IUserVault, Initializable {
     /// @notice User address
     address public user;
 
-    /// @notice Initializes the contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }

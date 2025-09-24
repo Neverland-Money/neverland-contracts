@@ -9,12 +9,11 @@ import {Vm} from "forge-std/Vm.sol";
 import {CommonChecksLibrary} from "../../src/libraries/CommonChecksLibrary.sol";
 
 import {RevenueReward} from "../../src/rewards/RevenueReward.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "../BaseTestLocal.sol";
 
 contract MaliciousRevenueReward is RevenueReward {
-    constructor(IDustLock _dustLock, IUserVaultFactory _userVaultFactory)
-        RevenueReward(address(0xF1), _dustLock, msg.sender, _userVaultFactory)
-    {}
+    constructor(address forwarder) RevenueReward(forwarder) {}
 
     function notifyAfterTokenTransferred(uint256 tokenId, address from) public override onlyDustLock {
         dustLock.transferFrom(from, address(this), tokenId);
@@ -1571,7 +1570,10 @@ contract DustLockTests is BaseTestLocal {
         emit log_named_uint("[transfer] Created tokenId", tokenId);
 
         emit log("[transfer] Deploying malicious reward hook and setting it on DustLock");
-        MaliciousRevenueReward malicious = new MaliciousRevenueReward(dustLock, userVaultFactory);
+        MaliciousRevenueReward impl = new MaliciousRevenueReward(FORWARDER);
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), address(proxyAdmin), "");
+        MaliciousRevenueReward malicious = MaliciousRevenueReward(address(proxy));
+        malicious.initialize(FORWARDER, dustLock, address(this), userVaultFactory);
         dustLock.setRevenueReward(malicious);
         emit log_named_address("[transfer] Malicious hook address", address(malicious));
 
@@ -1590,7 +1592,10 @@ contract DustLockTests is BaseTestLocal {
         emit log_named_uint("[burn] Created tokenId", tokenId);
 
         emit log("[burn] Deploying malicious reward hook and setting it on DustLock");
-        MaliciousRevenueReward malicious = new MaliciousRevenueReward(dustLock, userVaultFactory);
+        MaliciousRevenueReward impl = new MaliciousRevenueReward(FORWARDER);
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), address(proxyAdmin), "");
+        MaliciousRevenueReward malicious = MaliciousRevenueReward(address(proxy));
+        malicious.initialize(FORWARDER, dustLock, address(this), userVaultFactory);
         dustLock.setRevenueReward(malicious);
         emit log_named_address("[burn] Malicious hook address", address(malicious));
 
