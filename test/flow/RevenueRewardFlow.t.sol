@@ -51,20 +51,17 @@ contract RevenueRewardFlow is BaseTestLocal {
         // Use user (address(this)) as rewardDistributor instead of admin (proxy admin)
         {
             RevenueReward impl1 = new RevenueReward(address(0xF2));
-            TransparentUpgradeableProxy p1 = new TransparentUpgradeableProxy(address(impl1), address(proxyAdmin), "");
-            testRevenueReward = RevenueReward(address(p1));
+            testRevenueReward = RevenueReward(_deployProxy(address(impl1)));
             testRevenueReward.initialize(address(0xF2), dustLock, user, userVaultFactory);
         }
         {
             RevenueReward impl2 = new RevenueReward(address(0xF3));
-            TransparentUpgradeableProxy p2 = new TransparentUpgradeableProxy(address(impl2), address(proxyAdmin), "");
-            testRevenueReward2 = RevenueReward(address(p2));
+            testRevenueReward2 = RevenueReward(_deployProxy(address(impl2)));
             testRevenueReward2.initialize(address(0xF3), dustLock, user, userVaultFactory);
         }
         {
             RevenueReward impl3 = new RevenueReward(address(0xF4));
-            TransparentUpgradeableProxy p3 = new TransparentUpgradeableProxy(address(impl3), address(proxyAdmin), "");
-            testRevenueReward3 = RevenueReward(address(p3));
+            testRevenueReward3 = RevenueReward(_deployProxy(address(impl3)));
             testRevenueReward3.initialize(address(0xF4), dustLock, user, userVaultFactory);
         }
 

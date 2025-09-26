@@ -94,7 +94,6 @@ contract DustLock is IDustLock, Initializable, ERC2771ContextUpgradeable, Reentr
 
         earlyWithdrawTreasury = _msgSender();
         earlyWithdrawPenalty = DEFAULT_EARLY_WITHDRAW_PENALTY_BP;
-        // Explicitly set defaults that would otherwise be constructor-time only
         minLockAmount = 1e18;
 
         _pointHistory[0].blk = block.number;
@@ -1345,7 +1344,7 @@ contract DustLock is IDustLock, Initializable, ERC2771ContextUpgradeable, Reentr
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Minimum amount of DUST required to create or increase a lock (18 decimals)
-    uint256 public override minLockAmount = 1e18;
+    uint256 public override minLockAmount;
 
     /// @inheritdoc IDustLock
     function setMinLockAmount(uint256 newMinLockAmount) public override {

@@ -1571,8 +1571,7 @@ contract DustLockTests is BaseTestLocal {
 
         emit log("[transfer] Deploying malicious reward hook and setting it on DustLock");
         MaliciousRevenueReward impl = new MaliciousRevenueReward(FORWARDER);
-        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), address(proxyAdmin), "");
-        MaliciousRevenueReward malicious = MaliciousRevenueReward(address(proxy));
+        MaliciousRevenueReward malicious = MaliciousRevenueReward(_deployProxy(address(impl)));
         malicious.initialize(FORWARDER, dustLock, address(this), userVaultFactory);
         dustLock.setRevenueReward(malicious);
         emit log_named_address("[transfer] Malicious hook address", address(malicious));
@@ -1593,8 +1592,7 @@ contract DustLockTests is BaseTestLocal {
 
         emit log("[burn] Deploying malicious reward hook and setting it on DustLock");
         MaliciousRevenueReward impl = new MaliciousRevenueReward(FORWARDER);
-        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), address(proxyAdmin), "");
-        MaliciousRevenueReward malicious = MaliciousRevenueReward(address(proxy));
+        MaliciousRevenueReward malicious = MaliciousRevenueReward(_deployProxy(address(impl)));
         malicious.initialize(FORWARDER, dustLock, address(this), userVaultFactory);
         dustLock.setRevenueReward(malicious);
         emit log_named_address("[burn] Malicious hook address", address(malicious));

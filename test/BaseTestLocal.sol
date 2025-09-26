@@ -31,7 +31,7 @@ import {UserVaultRegistry} from "../src/self-repaying-loans/UserVaultRegistry.so
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 abstract contract BaseTestLocal is BaseTest {
-    // AAVE
+    /* ========== AAVE CONFIG ========== */
     IPoolAddressesProviderRegistry public poolAddressesProviderRegistry;
     IPoolAddressesProvider public poolAddressesProvider;
 
@@ -41,7 +41,7 @@ abstract contract BaseTestLocal is BaseTest {
     address public BASE_CURRENCY = address(0x1); // eg Mock USDC
     uint256 public BASE_CURRENCY_UNIT = 1e8;
 
-    // DUST
+    /* ========== DUST + APP CONTRACTS ========== */
     Dust internal DUST;
     IDustLock internal dustLock;
     RevenueReward internal revenueReward;
@@ -51,11 +51,13 @@ abstract contract BaseTestLocal is BaseTest {
     IUserVaultRegistry internal userVaultRegistry;
     ProxyAdmin public proxyAdmin;
 
+    /* ========== SETUP ========== */
     function _testSetup() internal virtual override {
         _testSetUpAave();
         _testSetUpDust();
     }
 
+    /* ========== AAVE SETUP ========== */
     function _testSetUpAave() internal {
         // Deploy the registry with owner
         poolAddressesProviderRegistry = new PoolAddressesProviderRegistry(AAVE_ADMIN);
@@ -90,6 +92,7 @@ abstract contract BaseTestLocal is BaseTest {
         vm.label(address(poolAddressesProviderRegistry), "PoolAddressesProviderRegistry");
     }
 
+    /* ========== DUST SETUP ========== */
     function _testSetUpDust() internal {
         // seed set up with initial time
         skip(1 weeks);
@@ -97,9 +100,7 @@ abstract contract BaseTestLocal is BaseTest {
         // deploy DUST (shared ProxyAdmin)
         Dust dustImpl = new Dust();
         proxyAdmin = new ProxyAdmin();
-        TransparentUpgradeableProxy dustProxy =
-            new TransparentUpgradeableProxy(address(dustImpl), address(proxyAdmin), "");
-        DUST = Dust(address(dustProxy));
+        DUST = Dust(_deployProxy(address(dustImpl)));
 
         // deploy ERC20
         mockUSDC = new MockERC20("USDC", "USDC", 6);
@@ -108,10 +109,8 @@ abstract contract BaseTestLocal is BaseTest {
         // deploy DustLock (proxy + initialize)
         string memory baseUrl = "https://neverland.money/nfts/";
         DustLock dustLockImpl = new DustLock(FORWARDER);
-        TransparentUpgradeableProxy dustLockProxy =
-            new TransparentUpgradeableProxy(address(dustLockImpl), address(proxyAdmin), "");
-        dustLock = IDustLock(address(dustLockProxy));
-        DustLock(address(dustLockProxy)).initialize(FORWARDER, address(DUST), baseUrl);
+        dustLock = IDustLock(_deployProxy(address(dustLockImpl)));
+        DustLock(address(dustLock)).initialize(FORWARDER, address(DUST), baseUrl);
 
         userVaultRegistry = new UserVaultRegistry();
         userVaultRegistry.setExecutor(automation);
@@ -123,9 +122,7 @@ abstract contract BaseTestLocal is BaseTest {
 
         // deploy RevenueReward (proxy + initialize)
         RevenueReward revenueRewardImpl = new RevenueReward(FORWARDER);
-        TransparentUpgradeableProxy revenueRewardProxy =
-            new TransparentUpgradeableProxy(address(revenueRewardImpl), address(proxyAdmin), "");
-        revenueReward = RevenueReward(address(revenueRewardProxy));
+        revenueReward = RevenueReward(_deployProxy(address(revenueRewardImpl)));
         revenueReward.initialize(FORWARDER, dustLock, admin, userVaultFactory);
 
         // initializers
@@ -142,5 +139,17 @@ abstract contract BaseTestLocal is BaseTest {
         vm.label(address(userVaultRegistry), "UserVaultRegistry");
         vm.label(address(userVaultFactory), "UserVaultFactory");
         vm.label(address(revenueReward), "RevenueReward");
+    }
+
+    /* ========== HELPER FUNCTIONS ========== */
+    function _deployProxy(address implementation) internal returns (address) {
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(implementation, address(proxyAdmin), "");
+        return address(proxy);
+    }
+
+    function _deployProxyWithInit(address implementation, bytes memory initData) internal returns (address) {
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(implementation, address(proxyAdmin), initData);
+        return address(proxy);
     }
 }

@@ -2,8 +2,8 @@
 pragma solidity 0.8.30;
 
 import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
 
@@ -19,7 +19,7 @@ import {UserVault} from "./UserVault.sol";
  * @author Neverland
  * @notice Factory contract for creating UserVault instances
  */
-contract UserVaultFactory is IUserVaultFactory, Initializable, ReentrancyGuard {
+contract UserVaultFactory is IUserVaultFactory, Initializable, ReentrancyGuardUpgradeable {
     /*//////////////////////////////////////////////////////////////
                           STORAGE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -53,6 +53,7 @@ contract UserVaultFactory is IUserVaultFactory, Initializable, ReentrancyGuard {
         IPoolAddressesProviderRegistry _poolAddressesProviderRegistry,
         IRevenueReward _revenueReward
     ) external initializer {
+        __ReentrancyGuard_init();
         CommonChecksLibrary.revertIfZeroAddress(_userVaultBeacon);
         CommonChecksLibrary.revertIfZeroAddress(address(_userVaultRegistry));
         CommonChecksLibrary.revertIfZeroAddress(address(_poolAddressesProviderRegistry));
