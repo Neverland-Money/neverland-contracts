@@ -27,7 +27,8 @@
     "emissionManager": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
   },
   "revenueReward": {
-    "forwarder": "0x1111111111111111111111111111111111111111"
+    "forwarder": "0x1111111111111111111111111111111111111111",
+    "distributor": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
   },
   "transferStrategy": {
     "rewardsAdmin": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
