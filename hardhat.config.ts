@@ -21,8 +21,12 @@ export default {
   solidity: {
     version: "0.8.30",
     settings: {
-      optimizer: { enabled: true, runs: 200 }
-    }
+      optimizer: { enabled: true, runs: 200 },
+      metadata: {
+        bytecodeHash: "none",
+        useLiteralContent: true,
+      },
+    },
   },
   networks: {
     hardhat: {
@@ -35,7 +39,7 @@ export default {
     monadTestnet: {
       url: `https://testnet-rpc.monad.xyz`,
       chainId: 10143,
-      // accounts: [PRIVATE_KEY],
+      accounts: [PRIVATE_KEY],
     },
   },
   typechain: {
@@ -48,6 +52,7 @@ export default {
     browserUrl: "https://testnet.monadexplorer.com",
   },
   etherscan: {
+    enabled: false,
     apiKey: ETHERSCAN_KEY,
     customChains: [
       {
