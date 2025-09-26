@@ -52,7 +52,7 @@ export default {
     browserUrl: "https://testnet.monadexplorer.com",
   },
   etherscan: {
-    enabled: false,
+    enabled: true,
     apiKey: ETHERSCAN_KEY,
     customChains: [
       {
