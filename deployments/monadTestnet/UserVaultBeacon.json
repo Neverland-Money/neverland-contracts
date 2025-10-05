@@ -1,0 +1,6 @@
+{
+  "networkName": "monadTestnet",
+  "chainId": 10143,
+  "contract": "UserVaultBeacon",
+  "address": "0x64e169eB9ED9f1D29F576e521B5C3AF7d17ED261"
+}

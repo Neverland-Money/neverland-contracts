@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.30;
 
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -23,7 +24,7 @@ import {CommonLibrary} from "../libraries/CommonLibrary.sol";
  * @title DustLock
  * @notice Vote-escrow (veNFT) contract for DUST; tracks locks and voting power
  */
-contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
+contract DustLock is IDustLock, Initializable, ERC2771ContextUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     using SafeCastLibrary for uint256;
     using SafeCastLibrary for int256;
@@ -34,14 +35,14 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustLock
-    address public immutable override forwarder;
+    address public override forwarder;
 
     /*//////////////////////////////////////////////////////////////
                            STORAGE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IDustLock
-    address public immutable override token;
+    address public override token;
     /// @inheritdoc IDustLock
     address public override team;
     /// @notice Pending team address for two-step ownership transfer
@@ -66,15 +67,25 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     /// @inheritdoc IDustLock
     uint256 public override tokenId;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor(address _forwarder) ERC2771ContextUpgradeable(_forwarder) {
+        _disableInitializers();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              INITIALIZER
+    //////////////////////////////////////////////////////////////*/
     /**
-     * @notice Constructor
+     * @notice Initializer (for proxy deployments)
      * @param _forwarder address of trusted forwarder
      * @param _token `DUST` token address
      * @param _baseURI base URI for NFT metadata
      */
-    constructor(address _forwarder, address _token, string memory _baseURI) ERC2771Context(_forwarder) {
+    function initialize(address _forwarder, address _token, string memory _baseURI) external initializer {
         CommonChecksLibrary.revertIfZeroAddress(_forwarder);
         CommonChecksLibrary.revertIfZeroAddress(_token);
+
+        __ReentrancyGuard_init();
 
         forwarder = _forwarder;
         token = _token;
@@ -83,6 +94,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
 
         earlyWithdrawTreasury = _msgSender();
         earlyWithdrawPenalty = DEFAULT_EARLY_WITHDRAW_PENALTY_BP;
+        minLockAmount = 1e18;
 
         _pointHistory[0].blk = block.number;
         _pointHistory[0].ts = block.timestamp;
@@ -1332,7 +1344,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Minimum amount of DUST required to create or increase a lock (18 decimals)
-    uint256 public override minLockAmount = 1e18;
+    uint256 public override minLockAmount;
 
     /// @inheritdoc IDustLock
     function setMinLockAmount(uint256 newMinLockAmount) public override {
@@ -1441,4 +1453,7 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
             revenueReward.notifyAfterTokenSplit(fromToken, tokenId1, token1Amount, tokenId2, token2Amount, owner);
         }
     }
+
+    // Storage gap for upgradeable safety
+    uint256[50] private __gap;
 }

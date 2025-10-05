@@ -1,4 +1,9 @@
-// Type definitions for Monorail Pathfinder API
+// Centralized type definitions
+
+// Re-export all types
+export * from "./deploy";
+
+// Monorail Pathfinder API types
 
 export interface Split {
   fee: string;

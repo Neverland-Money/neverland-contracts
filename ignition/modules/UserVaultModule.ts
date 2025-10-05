@@ -1,5 +1,6 @@
 import {buildModule} from '@nomicfoundation/hardhat-ignition/modules';
 import DustLockModule from './DustLockModule';
+import DustModule from './DustModule';
 
 const UserVaultModule = buildModule('UserVaultModule', (m) => {
 	const poolAddressesProviderRegistry = m.getParameter('poolAddressesProviderRegistry');
@@ -16,15 +17,25 @@ const UserVaultModule = buildModule('UserVaultModule', (m) => {
 	
 	const userVaultFactory = m.contract('UserVaultFactory', []);
 
-	const {dustLock} = m.useModule(DustLockModule);
+    const {dustLock} = m.useModule(DustLockModule);
+    const {dustProxyAdmin} = m.useModule(DustModule);
 
 	const forwarder = m.staticCall(dustLock, "forwarder", []);
 
-	const revenueReward = m.contract("RevenueReward", [forwarder, dustLock, rewardDIstributor, userVaultFactory]);
+	// Deploy RevenueReward behind a TransparentUpgradeableProxy
+	const revenueRewardImpl = m.contract('RevenueReward', [forwarder], { id: 'RevenueRewardImpl' });
+	const revenueRewardProxy = m.contract('TransparentUpgradeableProxy', [
+		revenueRewardImpl,
+		dustProxyAdmin,
+		"0x",
+	], { id: 'RevenueRewardProxy' });
+
+	const revenueReward = m.contractAt('RevenueReward', revenueRewardProxy);
+	m.call(revenueReward, 'initialize', [forwarder, dustLock, rewardDIstributor, userVaultFactory]);
 
 	m.call(userVaultFactory, 'initialize', [userVaultBeacon, userVaultRegistry, poolAddressesProviderRegistry, revenueReward]);
 
-	return {userVaultImpl, userVaultRegistry, userVaultBeacon, userVaultFactory, revenueReward};
+	return {userVaultImpl, userVaultRegistry, userVaultBeacon, userVaultFactory, revenueReward, revenueRewardImpl};
 });
 
 export default UserVaultModule;

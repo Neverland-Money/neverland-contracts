@@ -1,0 +1,381 @@
+{
+  "networkName": "monadTestnet",
+  "chainId": 10143,
+  "contract": "UserVaultRegistry",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.30+commit.73712a01"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "name": "AddressZero",
+          "type": "error"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "aggregator",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "isActive",
+              "type": "bool"
+            }
+          ],
+          "name": "AggregatorSupportUpdated",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "oldExecutor",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "newExecutor",
+              "type": "address"
+            }
+          ],
+          "name": "ExecutorUpdated",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "oldValue",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "newValue",
+              "type": "uint256"
+            }
+          ],
+          "name": "MaxSwapSlippageUpdated",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "previousOwner",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "newOwner",
+              "type": "address"
+            }
+          ],
+          "name": "OwnershipTransferred",
+          "type": "event"
+        },
+        {
+          "inputs": [],
+          "name": "executor",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "aggregator",
+              "type": "address"
+            }
+          ],
+          "name": "isSupportedAggregator",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "maxSwapSlippageBps",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "owner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "renounceOwnership",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_executor",
+              "type": "address"
+            }
+          ],
+          "name": "setExecutor",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "newMaxSwapSlippageBps",
+              "type": "uint256"
+            }
+          ],
+          "name": "setMaxSwapSlippageBps",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "aggregator",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "isActive",
+              "type": "bool"
+            }
+          ],
+          "name": "setSupportedAggregators",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "newOwner",
+              "type": "address"
+            }
+          ],
+          "name": "transferOwnership",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        }
+      ],
+      "devdoc": {
+        "author": "Neverland",
+        "events": {
+          "AggregatorSupportUpdated(address,bool)": {
+            "params": {
+              "aggregator": "The aggregator address that was updated",
+              "isActive": "Whether the aggregator is now supported"
+            }
+          },
+          "ExecutorUpdated(address,address)": {
+            "params": {
+              "newExecutor": "The new executor address",
+              "oldExecutor": "The previous executor address"
+            }
+          },
+          "MaxSwapSlippageUpdated(uint256,uint256)": {
+            "params": {
+              "newValue": "The new max slippage in bps",
+              "oldValue": "The previous max slippage in bps"
+            }
+          }
+        },
+        "kind": "dev",
+        "methods": {
+          "isSupportedAggregator(address)": {
+            "params": {
+              "aggregator": "The aggregator address to query"
+            },
+            "returns": {
+              "_0": "True if supported, false otherwise"
+            }
+          },
+          "owner()": {
+            "details": "Returns the address of the current owner."
+          },
+          "renounceOwnership()": {
+            "details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby disabling any functionality that is only available to the owner."
+          },
+          "setExecutor(address)": {
+            "params": {
+              "executor": "Address of the new executor"
+            }
+          },
+          "setMaxSwapSlippageBps(uint256)": {
+            "params": {
+              "newMaxSwapSlippageBps": "The new maximum swap slippage in basis points."
+            }
+          },
+          "setSupportedAggregators(address,bool)": {
+            "params": {
+              "aggregator": "The aggregator address",
+              "isActive": "True if the aggregator should be supported, false otherwise"
+            }
+          },
+          "transferOwnership(address)": {
+            "details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+          }
+        },
+        "stateVariables": {
+          "executor": {
+            "return": "The executor address",
+            "returns": {
+              "_0": "The executor address"
+            }
+          },
+          "maxSwapSlippageBps": {
+            "return": "The maximum swap slippage in basis points",
+            "returns": {
+              "_0": "The maximum swap slippage in basis points"
+            }
+          }
+        },
+        "title": "UserVaultRegistry",
+        "version": 1
+      },
+      "userdoc": {
+        "errors": {
+          "AddressZero()": [
+            {
+              "notice": "Used when a zero address is provided where not allowed."
+            }
+          ]
+        },
+        "events": {
+          "AggregatorSupportUpdated(address,bool)": {
+            "notice": "Emitted when an aggregator's support status is updated"
+          },
+          "ExecutorUpdated(address,address)": {
+            "notice": "Emitted when the executor is updated"
+          },
+          "MaxSwapSlippageUpdated(uint256,uint256)": {
+            "notice": "Emitted when the max swap slippage is updated"
+          }
+        },
+        "kind": "user",
+        "methods": {
+          "executor()": {
+            "notice": "Returns the address of the current executor"
+          },
+          "isSupportedAggregator(address)": {
+            "notice": "Checks if an aggregator is supported"
+          },
+          "maxSwapSlippageBps()": {
+            "notice": "Returns the max slippage allowed to be set by executor when swap is made in user vault"
+          },
+          "setExecutor(address)": {
+            "notice": "Sets the executor address"
+          },
+          "setMaxSwapSlippageBps(uint256)": {
+            "notice": "Sets the maximum allowed swap slippage, expressed in basis points."
+          },
+          "setSupportedAggregators(address,bool)": {
+            "notice": "Sets the aggregator as supported or not"
+          }
+        },
+        "notice": "Registry contract for UserVaults",
+        "version": 1
+      }
+    },
+    "settings": {
+      "compilationTarget": {
+        "src/self-repaying-loans/UserVaultRegistry.sol": "UserVaultRegistry"
+      },
+      "evmVersion": "paris",
+      "libraries": {},
+      "metadata": {
+        "bytecodeHash": "none",
+        "useLiteralContent": true
+      },
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "remappings": []
+    },
+    "sources": {
+      "@openzeppelin/contracts/access/Ownable.sol": {
+        "content": "// SPDX-License-Identifier: MIT\n// OpenZeppelin Contracts (last updated v4.9.0) (access/Ownable.sol)\n\npragma solidity ^0.8.0;\n\nimport \"../utils/Context.sol\";\n\n/**\n * @dev Contract module which provides a basic access control mechanism, where\n * there is an account (an owner) that can be granted exclusive access to\n * specific functions.\n *\n * By default, the owner account will be the one that deploys the contract. This\n * can later be changed with {transferOwnership}.\n *\n * This module is used through inheritance. It will make available the modifier\n * `onlyOwner`, which can be applied to your functions to restrict their use to\n * the owner.\n */\nabstract contract Ownable is Context {\n    address private _owner;\n\n    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);\n\n    /**\n     * @dev Initializes the contract setting the deployer as the initial owner.\n     */\n    constructor() {\n        _transferOwnership(_msgSender());\n    }\n\n    /**\n     * @dev Throws if called by any account other than the owner.\n     */\n    modifier onlyOwner() {\n        _checkOwner();\n        _;\n    }\n\n    /**\n     * @dev Returns the address of the current owner.\n     */\n    function owner() public view virtual returns (address) {\n        return _owner;\n    }\n\n    /**\n     * @dev Throws if the sender is not the owner.\n     */\n    function _checkOwner() internal view virtual {\n        require(owner() == _msgSender(), \"Ownable: caller is not the owner\");\n    }\n\n    /**\n     * @dev Leaves the contract without owner. It will not be possible to call\n     * `onlyOwner` functions. Can only be called by the current owner.\n     *\n     * NOTE: Renouncing ownership will leave the contract without an owner,\n     * thereby disabling any functionality that is only available to the owner.\n     */\n    function renounceOwnership() public virtual onlyOwner {\n        _transferOwnership(address(0));\n    }\n\n    /**\n     * @dev Transfers ownership of the contract to a new account (`newOwner`).\n     * Can only be called by the current owner.\n     */\n    function transferOwnership(address newOwner) public virtual onlyOwner {\n        require(newOwner != address(0), \"Ownable: new owner is the zero address\");\n        _transferOwnership(newOwner);\n    }\n\n    /**\n     * @dev Transfers ownership of the contract to a new account (`newOwner`).\n     * Internal function without access restriction.\n     */\n    function _transferOwnership(address newOwner) internal virtual {\n        address oldOwner = _owner;\n        _owner = newOwner;\n        emit OwnershipTransferred(oldOwner, newOwner);\n    }\n}\n",
+        "keccak256": "0xba43b97fba0d32eb4254f6a5a297b39a19a247082a02d6e69349e071e2946218",
+        "license": "MIT"
+      },
+      "@openzeppelin/contracts/utils/Context.sol": {
+        "content": "// SPDX-License-Identifier: MIT\n// OpenZeppelin Contracts (last updated v4.9.4) (utils/Context.sol)\n\npragma solidity ^0.8.0;\n\n/**\n * @dev Provides information about the current execution context, including the\n * sender of the transaction and its data. While these are generally available\n * via msg.sender and msg.data, they should not be accessed in such a direct\n * manner, since when dealing with meta-transactions the account sending and\n * paying for execution may not be the actual sender (as far as an application\n * is concerned).\n *\n * This contract is only required for intermediate, library-like contracts.\n */\nabstract contract Context {\n    function _msgSender() internal view virtual returns (address) {\n        return msg.sender;\n    }\n\n    function _msgData() internal view virtual returns (bytes calldata) {\n        return msg.data;\n    }\n\n    function _contextSuffixLength() internal view virtual returns (uint256) {\n        return 0;\n    }\n}\n",
+        "keccak256": "0xa92e4fa126feb6907daa0513ddd816b2eb91f30a808de54f63c17d0e162c3439",
+        "license": "MIT"
+      },
+      "src/interfaces/IUserVaultRegistry.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity 0.8.30;\n\n/**\n * @title IUserVaultRegistry\n * @author Neverland\n * @notice Interface for the UserVaultRegistry contract.\n *         Manages executor and supported aggregators for user vaults.\n */\ninterface IUserVaultRegistry {\n    /**\n     * @notice Emitted when the executor is updated\n     * @param oldExecutor The previous executor address\n     * @param newExecutor The new executor address\n     */\n    event ExecutorUpdated(address indexed oldExecutor, address indexed newExecutor);\n\n    /**\n     * @notice Emitted when an aggregator's support status is updated\n     * @param aggregator The aggregator address that was updated\n     * @param isActive Whether the aggregator is now supported\n     */\n    event AggregatorSupportUpdated(address indexed aggregator, bool isActive);\n\n    /**\n     * @notice Emitted when the max swap slippage is updated\n     * @param oldValue The previous max slippage in bps\n     * @param newValue The new max slippage in bps\n     */\n    event MaxSwapSlippageUpdated(uint256 oldValue, uint256 newValue);\n\n    /*//////////////////////////////////////////////////////////////\n                                 VIEWS\n    //////////////////////////////////////////////////////////////*/\n\n    /**\n     * @notice Returns the address of the current executor\n     * @return The executor address\n     */\n    function executor() external view returns (address);\n\n    /**\n     * @notice Returns the max slippage allowed to be set by executor when swap is made in user vault\n     * @return The maximum swap slippage in basis points\n     */\n    function maxSwapSlippageBps() external view returns (uint256);\n\n    /**\n     * @notice Checks if an aggregator is supported\n     * @param aggregator The aggregator address to query\n     * @return True if supported, false otherwise\n     */\n    function isSupportedAggregator(address aggregator) external view returns (bool);\n\n    /*//////////////////////////////////////////////////////////////\n                                ADMIN\n    //////////////////////////////////////////////////////////////*/\n\n    /**\n     * @notice Sets the executor address\n     * @param executor Address of the new executor\n     */\n    function setExecutor(address executor) external;\n\n    /**\n     * @notice Sets the aggregator as supported or not\n     * @param aggregator The aggregator address\n     * @param isActive True if the aggregator should be supported, false otherwise\n     */\n    function setSupportedAggregators(address aggregator, bool isActive) external;\n\n    /**\n     * @notice Sets the maximum allowed swap slippage, expressed in basis points.\n     * @param newMaxSwapSlippageBps The new maximum swap slippage in basis points.\n     */\n    function setMaxSwapSlippageBps(uint256 newMaxSwapSlippageBps) external;\n}\n",
+        "keccak256": "0x661556d5aa66110ad9bd02af248c59cce1ec8b14962583fe74f728db33b567e0",
+        "license": "MIT"
+      },
+      "src/libraries/CommonChecksLibrary.sol": {
+        "content": "// SPDX-License-Identifier: BUSL-1.1\npragma solidity 0.8.30;\n\n/**\n * @title CommonChecksLibrary\n * @author Neverland\n * @notice Shared require/revert helpers for zero/invalid values used across contracts\n */\nlibrary CommonChecksLibrary {\n    /// @notice Used when a zero address is provided where not allowed.\n    error AddressZero();\n    /// @notice Used when a zero amount is provided where not allowed.\n    error ZeroAmount();\n    /// @notice Used when a range is invalid.\n    error InvalidRange();\n    /// @notice Used when two addresses are the same but must differ.\n    error SameAddress();\n    /// @notice Used when a balance is zero.\n    error ZeroBalance();\n    /// @notice Used when a tokenId is invalid.\n    error InvalidTokenId();\n    /// @notice Used when a from address is invalid.\n    error InvalidFromAddress();\n    /// @notice Used when a to address is invalid.\n    error InvalidToAddress();\n    /// @notice Used when a user address is invalid.\n    error InvalidUserAddress();\n    /// @notice Used a function is called by an account that is not permitted.\n    error UnauthorizedAccess();\n\n    /**\n     * @notice Reverts if the provided address is zero\n     * @param addressToCheck The address to check\n     */\n    function revertIfZeroAddress(address addressToCheck) internal pure {\n        if (addressToCheck == address(0)) revert AddressZero();\n    }\n\n    /**\n     * @notice Reverts if the provided amount is zero\n     * @param amount The amount to check\n     */\n    function revertIfZeroAmount(uint256 amount) internal pure {\n        if (amount == 0) revert ZeroAmount();\n    }\n\n    /**\n     * @notice Reverts if the [from, to] range is invalid (from > to)\n     * @param from The start of the range\n     * @param to The end of the range\n     */\n    function revertIfInvalidRange(uint256 from, uint256 to) internal pure {\n        if (from > to) revert InvalidRange();\n    }\n\n    /**\n     * @notice Reverts if the two addresses are the same\n     * @param first The first address to check\n     * @param second The second address to check\n     */\n    function revertIfSameAddress(address first, address second) internal pure {\n        if (first == second) revert SameAddress();\n    }\n\n    /**\n     * @notice Reverts if the balance is zero\n     * @param balance The balance to check\n     */\n    function revertIfZeroBalance(uint256 balance) internal pure {\n        if (balance == 0) revert ZeroBalance();\n    }\n\n    /**\n     * @notice Reverts if the tokenId owner is the zero address\n     * @param owner The owner of the tokenId\n     */\n    function revertIfInvalidTokenId(address owner) internal pure {\n        if (owner == address(0)) revert InvalidTokenId();\n    }\n\n    /**\n     * @notice Reverts if the from address is zero\n     * @param from The from address to check\n     */\n    function revertIfInvalidFromAddress(address from) internal pure {\n        if (from == address(0)) revert InvalidFromAddress();\n    }\n\n    /**\n     * @notice Reverts if the to address is zero\n     * @param to The to address to check\n     */\n    function revertIfInvalidToAddress(address to) internal pure {\n        if (to == address(0)) revert InvalidToAddress();\n    }\n\n    /**\n     * @notice Reverts if the user address is zero\n     * @param user The user address to check\n     */\n    function revertIfInvalidUserAddress(address user) internal pure {\n        if (user == address(0)) revert InvalidUserAddress();\n    }\n}\n",
+        "keccak256": "0xa8e23a48af12c93a809845953069be6f296d8d2e93e7cd89e5250b15b5d9f805",
+        "license": "BUSL-1.1"
+      },
+      "src/self-repaying-loans/UserVaultRegistry.sol": {
+        "content": "// SPDX-License-Identifier: BUSL-1.1\npragma solidity 0.8.30;\n\nimport {Ownable} from \"@openzeppelin/contracts/access/Ownable.sol\";\n\nimport {IUserVaultRegistry} from \"../interfaces/IUserVaultRegistry.sol\";\n\nimport {CommonChecksLibrary} from \"../libraries/CommonChecksLibrary.sol\";\n\n/**\n * @title UserVaultRegistry\n * @author Neverland\n * @notice Registry contract for UserVaults\n */\ncontract UserVaultRegistry is IUserVaultRegistry, Ownable {\n    /*//////////////////////////////////////////////////////////////\n                          STORAGE VARIABLES\n    //////////////////////////////////////////////////////////////*/\n\n    /// @inheritdoc IUserVaultRegistry\n    address public override executor;\n\n    /// @inheritdoc IUserVaultRegistry\n    uint256 public override maxSwapSlippageBps;\n\n    /// @notice Mapping of supported aggregators\n    mapping(address => bool) private supportedAggregators;\n\n    /*//////////////////////////////////////////////////////////////\n                                ADMIN\n    //////////////////////////////////////////////////////////////*/\n\n    /// @inheritdoc IUserVaultRegistry\n    function setExecutor(address _executor) external onlyOwner {\n        CommonChecksLibrary.revertIfZeroAddress(_executor);\n        address old = executor;\n        executor = _executor;\n        emit ExecutorUpdated(old, _executor);\n    }\n\n    /// @inheritdoc IUserVaultRegistry\n    function setSupportedAggregators(address aggregator, bool isActive) external onlyOwner {\n        supportedAggregators[aggregator] = isActive;\n        emit AggregatorSupportUpdated(aggregator, isActive);\n    }\n\n    /// @inheritdoc IUserVaultRegistry\n    function setMaxSwapSlippageBps(uint256 newMaxSwapSlippageBps) external onlyOwner {\n        uint256 old = maxSwapSlippageBps;\n        maxSwapSlippageBps = newMaxSwapSlippageBps;\n        emit MaxSwapSlippageUpdated(old, newMaxSwapSlippageBps);\n    }\n\n    /*//////////////////////////////////////////////////////////////\n                                 VIEWS\n    //////////////////////////////////////////////////////////////*/\n\n    /// @inheritdoc IUserVaultRegistry\n    function isSupportedAggregator(address aggregator) external view returns (bool) {\n        return supportedAggregators[aggregator];\n    }\n}\n",
+        "keccak256": "0xac0fa07e27cc43901e5e09a98716c3606f94417adb99573f64b3a29943891dd9",
+        "license": "BUSL-1.1"
+      }
+    },
+    "version": 1
+  },
+  "address": "0x5A4be21F3e2fF5Aac9E9328965691F9776d9A9F3"
+}

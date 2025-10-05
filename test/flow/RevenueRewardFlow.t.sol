@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IDustLock} from "../../src/interfaces/IDustLock.sol";
 import {RevenueReward} from "../../src/rewards/RevenueReward.sol";
 import "../BaseTestLocal.sol";
@@ -46,11 +47,23 @@ contract RevenueRewardFlow is BaseTestLocal {
         // Call parent setup first
         super._setUp();
 
-        // Initialize RevenueReward instances for precision testing
+        // Initialize RevenueReward instances for precision testing via proxy
         // Use user (address(this)) as rewardDistributor instead of admin (proxy admin)
-        testRevenueReward = new RevenueReward(address(0xF2), dustLock, user, userVaultFactory);
-        testRevenueReward2 = new RevenueReward(address(0xF3), dustLock, user, userVaultFactory);
-        testRevenueReward3 = new RevenueReward(address(0xF4), dustLock, user, userVaultFactory);
+        {
+            RevenueReward impl1 = new RevenueReward(address(0xF2));
+            testRevenueReward = RevenueReward(_deployProxy(address(impl1)));
+            testRevenueReward.initialize(address(0xF2), dustLock, user, userVaultFactory);
+        }
+        {
+            RevenueReward impl2 = new RevenueReward(address(0xF3));
+            testRevenueReward2 = RevenueReward(_deployProxy(address(impl2)));
+            testRevenueReward2.initialize(address(0xF3), dustLock, user, userVaultFactory);
+        }
+        {
+            RevenueReward impl3 = new RevenueReward(address(0xF4));
+            testRevenueReward3 = RevenueReward(_deployProxy(address(impl3)));
+            testRevenueReward3.initialize(address(0xF4), dustLock, user, userVaultFactory);
+        }
 
         skip(1 hours);
 

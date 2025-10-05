@@ -1,16 +1,14 @@
 {
-    "compilerOptions": {
-        "target": "es2020",
-        "module": "commonjs",
-        "strict": true,
-        "esModuleInterop": true,
-        "outDir": "dist",
-        "importHelpers": false,
-        "resolveJsonModule": true
-    },
-    "include": [
-        "script/hardhat"
-     ],
-     "files": ["./hardhat.config.ts"]
-
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "importHelpers": false,
+    "resolveJsonModule": true,
+    "lib": ["es2020"]
+  },
+  "include": ["script/hardhat"],
+  "files": ["./hardhat.config.ts"]
 }

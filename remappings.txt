@@ -6,3 +6,5 @@ contracts/=./contracts/
 @aave/core-v3/contracts/=lib/aave-v3-core/contracts/
 @aave-v3-periphery/contracts/=lib/aave-v3-periphery/contracts/
 @prb/math/=lib/prb-math/
+@uniswap/v2-core/=lib/v2-core/
+@uniswap/v3-core/=lib/v3-core/
