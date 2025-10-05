@@ -81,6 +81,11 @@ contract Dust is
         super._beforeTokenTransfer(from, to, value);
     }
 
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
+    }
+
     /**
      * @dev Storage gap for upgrade-safe future upgrades.
      *      Add new state variables above this line and reduce the gap length.

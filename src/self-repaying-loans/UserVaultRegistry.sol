@@ -51,6 +51,11 @@ contract UserVaultRegistry is IUserVaultRegistry, Ownable2Step {
         emit MaxSwapSlippageUpdated(old, newMaxSwapSlippageBps);
     }
 
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
+    }
+
     /*//////////////////////////////////////////////////////////////
                                  VIEWS
     //////////////////////////////////////////////////////////////*/
