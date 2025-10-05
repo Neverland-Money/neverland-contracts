@@ -7,8 +7,6 @@ import {UserVault} from "../../src/self-repaying-loans/UserVault.sol";
 
 // Exposes the internal functions as an external ones
 contract UserVaultHarness is UserVault {
-    constructor() UserVault() {}
-
     function exposed_getAssetsPrices(address token1, address token2, IPoolAddressesProvider poolAddressesProvider)
         external
         view
