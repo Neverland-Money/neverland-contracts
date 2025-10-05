@@ -1079,6 +1079,161 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(revenueReward.tokenRewardReceiver(userTokenId1Split2), ZERO_ADDRESS);
     }
 
+    function testTokenRewardReceiverCopiedOnSplit() public {
+        // Test that tokenRewardReceiver is properly copied from the original token to both split tokens
+        // when a token with self-repaying loan enabled is split
+
+        // epoch1: Create lock and enable self-repay
+        uint256 originalTokenId = _createLock(user, 10 * TOKEN_1, MAXTIME);
+        vm.prank(user);
+        dustLock.lockPermanent(originalTokenId);
+
+        // Enable self-repaying loan on the original token
+        vm.prank(user);
+        revenueReward.enableSelfRepayLoan(originalTokenId);
+
+        address userVault = userVaultFactory.getOrCreateUserVault(user);
+        
+        // Verify tokenRewardReceiver is set for original token
+        assertEq(revenueReward.tokenRewardReceiver(originalTokenId), userVault);
+
+        // Add some rewards and skip to next epoch
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        // Split the token
+        vm.startPrank(user);
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(originalTokenId);
+        (uint256 tokenId1, uint256 tokenId2) = dustLock.split(originalTokenId, 4 * TOKEN_1);
+        vm.stopPrank();
+
+        emit log_named_uint("[split] Original tokenId", originalTokenId);
+        emit log_named_uint("[split] Split tokenId1", tokenId1);
+        emit log_named_uint("[split] Split tokenId2", tokenId2);
+
+        // Verify tokenRewardReceiver is properly copied to both split tokens
+        assertEq(
+            revenueReward.tokenRewardReceiver(tokenId1),
+            userVault,
+            "tokenId1 should have same tokenRewardReceiver as original"
+        );
+        assertEq(
+            revenueReward.tokenRewardReceiver(tokenId2),
+            userVault,
+            "tokenId2 should have same tokenRewardReceiver as original"
+        );
+
+        // Verify original token's tokenRewardReceiver is cleared
+        assertEq(
+            revenueReward.tokenRewardReceiver(originalTokenId),
+            address(0),
+            "Original token's tokenRewardReceiver should be cleared"
+        );
+
+        // Verify that both split tokens are now tracked in userTokensWithSelfRepayingLoan
+        uint256[] memory userTokens = revenueReward.getUserTokensWithSelfRepayingLoan(user);
+        assertEq(userTokens.length, 2, "User should have 2 tokens with self-repaying loan");
+        
+        // Check that both new tokens are in the list (order may vary)
+        bool hasTokenId1 = false;
+        bool hasTokenId2 = false;
+        for (uint256 i = 0; i < userTokens.length; i++) {
+            if (userTokens[i] == tokenId1) hasTokenId1 = true;
+            if (userTokens[i] == tokenId2) hasTokenId2 = true;
+        }
+        assertTrue(hasTokenId1, "tokenId1 should be in user's self-repaying loan list");
+        assertTrue(hasTokenId2, "tokenId2 should be in user's self-repaying loan list");
+
+        // Add more rewards after split and test that they go to the correct receiver
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        uint256 vaultBalanceBefore = mockUSDC.balanceOf(userVault);
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+
+        emit log_named_uint("[split] Vault balance before claim", vaultBalanceBefore);
+        emit log_named_uint("[split] User balance before claim", userBalanceBefore);
+
+        revenueReward.getReward(tokenId1, tokens);
+        revenueReward.getReward(tokenId2, tokens);
+
+        uint256 vaultBalanceAfter = mockUSDC.balanceOf(userVault);
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+
+        emit log_named_uint("[split] Vault balance after claim", vaultBalanceAfter);
+        emit log_named_uint("[split] User balance after claim", userBalanceAfter);
+        emit log_named_uint("[split] Vault rewards received", vaultBalanceAfter - vaultBalanceBefore);
+
+        // All rewards should go to vault, not user
+        assertGt(vaultBalanceAfter, vaultBalanceBefore, "Vault should receive rewards from split tokens");
+        assertEq(userBalanceAfter, userBalanceBefore, "User should not receive rewards directly");
+    }
+
+    function testSplitWithoutSelfRepayHasNoTokenReceiver() public {
+        // epoch1
+        uint256 userTokenId = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        vm.prank(user);
+        dustLock.lockPermanent(userTokenId);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        // Verify original token has no reward receiver
+        assertEq(revenueReward.tokenRewardReceiver(userTokenId), address(0), "Original token should have no reward receiver");
+
+        // Verify user has no tokens in self-repaying loan list
+        uint256[] memory userTokensBefore = revenueReward.getUserTokensWithSelfRepayingLoan(user);
+        assertEq(userTokensBefore.length, 0, "User should have no tokens in self-repaying loan list");
+
+        // Split the token
+        vm.startPrank(user);
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(userTokenId);
+        (uint256 tokenId1, uint256 tokenId2) = dustLock.split(userTokenId, 2 * TOKEN_1);
+        vm.stopPrank();
+
+        emit log_named_uint("[split/no-self-repay] tokenId1", tokenId1);
+        emit log_named_uint("[split/no-self-repay] tokenId2", tokenId2);
+
+        // Verify split tokens have no reward receiver (address(0))
+        assertEq(revenueReward.tokenRewardReceiver(tokenId1), address(0), "tokenId1 should have no reward receiver");
+        assertEq(revenueReward.tokenRewardReceiver(tokenId2), address(0), "tokenId2 should have no reward receiver");
+
+        // Verify user still has no tokens in self-repaying loan list
+        uint256[] memory userTokensAfter = revenueReward.getUserTokensWithSelfRepayingLoan(user);
+        assertEq(userTokensAfter.length, 0, "User should still have no tokens in self-repaying loan list");
+
+        // Verify rewards go to owner, not vault
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        address userVault = userVaultFactory.getUserVault(user);
+        // If vault doesn't exist yet, it should be address(0) or have 0 balance
+        uint256 vaultBalance = userVault == address(0) ? 0 : mockUSDC.balanceOf(userVault);
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        revenueReward.getReward(tokenId1, tokens);
+        revenueReward.getReward(tokenId2, tokens);
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+        uint256 vaultBalanceAfter = userVault == address(0) ? 0 : mockUSDC.balanceOf(userVault);
+
+        // All rewards should go to user, not vault
+        assertGt(userBalanceAfter, userBalanceBefore, "User should receive rewards from split tokens");
+        assertEq(vaultBalanceAfter, vaultBalance, "Vault balance should not change");
+    }
+
     /* ========== TEST GET REWARD GAS ========== */
 
     function testInitialGetRewardGasCosts() public {

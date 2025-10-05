@@ -249,6 +249,16 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
             }
         }
 
+        address receiverFromToken = tokenRewardReceiver[fromToken];
+        // If the original token had a reward receiver (self-repaying loan enabled),
+        // update both new tokens reward receivers and add both tokens to the tracking set
+        if (receiverFromToken != address(0)) {
+            tokenRewardReceiver[tokenId1] = receiverFromToken;
+            tokenRewardReceiver[tokenId2] = receiverFromToken;
+            userTokensWithSelfRepayingLoan[owner].add(tokenId1);
+            userTokensWithSelfRepayingLoan[owner].add(tokenId2);
+        }
+
         _removeToken(fromToken, owner);
     }
 
