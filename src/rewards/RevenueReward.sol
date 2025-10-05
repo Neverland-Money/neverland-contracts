@@ -204,7 +204,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         nonReentrant
         onlyDustLock
     {
-        _claimRewardsTo(fromToken, owner);
+        // Cannot use _resolveRewardsReceiver as fromToken doesn't exist anymore
+        address rewardsReceiver = tokenRewardReceiver[fromToken] == address(0) ? owner : tokenRewardReceiver[fromToken];
+        _claimRewardsTo(fromToken, rewardsReceiver);
 
         uint256 len = rewardTokens.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -225,7 +227,9 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         uint256 token2Amount,
         address owner
     ) external override nonReentrant onlyDustLock {
-        _claimRewardsTo(fromToken, owner);
+        // Cannot use _resolveRewardsReceiver as fromToken doesn't exist anymore
+        address rewardsReceiver = tokenRewardReceiver[fromToken] == address(0) ? owner : tokenRewardReceiver[fromToken];
+        _claimRewardsTo(fromToken, rewardsReceiver);
 
         tokenMintTime[tokenId1] = block.timestamp;
         tokenMintTime[tokenId2] = block.timestamp;

@@ -1164,6 +1164,156 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
     }
 
+    function testMergeAutoClaimsToOwnerWithoutSelfRepay() public {
+        // epoch1
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        uint256 userTokenId1 = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        uint256 userTokenId2 = _createLock(user, 6 * TOKEN_1, MAXTIME);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+
+        // Merge should auto-claim rewards from userTokenId1 to owner (user)
+        vm.prank(user);
+        dustLock.merge(userTokenId1, userTokenId2);
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+
+        emit log_named_uint("[merge/owner] User balance before", userBalanceBefore);
+        emit log_named_uint("[merge/owner] User balance after", userBalanceAfter);
+        emit log_named_uint("[merge/owner] Rewards claimed", userBalanceAfter - userBalanceBefore);
+
+        // Assert rewards from userTokenId1 went to owner (user)
+        assertGt(userBalanceAfter, userBalanceBefore, "User should receive rewards from merged token");
+        // Verify token1 was burned and cannot be claimed again
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        vm.expectRevert();
+        revenueReward.getReward(userTokenId1, tokens);
+    }
+
+    function testMergeAutoClaimsToUserVaultWithSelfRepay() public {
+        // epoch1
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        uint256 userTokenId1 = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        uint256 userTokenId2 = _createLock(user, 6 * TOKEN_1, MAXTIME);
+
+        // Enable self-repay on the source token (userTokenId1)
+        vm.prank(user);
+        revenueReward.enableSelfRepayLoan(userTokenId1);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+        address userVault = userVaultFactory.getOrCreateUserVault(user);
+        uint256 vaultBalanceBefore = mockUSDC.balanceOf(userVault);
+
+        // Merge should auto-claim rewards from userTokenId1 to user vault (not owner)
+        vm.prank(user);
+        dustLock.merge(userTokenId1, userTokenId2);
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+        uint256 vaultBalanceAfter = mockUSDC.balanceOf(userVault);
+
+        emit log_named_uint("[merge/vault] User balance before", userBalanceBefore);
+        emit log_named_uint("[merge/vault] User balance after", userBalanceAfter);
+        emit log_named_uint("[merge/vault] Vault balance before", vaultBalanceBefore);
+        emit log_named_uint("[merge/vault] Vault balance after", vaultBalanceAfter);
+        emit log_named_uint("[merge/vault] Rewards to vault", vaultBalanceAfter - vaultBalanceBefore);
+
+        // Assert rewards from userTokenId1 went to vault (because self-repay was enabled), not owner
+        assertEq(userBalanceAfter, userBalanceBefore, "User balance should not change");
+        assertGt(vaultBalanceAfter, vaultBalanceBefore, "Vault should receive rewards from merged token");
+    }
+
+    function testSplitAutoClaimsToOwnerWithoutSelfRepay() public {
+        // epoch1
+        uint256 userTokenId = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        vm.prank(user);
+        dustLock.lockPermanent(userTokenId);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+
+        // Split should auto-claim rewards from userTokenId to owner (user)
+        vm.startPrank(user);
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(userTokenId);
+        dustLock.split(userTokenId, 2 * TOKEN_1);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+
+        emit log_named_uint("[split/owner] User balance before", userBalanceBefore);
+        emit log_named_uint("[split/owner] User balance after", userBalanceAfter);
+        emit log_named_uint("[split/owner] Rewards claimed", userBalanceAfter - userBalanceBefore);
+
+        // Assert rewards from original token went to owner (user)
+        assertGt(userBalanceAfter, userBalanceBefore, "User should receive rewards from split token");
+        // Verify original token was burned and cannot be claimed again
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        vm.expectRevert();
+        revenueReward.getReward(userTokenId, tokens);
+    }
+
+    function testSplitAutoClaimsToUserVaultWithSelfRepay() public {
+        // epoch1
+        uint256 userTokenId = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        vm.prank(user);
+        dustLock.lockPermanent(userTokenId);
+
+        // Enable self-repay on the token
+        vm.prank(user);
+        revenueReward.enableSelfRepayLoan(userTokenId);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+        address userVault = userVaultFactory.getOrCreateUserVault(user);
+        uint256 vaultBalanceBefore = mockUSDC.balanceOf(userVault);
+
+        // Split should auto-claim rewards from userTokenId to user vault (not owner)
+        vm.startPrank(user);
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(userTokenId);
+        dustLock.split(userTokenId, 2 * TOKEN_1);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+        uint256 vaultBalanceAfter = mockUSDC.balanceOf(userVault);
+
+        emit log_named_uint("[split/vault] User balance before", userBalanceBefore);
+        emit log_named_uint("[split/vault] User balance after", userBalanceAfter);
+        emit log_named_uint("[split/vault] Vault balance before", vaultBalanceBefore);
+        emit log_named_uint("[split/vault] Vault balance after", vaultBalanceAfter);
+        emit log_named_uint("[split/vault] Rewards to vault", vaultBalanceAfter - vaultBalanceBefore);
+
+        // Assert rewards from original token went to vault (because self-repay was enabled), not owner
+        assertEq(userBalanceAfter, userBalanceBefore, "User balance should not change");
+        assertGt(vaultBalanceAfter, vaultBalanceBefore, "Vault should receive rewards from split token");
+    }
+
     /* ========== TEST SELF REPAYING LOAN ========== */
 
     function testEnableSelfRepayLoanCantBeSetByNonTokenOwner() public {
