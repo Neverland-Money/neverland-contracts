@@ -89,7 +89,7 @@ contract UserVault is IUserVault, Initializable {
 
         address[] memory rewardTokens = new address[](1);
         rewardTokens[0] = address(rewardToken);
-        uint tokenIdsLength = tokenIds.length;
+        uint256 tokenIdsLength = tokenIds.length;
         for (uint256 i = 0; i < tokenIdsLength; ++i) {
             if (revenueReward.tokenRewardReceiver(tokenIds[i]) != address(this)) {
                 revert InvalidUserVaultForToken();

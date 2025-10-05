@@ -939,7 +939,10 @@ contract DustLock is IDustLock, ERC2771Context, ReentrancyGuard {
         if (oldLocked.end <= block.timestamp && !oldLocked.isPermanent) revert LockExpired();
 
         // Prevent depositFor to locks expiring within MINTIME
-        if ((_depositType == DepositType.DEPOSIT_FOR_TYPE || _depositType == DepositType.INCREASE_LOCK_AMOUNT) && !oldLocked.isPermanent) {
+        if (
+            (_depositType == DepositType.DEPOSIT_FOR_TYPE || _depositType == DepositType.INCREASE_LOCK_AMOUNT)
+                && !oldLocked.isPermanent
+        ) {
             if (oldLocked.end < block.timestamp + MINTIME) revert DepositForLockDurationTooShort();
         }
 
