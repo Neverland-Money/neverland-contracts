@@ -1519,6 +1519,124 @@ contract RevenueRewardsTest is BaseTestLocal {
         revenueReward.recoverTokens();
     }
 
+    /* ========== TEST ARRAY VALIDATION ========== */
+
+    function testEarnedRewardsAllRevertsOnUnsortedTokens() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        skipToNextEpoch(1);
+
+        // Create unsorted token array (mockUSDC address > mockDAI address assumed)
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(mockUSDC);
+        tokens[1] = address(mockDAI);
+
+        // Ensure tokens are not sorted (if DAI > USDC, swap them)
+        if (address(mockDAI) > address(mockUSDC)) {
+            tokens[0] = address(mockDAI);
+            tokens[1] = address(mockUSDC);
+        }
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId1;
+        tokenIds[1] = tokenId2;
+
+        emit log("[validation] Expect revert: unsorted tokens array");
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.ArrayNotSortedOrContainsDuplicates.selector));
+        revenueReward.earnedRewardsAll(tokens, tokenIds);
+    }
+
+    function testEarnedRewardsAllRevertsOnDuplicateTokens() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        skipToNextEpoch(1);
+
+        // Create array with duplicate tokens
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(mockUSDC);
+        tokens[1] = address(mockUSDC);
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId1;
+        tokenIds[1] = tokenId2;
+
+        emit log("[validation] Expect revert: duplicate tokens in array");
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.ArrayNotSortedOrContainsDuplicates.selector));
+        revenueReward.earnedRewardsAll(tokens, tokenIds);
+    }
+
+    function testEarnedRewardsAllRevertsOnUnsortedTokenIds() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        skipToNextEpoch(1);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // Create unsorted tokenIds array (assuming tokenId2 > tokenId1)
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId2;
+        tokenIds[1] = tokenId1;
+
+        emit log("[validation] Expect revert: unsorted tokenIds array");
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.ArrayNotSortedOrContainsDuplicates.selector));
+        revenueReward.earnedRewardsAll(tokens, tokenIds);
+    }
+
+    function testEarnedRewardsAllRevertsOnDuplicateTokenIds() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        skipToNextEpoch(1);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // Create array with duplicate tokenIds
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId1;
+        tokenIds[1] = tokenId1;
+
+        emit log("[validation] Expect revert: duplicate tokenIds in array");
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.ArrayNotSortedOrContainsDuplicates.selector));
+        revenueReward.earnedRewardsAll(tokens, tokenIds);
+    }
+
+    function testEarnedRewardsAllSucceedsWithSortedUniqueArrays() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+        _addReward(admin, mockDAI, TOKEN_10K);
+
+        skipToNextEpoch(1);
+
+        // Create properly sorted arrays
+        address[] memory tokens = new address[](2);
+        if (address(mockDAI) < address(mockUSDC)) {
+            tokens[0] = address(mockDAI);
+            tokens[1] = address(mockUSDC);
+        } else {
+            tokens[0] = address(mockUSDC);
+            tokens[1] = address(mockDAI);
+        }
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId1;
+        tokenIds[1] = tokenId2;
+
+        emit log("[validation] Successfully call with sorted unique arrays");
+        (uint256[][] memory matrix, uint256[] memory totals) = revenueReward.earnedRewardsAll(tokens, tokenIds);
+
+        assertEq(matrix.length, 2);
+        assertEq(totals.length, 2);
+    }
+
     /* ========== TEST VIEW FUNCTIONS ========== */
 
     function testEarnedRewardsViewFunctions() public {
@@ -1549,22 +1667,22 @@ contract RevenueRewardsTest is BaseTestLocal {
 
         // Test 2: earnedRewardsAll() multi-token at current time (batch, single tokenId)
         address[] memory tokens = new address[](2);
-        tokens[0] = address(mockUSDC);
-        tokens[1] = address(mockDAI);
+        tokens[0] = address(mockDAI);
+        tokens[1] = address(mockUSDC);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
 
         (uint256[][] memory matrixAll, uint256[] memory totalsAll) = revenueReward.earnedRewardsAll(tokens, tokenIds);
 
-        emit log_named_uint("[view] earnedRewardsAll USDC", matrixAll[0][0]);
-        emit log_named_uint("[view] earnedRewardsAll DAI", matrixAll[0][1]);
+        emit log_named_uint("[view] earnedRewardsAll DAI", matrixAll[0][0]);
+        emit log_named_uint("[view] earnedRewardsAll USDC", matrixAll[0][1]);
 
         assertEq(matrixAll.length, 1);
         assertEq(matrixAll[0].length, 2);
         assertEq(totalsAll.length, 2);
-        assertApproxEqAbs(matrixAll[0][0], 3 * USDC_10K, 3);
-        assertApproxEqAbs(matrixAll[0][1], 3 * TOKEN_10K, 3);
+        assertApproxEqAbs(matrixAll[0][0], 3 * TOKEN_10K, 3);
+        assertApproxEqAbs(matrixAll[0][1], 3 * USDC_10K, 3);
         // Totals should equal the row when a single tokenId is requested
         assertEq(matrixAll[0][0], totalsAll[0]);
         assertEq(matrixAll[0][1], totalsAll[1]);
@@ -1573,14 +1691,14 @@ contract RevenueRewardsTest is BaseTestLocal {
         (uint256[][] memory matrixPartial, uint256[] memory totalsPartial) =
             revenueReward.earnedRewardsAllUntilTs(tokens, tokenIds, epoch2Start);
 
-        emit log_named_uint("[view] earnedRewardsAllUntilTs USDC", matrixPartial[0][0]);
-        emit log_named_uint("[view] earnedRewardsAllUntilTs DAI", matrixPartial[0][1]);
+        emit log_named_uint("[view] earnedRewardsAllUntilTs DAI", matrixPartial[0][0]);
+        emit log_named_uint("[view] earnedRewardsAllUntilTs USDC", matrixPartial[0][1]);
 
         assertEq(matrixPartial.length, 1);
         assertEq(matrixPartial[0].length, 2);
         assertEq(totalsPartial.length, 2);
-        assertEqApprThreeWei(matrixPartial[0][0], USDC_10K);
-        assertEqApprThreeWei(matrixPartial[0][1], TOKEN_10K);
+        assertEqApprThreeWei(matrixPartial[0][0], TOKEN_10K);
+        assertEqApprThreeWei(matrixPartial[0][1], USDC_10K);
         assertEq(matrixPartial[0][0], totalsPartial[0]);
         assertEq(matrixPartial[0][1], totalsPartial[1]);
 
@@ -1592,8 +1710,8 @@ contract RevenueRewardsTest is BaseTestLocal {
         emit log_named_uint("[view] actual claimed USDC", actualUSDC);
         emit log_named_uint("[view] actual claimed DAI", actualDAI);
 
-        assertEqApprThreeWei(matrixAll[0][0], actualUSDC);
-        assertEqApprThreeWei(matrixAll[0][1], actualDAI);
+        assertEqApprThreeWei(matrixAll[0][0], actualDAI);
+        assertEqApprThreeWei(matrixAll[0][1], actualUSDC);
 
         // Test error handling - future timestamp should revert
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.EndTimestampMoreThanCurrent.selector));

@@ -467,6 +467,30 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Validates that an address array is sorted in ascending order without duplicates
+     * @dev Reverts if the array contains duplicates or is not sorted in ascending order
+     * @param arr The address array to validate
+     */
+    function _validateUniqueArray(address[] calldata arr) private pure {
+        uint256 len = arr.length;
+        for (uint256 i = 1; i < len; ++i) {
+            if (arr[i] <= arr[i - 1]) revert ArrayNotSortedOrContainsDuplicates();
+        }
+    }
+
+    /**
+     * @notice Validates that a uint256 array is sorted in ascending order without duplicates
+     * @dev Reverts if the array contains duplicates or is not sorted in ascending order
+     * @param arr The uint256 array to validate
+     */
+    function _validateUniqueArray(uint256[] calldata arr) private pure {
+        uint256 len = arr.length;
+        for (uint256 i = 1; i < len; ++i) {
+            if (arr[i] <= arr[i - 1]) revert ArrayNotSortedOrContainsDuplicates();
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -488,6 +512,8 @@ contract RevenueReward is IRevenueReward, ERC2771Context, ReentrancyGuard {
         override
         returns (uint256[][] memory matrix, uint256[] memory totals)
     {
+        _validateUniqueArray(tokens);
+        _validateUniqueArray(tokenIds);
         uint256 numTokens = tokens.length;
         uint256 numTokenIds = tokenIds.length;
         _validateBatchArrays(numTokens, numTokenIds);
