@@ -4,7 +4,6 @@
   "description": "Neverland Protocol Smart Contracts",
   "license": "BUSL-1.1",
   "scripts": {
-    "prepare": "yarn build",
     "solhint": "solhint 'src/**/*.sol'",
     "solhint:report": "solhint 'src/**/*.sol' > solhint.txt 2>&1 || true",
     "slither:report": "docker compose run --rm eth-security-toolbox sh -c 'cd /share && slither . --filter-paths lib,node_modules,test --checklist > slither.md'",

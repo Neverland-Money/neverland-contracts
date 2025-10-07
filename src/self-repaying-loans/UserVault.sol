@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
@@ -129,8 +130,10 @@ contract UserVault is IUserVault, Initializable {
         }
 
         _verifySlippage(
+            tokenIn,
             tokenInAmount,
             tokenPricesInUSD_8dec[0],
+            tokenOut,
             debtTokenSwapAmount,
             tokenPricesInUSD_8dec[1],
             maxAllowedSlippageBps
@@ -246,21 +249,30 @@ contract UserVault is IUserVault, Initializable {
 
     /**
      * @notice Verifies that the slippage between the desired swap amount and the actual swapped amount is within the allowed slippage
+     * @dev Normalizes token amounts to 18 decimals before comparison to handle tokens with different decimals
+     * @param tokenA The address of token A (token being swapped from)
      * @param desiredSwapAmountInTokenA The desired amount of token A to swap
      * @param tokenAUnitPriceInUSD_8dec The price of token A in USD with 8 decimals
+     * @param tokenB The address of token B (token being swapped to)
      * @param actualSwappedAmountInTokenB The actual amount of token B that was swapped
      * @param tokenBUnitPriceInUSD_8dec The price of token B in USD with 8 decimals
      * @param maxAllowedSlippageBps The maximum allowed slippage in basis points
      */
     function _verifySlippage(
+        address tokenA,
         uint256 desiredSwapAmountInTokenA,
         uint256 tokenAUnitPriceInUSD_8dec,
+        address tokenB,
         uint256 actualSwappedAmountInTokenB,
         uint256 tokenBUnitPriceInUSD_8dec,
         uint256 maxAllowedSlippageBps
-    ) internal pure {
-        uint256 desiredSwapAmountInUsd = desiredSwapAmountInTokenA * tokenAUnitPriceInUSD_8dec;
-        uint256 actualSwapAmountInUsd = actualSwappedAmountInTokenB * tokenBUnitPriceInUSD_8dec;
+    ) internal view {
+        // Get token decimals
+        uint8 tokenADecimals = IERC20Metadata(tokenA).decimals();
+        uint8 tokenBDecimals = IERC20Metadata(tokenB).decimals();
+
+        uint256 desiredSwapAmountInUsd = desiredSwapAmountInTokenA * tokenAUnitPriceInUSD_8dec / 10 ** tokenADecimals;
+        uint256 actualSwapAmountInUsd = actualSwappedAmountInTokenB * tokenBUnitPriceInUSD_8dec / 10 ** tokenBDecimals;
 
         if (actualSwapAmountInUsd < desiredSwapAmountInUsd) {
             uint256 actualSlippageBps =
