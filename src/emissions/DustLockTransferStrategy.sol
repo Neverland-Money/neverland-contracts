@@ -27,6 +27,7 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
     //////////////////////////////////////////////////////////////*/
 
     uint256 internal constant BASIS_POINTS = 10_000;
+    uint256 internal constant MAX_LOCK_DURATION = 365 days;
 
     /*//////////////////////////////////////////////////////////////
                           STORAGE VARIABLES
@@ -84,20 +85,27 @@ contract DustLockTransferStrategy is DustTransferStrategyBase, IDustLockTransfer
         IERC20 rewardToken = IERC20(reward);
         rewardToken.safeTransferFrom(DUST_VAULT, address(this), amount);
 
-        // tokenId > 0                      -> add DUST to existing veDUST;
-        // tokenId == 0 && lockTime > 0     -> create new veDUST lock;
-        // tokenId == 0 && lockTime == 0    -> direct DUST transfer with earlyWithdrawPenalty;
+        // tokenId > 0                      -> add DUST to existing veDUST
+        // tokenId == 0 && lockTime > 0     -> create new veDUST lock
+        // tokenId == 0 && lockTime == max  -> create permanent veDUST lock
+        // tokenId == 0 && lockTime == 0    -> direct DUST transfer with earlyWithdrawPenalty
         if (tokenId > 0) {
             // Add DUST to existing veDUST
             address owner = DUST_LOCK.ownerOf(tokenId);
             if (owner != to) revert NotTokenOwner();
+
             SafeERC20.safeIncreaseAllowance(rewardToken, address(DUST_LOCK), amount);
             DUST_LOCK.depositFor(tokenId, amount);
             SafeERC20.safeApprove(rewardToken, address(DUST_LOCK), 0);
         } else if (lockTime > 0) {
-            // Create new veDUST lock
+            // Create new veDUST lock; use type(uint256).max as the sentinel for permanent locks
+            bool makePermanent = lockTime == type(uint256).max;
+
             SafeERC20.safeIncreaseAllowance(rewardToken, address(DUST_LOCK), amount);
-            DUST_LOCK.createLockFor(amount, lockTime, to);
+            makePermanent
+                ? DUST_LOCK.createLockPermanentFor(amount, MAX_LOCK_DURATION, to)
+                : DUST_LOCK.createLockFor(amount, lockTime, to);
+
             SafeERC20.safeApprove(rewardToken, address(DUST_LOCK), 0);
         } else {
             // Direct transfer with earlyWithdrawPenalty; overflow impossible within uint256 range

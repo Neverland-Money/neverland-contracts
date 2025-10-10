@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.30;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 import {IUserVaultRegistry} from "../interfaces/IUserVaultRegistry.sol";
 
@@ -12,7 +12,7 @@ import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
  * @author Neverland
  * @notice Registry contract for UserVaults
  */
-contract UserVaultRegistry is IUserVaultRegistry, Ownable {
+contract UserVaultRegistry is IUserVaultRegistry, Ownable2Step {
     /*//////////////////////////////////////////////////////////////
                           STORAGE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -49,6 +49,11 @@ contract UserVaultRegistry is IUserVaultRegistry, Ownable {
         uint256 old = maxSwapSlippageBps;
         maxSwapSlippageBps = newMaxSwapSlippageBps;
         emit MaxSwapSlippageUpdated(old, newMaxSwapSlippageBps);
+    }
+
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
     }
 
     /*//////////////////////////////////////////////////////////////

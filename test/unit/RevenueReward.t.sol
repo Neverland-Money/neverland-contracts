@@ -1079,6 +1079,163 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(revenueReward.tokenRewardReceiver(userTokenId1Split2), ZERO_ADDRESS);
     }
 
+    function testTokenRewardReceiverCopiedOnSplit() public {
+        // Test that tokenRewardReceiver is properly copied from the original token to both split tokens
+        // when a token with self-repaying loan enabled is split
+
+        // epoch1: Create lock and enable self-repay
+        uint256 originalTokenId = _createLock(user, 10 * TOKEN_1, MAXTIME);
+        vm.prank(user);
+        dustLock.lockPermanent(originalTokenId);
+
+        // Enable self-repaying loan on the original token
+        vm.prank(user);
+        revenueReward.enableSelfRepayLoan(originalTokenId);
+
+        address userVault = userVaultFactory.getOrCreateUserVault(user);
+
+        // Verify tokenRewardReceiver is set for original token
+        assertEq(revenueReward.tokenRewardReceiver(originalTokenId), userVault);
+
+        // Add some rewards and skip to next epoch
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        // Split the token
+        vm.startPrank(user);
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(originalTokenId);
+        (uint256 tokenId1, uint256 tokenId2) = dustLock.split(originalTokenId, 4 * TOKEN_1);
+        vm.stopPrank();
+
+        emit log_named_uint("[split] Original tokenId", originalTokenId);
+        emit log_named_uint("[split] Split tokenId1", tokenId1);
+        emit log_named_uint("[split] Split tokenId2", tokenId2);
+
+        // Verify tokenRewardReceiver is properly copied to both split tokens
+        assertEq(
+            revenueReward.tokenRewardReceiver(tokenId1),
+            userVault,
+            "tokenId1 should have same tokenRewardReceiver as original"
+        );
+        assertEq(
+            revenueReward.tokenRewardReceiver(tokenId2),
+            userVault,
+            "tokenId2 should have same tokenRewardReceiver as original"
+        );
+
+        // Verify original token's tokenRewardReceiver is cleared
+        assertEq(
+            revenueReward.tokenRewardReceiver(originalTokenId),
+            address(0),
+            "Original token's tokenRewardReceiver should be cleared"
+        );
+
+        // Verify that both split tokens are now tracked in userTokensWithSelfRepayingLoan
+        uint256[] memory userTokens = revenueReward.getUserTokensWithSelfRepayingLoan(user);
+        assertEq(userTokens.length, 2, "User should have 2 tokens with self-repaying loan");
+
+        // Check that both new tokens are in the list (order may vary)
+        bool hasTokenId1 = false;
+        bool hasTokenId2 = false;
+        for (uint256 i = 0; i < userTokens.length; i++) {
+            if (userTokens[i] == tokenId1) hasTokenId1 = true;
+            if (userTokens[i] == tokenId2) hasTokenId2 = true;
+        }
+        assertTrue(hasTokenId1, "tokenId1 should be in user's self-repaying loan list");
+        assertTrue(hasTokenId2, "tokenId2 should be in user's self-repaying loan list");
+
+        // Add more rewards after split and test that they go to the correct receiver
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        uint256 vaultBalanceBefore = mockUSDC.balanceOf(userVault);
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+
+        emit log_named_uint("[split] Vault balance before claim", vaultBalanceBefore);
+        emit log_named_uint("[split] User balance before claim", userBalanceBefore);
+
+        revenueReward.getReward(tokenId1, tokens);
+        revenueReward.getReward(tokenId2, tokens);
+
+        uint256 vaultBalanceAfter = mockUSDC.balanceOf(userVault);
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+
+        emit log_named_uint("[split] Vault balance after claim", vaultBalanceAfter);
+        emit log_named_uint("[split] User balance after claim", userBalanceAfter);
+        emit log_named_uint("[split] Vault rewards received", vaultBalanceAfter - vaultBalanceBefore);
+
+        // All rewards should go to vault, not user
+        assertGt(vaultBalanceAfter, vaultBalanceBefore, "Vault should receive rewards from split tokens");
+        assertEq(userBalanceAfter, userBalanceBefore, "User should not receive rewards directly");
+    }
+
+    function testSplitWithoutSelfRepayHasNoTokenReceiver() public {
+        // epoch1
+        uint256 userTokenId = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        vm.prank(user);
+        dustLock.lockPermanent(userTokenId);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        // Verify original token has no reward receiver
+        assertEq(
+            revenueReward.tokenRewardReceiver(userTokenId), address(0), "Original token should have no reward receiver"
+        );
+
+        // Verify user has no tokens in self-repaying loan list
+        uint256[] memory userTokensBefore = revenueReward.getUserTokensWithSelfRepayingLoan(user);
+        assertEq(userTokensBefore.length, 0, "User should have no tokens in self-repaying loan list");
+
+        // Split the token
+        vm.startPrank(user);
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(userTokenId);
+        (uint256 tokenId1, uint256 tokenId2) = dustLock.split(userTokenId, 2 * TOKEN_1);
+        vm.stopPrank();
+
+        emit log_named_uint("[split/no-self-repay] tokenId1", tokenId1);
+        emit log_named_uint("[split/no-self-repay] tokenId2", tokenId2);
+
+        // Verify split tokens have no reward receiver (address(0))
+        assertEq(revenueReward.tokenRewardReceiver(tokenId1), address(0), "tokenId1 should have no reward receiver");
+        assertEq(revenueReward.tokenRewardReceiver(tokenId2), address(0), "tokenId2 should have no reward receiver");
+
+        // Verify user still has no tokens in self-repaying loan list
+        uint256[] memory userTokensAfter = revenueReward.getUserTokensWithSelfRepayingLoan(user);
+        assertEq(userTokensAfter.length, 0, "User should still have no tokens in self-repaying loan list");
+
+        // Verify rewards go to owner, not vault
+        _addReward(admin, mockUSDC, USDC_10K);
+        skipToNextEpoch(1);
+
+        address userVault = userVaultFactory.getUserVault(user);
+        // If vault doesn't exist yet, it should be address(0) or have 0 balance
+        uint256 vaultBalance = userVault == address(0) ? 0 : mockUSDC.balanceOf(userVault);
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        revenueReward.getReward(tokenId1, tokens);
+        revenueReward.getReward(tokenId2, tokens);
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+        uint256 vaultBalanceAfter = userVault == address(0) ? 0 : mockUSDC.balanceOf(userVault);
+
+        // All rewards should go to user, not vault
+        assertGt(userBalanceAfter, userBalanceBefore, "User should receive rewards from split tokens");
+        assertEq(vaultBalanceAfter, vaultBalance, "Vault balance should not change");
+    }
+
     /* ========== TEST GET REWARD GAS ========== */
 
     function testInitialGetRewardGasCosts() public {
@@ -1162,6 +1319,156 @@ contract RevenueRewardsTest is BaseTestLocal {
             assertLt(gasPerGetRewardUntilTs[i], 900_000); // about 900K
         }
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
+    }
+
+    function testMergeAutoClaimsToOwnerWithoutSelfRepay() public {
+        // epoch1
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        uint256 userTokenId1 = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        uint256 userTokenId2 = _createLock(user, 6 * TOKEN_1, MAXTIME);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+
+        // Merge should auto-claim rewards from userTokenId1 to owner (user)
+        vm.prank(user);
+        dustLock.merge(userTokenId1, userTokenId2);
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+
+        emit log_named_uint("[merge/owner] User balance before", userBalanceBefore);
+        emit log_named_uint("[merge/owner] User balance after", userBalanceAfter);
+        emit log_named_uint("[merge/owner] Rewards claimed", userBalanceAfter - userBalanceBefore);
+
+        // Assert rewards from userTokenId1 went to owner (user)
+        assertGt(userBalanceAfter, userBalanceBefore, "User should receive rewards from merged token");
+        // Verify token1 was burned and cannot be claimed again
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        vm.expectRevert();
+        revenueReward.getReward(userTokenId1, tokens);
+    }
+
+    function testMergeAutoClaimsToUserVaultWithSelfRepay() public {
+        // epoch1
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        uint256 userTokenId1 = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        uint256 userTokenId2 = _createLock(user, 6 * TOKEN_1, MAXTIME);
+
+        // Enable self-repay on the source token (userTokenId1)
+        vm.prank(user);
+        revenueReward.enableSelfRepayLoan(userTokenId1);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+        address userVault = userVaultFactory.getOrCreateUserVault(user);
+        uint256 vaultBalanceBefore = mockUSDC.balanceOf(userVault);
+
+        // Merge should auto-claim rewards from userTokenId1 to user vault (not owner)
+        vm.prank(user);
+        dustLock.merge(userTokenId1, userTokenId2);
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+        uint256 vaultBalanceAfter = mockUSDC.balanceOf(userVault);
+
+        emit log_named_uint("[merge/vault] User balance before", userBalanceBefore);
+        emit log_named_uint("[merge/vault] User balance after", userBalanceAfter);
+        emit log_named_uint("[merge/vault] Vault balance before", vaultBalanceBefore);
+        emit log_named_uint("[merge/vault] Vault balance after", vaultBalanceAfter);
+        emit log_named_uint("[merge/vault] Rewards to vault", vaultBalanceAfter - vaultBalanceBefore);
+
+        // Assert rewards from userTokenId1 went to vault (because self-repay was enabled), not owner
+        assertEq(userBalanceAfter, userBalanceBefore, "User balance should not change");
+        assertGt(vaultBalanceAfter, vaultBalanceBefore, "Vault should receive rewards from merged token");
+    }
+
+    function testSplitAutoClaimsToOwnerWithoutSelfRepay() public {
+        // epoch1
+        uint256 userTokenId = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        vm.prank(user);
+        dustLock.lockPermanent(userTokenId);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+
+        // Split should auto-claim rewards from userTokenId to owner (user)
+        vm.startPrank(user);
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(userTokenId);
+        dustLock.split(userTokenId, 2 * TOKEN_1);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+
+        emit log_named_uint("[split/owner] User balance before", userBalanceBefore);
+        emit log_named_uint("[split/owner] User balance after", userBalanceAfter);
+        emit log_named_uint("[split/owner] Rewards claimed", userBalanceAfter - userBalanceBefore);
+
+        // Assert rewards from original token went to owner (user)
+        assertGt(userBalanceAfter, userBalanceBefore, "User should receive rewards from split token");
+        // Verify original token was burned and cannot be claimed again
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+        vm.expectRevert();
+        revenueReward.getReward(userTokenId, tokens);
+    }
+
+    function testSplitAutoClaimsToUserVaultWithSelfRepay() public {
+        // epoch1
+        uint256 userTokenId = _createLock(user, 8 * TOKEN_1, MAXTIME);
+        vm.prank(user);
+        dustLock.lockPermanent(userTokenId);
+
+        // Enable self-repay on the token
+        vm.prank(user);
+        revenueReward.enableSelfRepayLoan(userTokenId);
+
+        _createLock(user2, TOKEN_1M, MAXTIME);
+
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        // epoch2
+        skipToNextEpoch(1);
+
+        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
+        address userVault = userVaultFactory.getOrCreateUserVault(user);
+        uint256 vaultBalanceBefore = mockUSDC.balanceOf(userVault);
+
+        // Split should auto-claim rewards from userTokenId to user vault (not owner)
+        vm.startPrank(user);
+        dustLock.toggleSplit(user, true);
+        dustLock.unlockPermanent(userTokenId);
+        dustLock.split(userTokenId, 2 * TOKEN_1);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = mockUSDC.balanceOf(user);
+        uint256 vaultBalanceAfter = mockUSDC.balanceOf(userVault);
+
+        emit log_named_uint("[split/vault] User balance before", userBalanceBefore);
+        emit log_named_uint("[split/vault] User balance after", userBalanceAfter);
+        emit log_named_uint("[split/vault] Vault balance before", vaultBalanceBefore);
+        emit log_named_uint("[split/vault] Vault balance after", vaultBalanceAfter);
+        emit log_named_uint("[split/vault] Rewards to vault", vaultBalanceAfter - vaultBalanceBefore);
+
+        // Assert rewards from original token went to vault (because self-repay was enabled), not owner
+        assertEq(userBalanceAfter, userBalanceBefore, "User balance should not change");
+        assertGt(vaultBalanceAfter, vaultBalanceBefore, "Vault should receive rewards from split token");
     }
 
     /* ========== TEST SELF REPAYING LOAN ========== */
@@ -1369,6 +1676,124 @@ contract RevenueRewardsTest is BaseTestLocal {
         revenueReward.recoverTokens();
     }
 
+    /* ========== TEST ARRAY VALIDATION ========== */
+
+    function testEarnedRewardsAllRevertsOnUnsortedTokens() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        skipToNextEpoch(1);
+
+        // Create unsorted token array (mockUSDC address > mockDAI address assumed)
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(mockUSDC);
+        tokens[1] = address(mockDAI);
+
+        // Ensure tokens are not sorted (if DAI > USDC, swap them)
+        if (address(mockDAI) > address(mockUSDC)) {
+            tokens[0] = address(mockDAI);
+            tokens[1] = address(mockUSDC);
+        }
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId1;
+        tokenIds[1] = tokenId2;
+
+        emit log("[validation] Expect revert: unsorted tokens array");
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.ArrayNotSortedOrContainsDuplicates.selector));
+        revenueReward.earnedRewardsAll(tokens, tokenIds);
+    }
+
+    function testEarnedRewardsAllRevertsOnDuplicateTokens() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        skipToNextEpoch(1);
+
+        // Create array with duplicate tokens
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(mockUSDC);
+        tokens[1] = address(mockUSDC);
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId1;
+        tokenIds[1] = tokenId2;
+
+        emit log("[validation] Expect revert: duplicate tokens in array");
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.ArrayNotSortedOrContainsDuplicates.selector));
+        revenueReward.earnedRewardsAll(tokens, tokenIds);
+    }
+
+    function testEarnedRewardsAllRevertsOnUnsortedTokenIds() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        skipToNextEpoch(1);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // Create unsorted tokenIds array (assuming tokenId2 > tokenId1)
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId2;
+        tokenIds[1] = tokenId1;
+
+        emit log("[validation] Expect revert: unsorted tokenIds array");
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.ArrayNotSortedOrContainsDuplicates.selector));
+        revenueReward.earnedRewardsAll(tokens, tokenIds);
+    }
+
+    function testEarnedRewardsAllRevertsOnDuplicateTokenIds() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+
+        skipToNextEpoch(1);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(mockUSDC);
+
+        // Create array with duplicate tokenIds
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId1;
+        tokenIds[1] = tokenId1;
+
+        emit log("[validation] Expect revert: duplicate tokenIds in array");
+        vm.expectRevert(abi.encodeWithSelector(IRevenueReward.ArrayNotSortedOrContainsDuplicates.selector));
+        revenueReward.earnedRewardsAll(tokens, tokenIds);
+    }
+
+    function testEarnedRewardsAllSucceedsWithSortedUniqueArrays() public {
+        uint256 tokenId1 = _createLock(user, TOKEN_1, MAXTIME);
+        uint256 tokenId2 = _createLock(user, TOKEN_1, MAXTIME);
+        _addReward(admin, mockUSDC, USDC_10K);
+        _addReward(admin, mockDAI, TOKEN_10K);
+
+        skipToNextEpoch(1);
+
+        // Create properly sorted arrays
+        address[] memory tokens = new address[](2);
+        if (address(mockDAI) < address(mockUSDC)) {
+            tokens[0] = address(mockDAI);
+            tokens[1] = address(mockUSDC);
+        } else {
+            tokens[0] = address(mockUSDC);
+            tokens[1] = address(mockDAI);
+        }
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId1;
+        tokenIds[1] = tokenId2;
+
+        emit log("[validation] Successfully call with sorted unique arrays");
+        (uint256[][] memory matrix, uint256[] memory totals) = revenueReward.earnedRewardsAll(tokens, tokenIds);
+
+        assertEq(matrix.length, 2);
+        assertEq(totals.length, 2);
+    }
+
     /* ========== TEST VIEW FUNCTIONS ========== */
 
     function testEarnedRewardsViewFunctions() public {
@@ -1399,22 +1824,22 @@ contract RevenueRewardsTest is BaseTestLocal {
 
         // Test 2: earnedRewardsAll() multi-token at current time (batch, single tokenId)
         address[] memory tokens = new address[](2);
-        tokens[0] = address(mockUSDC);
-        tokens[1] = address(mockDAI);
+        tokens[0] = address(mockDAI);
+        tokens[1] = address(mockUSDC);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
 
         (uint256[][] memory matrixAll, uint256[] memory totalsAll) = revenueReward.earnedRewardsAll(tokens, tokenIds);
 
-        emit log_named_uint("[view] earnedRewardsAll USDC", matrixAll[0][0]);
-        emit log_named_uint("[view] earnedRewardsAll DAI", matrixAll[0][1]);
+        emit log_named_uint("[view] earnedRewardsAll DAI", matrixAll[0][0]);
+        emit log_named_uint("[view] earnedRewardsAll USDC", matrixAll[0][1]);
 
         assertEq(matrixAll.length, 1);
         assertEq(matrixAll[0].length, 2);
         assertEq(totalsAll.length, 2);
-        assertApproxEqAbs(matrixAll[0][0], 3 * USDC_10K, 3);
-        assertApproxEqAbs(matrixAll[0][1], 3 * TOKEN_10K, 3);
+        assertApproxEqAbs(matrixAll[0][0], 3 * TOKEN_10K, 3);
+        assertApproxEqAbs(matrixAll[0][1], 3 * USDC_10K, 3);
         // Totals should equal the row when a single tokenId is requested
         assertEq(matrixAll[0][0], totalsAll[0]);
         assertEq(matrixAll[0][1], totalsAll[1]);
@@ -1423,14 +1848,14 @@ contract RevenueRewardsTest is BaseTestLocal {
         (uint256[][] memory matrixPartial, uint256[] memory totalsPartial) =
             revenueReward.earnedRewardsAllUntilTs(tokens, tokenIds, epoch2Start);
 
-        emit log_named_uint("[view] earnedRewardsAllUntilTs USDC", matrixPartial[0][0]);
-        emit log_named_uint("[view] earnedRewardsAllUntilTs DAI", matrixPartial[0][1]);
+        emit log_named_uint("[view] earnedRewardsAllUntilTs DAI", matrixPartial[0][0]);
+        emit log_named_uint("[view] earnedRewardsAllUntilTs USDC", matrixPartial[0][1]);
 
         assertEq(matrixPartial.length, 1);
         assertEq(matrixPartial[0].length, 2);
         assertEq(totalsPartial.length, 2);
-        assertEqApprThreeWei(matrixPartial[0][0], USDC_10K);
-        assertEqApprThreeWei(matrixPartial[0][1], TOKEN_10K);
+        assertEqApprThreeWei(matrixPartial[0][0], TOKEN_10K);
+        assertEqApprThreeWei(matrixPartial[0][1], USDC_10K);
         assertEq(matrixPartial[0][0], totalsPartial[0]);
         assertEq(matrixPartial[0][1], totalsPartial[1]);
 
@@ -1442,8 +1867,8 @@ contract RevenueRewardsTest is BaseTestLocal {
         emit log_named_uint("[view] actual claimed USDC", actualUSDC);
         emit log_named_uint("[view] actual claimed DAI", actualDAI);
 
-        assertEqApprThreeWei(matrixAll[0][0], actualUSDC);
-        assertEqApprThreeWei(matrixAll[0][1], actualDAI);
+        assertEqApprThreeWei(matrixAll[0][0], actualDAI);
+        assertEqApprThreeWei(matrixAll[0][1], actualUSDC);
 
         // Test error handling - future timestamp should revert
         vm.expectRevert(abi.encodeWithSelector(IRevenueReward.EndTimestampMoreThanCurrent.selector));

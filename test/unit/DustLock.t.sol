@@ -1208,6 +1208,29 @@ contract DustLockTests is BaseTestLocal {
         }
     }
 
+    function testIncreaseAmountRevertsOnSoonToExpireLock() public {
+        // Test that increaseAmount reverts when lock is expiring within MINTIME
+        // This prevents griefing similar to depositFor
+
+        uint256 lockAmount = TOKEN_1K;
+        mintErc20Token(address(DUST), user, lockAmount * 2);
+
+        vm.startPrank(user);
+        DUST.approve(address(dustLock), lockAmount * 2);
+        uint256 tokenId = dustLock.createLock(lockAmount, MAXTIME);
+
+        // Skip to just before MINTIME remains
+        uint256 MINTIME = 28 days;
+        uint256 skipTime = MAXTIME - MINTIME + 1 seconds;
+        skipAndRoll(skipTime);
+
+        // Try to increase amount - should revert
+        vm.expectRevert(IDustLock.DepositForLockDurationTooShort.selector);
+        dustLock.increaseAmount(tokenId, lockAmount);
+
+        vm.stopPrank();
+    }
+
     function testEarlyWithdrawTimeExtensionFairness() public {
         // Set treasury to different address for proper testing
         dustLock.setEarlyWithdrawTreasury(user2);

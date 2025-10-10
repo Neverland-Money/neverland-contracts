@@ -206,6 +206,38 @@ contract DustLockTransferStrategyTest is BaseTestLocal {
         assertEq(lockedBalance.isPermanent, false);
     }
 
+    function testPerformTransferWithPermanentLockSentinel() public {
+        uint256 vaultDustBefore = DUST.balanceOf(dustVault);
+
+        vm.prank(incentivesController);
+        transferStrategy.performTransfer(
+            user2, // to
+            address(DUST), // reward
+            TOKEN_1, // amount
+            type(uint256).max, // lockTime sentinel for permanent lock
+            0 // tokenId
+        );
+
+        uint256 newTokenId = dustLock.tokenId();
+        emit log_named_uint("[transferStrategy] created permanent tokenId", newTokenId);
+
+        assertEq(DUST.balanceOf(dustVault), vaultDustBefore - TOKEN_1);
+        assertEq(dustLock.ownerOf(newTokenId), user2);
+
+        IDustLock.LockedBalance memory lockedBalance = dustLock.locked(newTokenId);
+
+        emit log_named_uint("[transferStrategy] permanent lock amount", uint256(lockedBalance.amount));
+        emit log_named_uint("[transferStrategy] permanent lock end", lockedBalance.end);
+        emit log_named_string(
+            "[transferStrategy] permanent lock isPermanent", lockedBalance.isPermanent ? "true" : "false"
+        );
+
+        assertEq(lockedBalance.amount, 1e18);
+        assertEq(lockedBalance.isPermanent, true);
+        assertEq(lockedBalance.end, 0);
+        assertEq(DUST.allowance(address(transferStrategy), address(dustLock)), 0);
+    }
+
     function testPerformTransferWithMergingTokenId() public {
         uint256 vaultDustBefore = DUST.balanceOf(dustVault);
 

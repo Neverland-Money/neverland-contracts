@@ -215,7 +215,9 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
         nonReentrant
         onlyDustLock
     {
-        _claimRewardsTo(fromToken, owner);
+        // Cannot use _resolveRewardsReceiver as fromToken doesn't exist anymore
+        address rewardsReceiver = tokenRewardReceiver[fromToken] == address(0) ? owner : tokenRewardReceiver[fromToken];
+        _claimRewardsTo(fromToken, rewardsReceiver);
 
         uint256 len = rewardTokens.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -236,7 +238,9 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
         uint256 token2Amount,
         address owner
     ) external override nonReentrant onlyDustLock {
-        _claimRewardsTo(fromToken, owner);
+        // Cannot use _resolveRewardsReceiver as fromToken doesn't exist anymore
+        address rewardsReceiver = tokenRewardReceiver[fromToken] == address(0) ? owner : tokenRewardReceiver[fromToken];
+        _claimRewardsTo(fromToken, rewardsReceiver);
 
         tokenMintTime[tokenId1] = block.timestamp;
         tokenMintTime[tokenId2] = block.timestamp;
@@ -254,6 +258,16 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
                 tokenRewardsRemainingAccScaled[rewardTokens[i]][tokenId2] = a2;
                 tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] = 0;
             }
+        }
+
+        address receiverFromToken = tokenRewardReceiver[fromToken];
+        // If the original token had a reward receiver (self-repaying loan enabled),
+        // update both new tokens reward receivers and add both tokens to the tracking set
+        if (receiverFromToken != address(0)) {
+            tokenRewardReceiver[tokenId1] = receiverFromToken;
+            tokenRewardReceiver[tokenId2] = receiverFromToken;
+            userTokensWithSelfRepayingLoan[owner].add(tokenId1);
+            userTokensWithSelfRepayingLoan[owner].add(tokenId2);
         }
 
         _removeToken(fromToken, owner);
@@ -474,6 +488,30 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
         }
     }
 
+    /**
+     * @notice Validates that an address array is sorted in ascending order without duplicates
+     * @dev Reverts if the array contains duplicates or is not sorted in ascending order
+     * @param arr The address array to validate
+     */
+    function _validateUniqueArray(address[] calldata arr) private pure {
+        uint256 len = arr.length;
+        for (uint256 i = 1; i < len; ++i) {
+            if (arr[i] <= arr[i - 1]) revert ArrayNotSortedOrContainsDuplicates();
+        }
+    }
+
+    /**
+     * @notice Validates that a uint256 array is sorted in ascending order without duplicates
+     * @dev Reverts if the array contains duplicates or is not sorted in ascending order
+     * @param arr The uint256 array to validate
+     */
+    function _validateUniqueArray(uint256[] calldata arr) private pure {
+        uint256 len = arr.length;
+        for (uint256 i = 1; i < len; ++i) {
+            if (arr[i] <= arr[i - 1]) revert ArrayNotSortedOrContainsDuplicates();
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -495,6 +533,8 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
         override
         returns (uint256[][] memory matrix, uint256[] memory totals)
     {
+        _validateUniqueArray(tokens);
+        _validateUniqueArray(tokenIds);
         uint256 numTokens = tokens.length;
         uint256 numTokenIds = tokenIds.length;
         _validateBatchArrays(numTokens, numTokenIds);

@@ -30,6 +30,9 @@ interface IRevenueReward {
     /// @notice Error thrown when a provided reward token is not registered
     error UnknownRewardToken();
 
+    /// @notice Error thrown when an array contains duplicate values or is not sorted in ascending order
+    error ArrayNotSortedOrContainsDuplicates();
+
     /**
      * @notice Emitted when rewards are claimed
      * @param tokenId The veNFT id that produced the rewards

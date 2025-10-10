@@ -110,7 +110,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         onlyEmissionManager
     {
         RewardsDataTypes.RewardsConfigInput[] memory configCopy = config;
-        for (uint256 i = 0; i < config.length; ++i) {
+        uint256 assetsLength = config.length;
+        for (uint256 i = 0; i < assetsLength; ++i) {
             // Get the current Scaled Total Supply of AToken or Debt token
             configCopy[i].totalSupply = IScaledBalanceToken(configCopy[i].asset).scaledTotalSupply();
 
@@ -246,8 +247,9 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         override
         returns (RewardsDataTypes.UserAssetBalance[] memory userAssetBalances)
     {
-        userAssetBalances = new RewardsDataTypes.UserAssetBalance[](assets.length);
-        for (uint256 i = 0; i < assets.length; ++i) {
+        uint256 assetsLength = assets.length;
+        userAssetBalances = new RewardsDataTypes.UserAssetBalance[](assetsLength);
+        for (uint256 i = 0; i < assetsLength; ++i) {
             userAssetBalances[i].asset = assets[i];
             (userAssetBalances[i].userBalance, userAssetBalances[i].totalSupply) =
                 IScaledBalanceToken(assets[i]).getScaledUserBalanceAndSupply(user);
@@ -284,7 +286,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         uint256 totalRewards;
 
         _updateDataMultiple(user, _getUserAssetBalances(assets, user));
-        for (uint256 i = 0; i < assets.length; ++i) {
+        uint256 assetsLength = assets.length;
+        for (uint256 i = 0; i < assetsLength; ++i) {
             address asset = assets[i];
             totalRewards += _assets[asset].rewards[reward].usersData[user].accrued;
 
@@ -333,8 +336,8 @@ contract DustRewardsController is RewardsDistributor, VersionedInitializable, ID
         claimedAmounts = new uint256[](rewardsListLength);
 
         _updateDataMultiple(user, _getUserAssetBalances(assets, user));
-
-        for (uint256 i = 0; i < assets.length; ++i) {
+        uint256 assetsLength = assets.length;
+        for (uint256 i = 0; i < assetsLength; ++i) {
             address asset = assets[i];
             for (uint256 j = 0; j < rewardsListLength; ++j) {
                 if (rewardsList[j] == address(0)) {
