@@ -36,10 +36,10 @@ contract Dust is
     function initialize(address initialOwner, uint256 ts) public initializer {
         CommonChecksLibrary.revertIfZeroAddress(initialOwner);
 
-        __ERC20_init("Dust", "DUST");
+        __ERC20_init("Pixie Dust", "DUST");
         __ERC20Pausable_init();
         __Ownable2Step_init();
-        __ERC20Permit_init("Dust");
+        __ERC20Permit_init("Pixie Dust");
         _transferOwnership(initialOwner);
         _mint(initialOwner, ts * 10 ** decimals());
     }
