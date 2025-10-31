@@ -393,9 +393,8 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         if (pair == address(0) || pair.code.length == 0) return hardcodedPrice;
 
         // Try Uniswap V3 pool (slot0)
-        try IUniswapV3Pool(pair).slot0() returns (
-            uint160 sqrtPriceX96, int24, /*tick*/ uint16, uint16, uint16, uint8, bool
-        ) {
+        try IUniswapV3Pool(pair)
+            .slot0() returns (uint160 sqrtPriceX96, int24, /*tick*/ uint16, uint16, uint16, uint8, bool) {
             address t0 = IUniswapV3Pool(pair).token0();
             address t1 = IUniswapV3Pool(pair).token1();
             uint8 d0 = IERC20Metadata(t0).decimals();

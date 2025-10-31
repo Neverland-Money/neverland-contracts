@@ -11,8 +11,9 @@ import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAd
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
 import {IACLManager} from "@aave/core-v3/contracts/interfaces/IACLManager.sol";
-import {PoolAddressesProviderRegistry} from
-    "@aave/core-v3/contracts/protocol/configuration/PoolAddressesProviderRegistry.sol";
+import {
+    PoolAddressesProviderRegistry
+} from "@aave/core-v3/contracts/protocol/configuration/PoolAddressesProviderRegistry.sol";
 import {PoolAddressesProvider} from "@aave/core-v3/contracts/protocol/configuration/PoolAddressesProvider.sol";
 import {Pool} from "@aave/core-v3/contracts/protocol/pool/Pool.sol";
 import {ACLManager} from "@aave/core-v3/contracts/protocol/configuration/ACLManager.sol";

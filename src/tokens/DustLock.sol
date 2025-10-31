@@ -1392,7 +1392,9 @@ contract DustLock is IDustLock, Initializable, ERC2771ContextUpgradeable, Reentr
         address _previousOwner,
         address, /* _to */
         address /* _sender */
-    ) internal {
+    )
+        internal
+    {
         if (address(revenueReward) != address(0)) {
             revenueReward.notifyAfterTokenTransferred(_tokenId, _previousOwner);
         }
@@ -1404,7 +1406,13 @@ contract DustLock is IDustLock, Initializable, ERC2771ContextUpgradeable, Reentr
      * @param _tokenId The burned token id.
      * @param _previousOwner The address that previously owned the token.
      */
-    function _notifyAfterTokenBurned(uint256 _tokenId, address _previousOwner, address /* _sender */ ) internal {
+    function _notifyAfterTokenBurned(
+        uint256 _tokenId,
+        address _previousOwner,
+        address /* _sender */
+    )
+        internal
+    {
         if (address(revenueReward) != address(0)) {
             revenueReward.notifyAfterTokenBurned(_tokenId, _previousOwner);
         }
@@ -1415,7 +1423,14 @@ contract DustLock is IDustLock, Initializable, ERC2771ContextUpgradeable, Reentr
      * @dev No-op if `revenueReward` is unset.
      * @param _tokenId The newly minted token id.
      */
-    function _notifyTokenMinted(uint256 _tokenId, address, /* _owner */ address /* _sender */ ) internal {
+    function _notifyTokenMinted(
+        uint256 _tokenId,
+        address,
+        /* _owner */
+        address /* _sender */
+    )
+        internal
+    {
         if (address(revenueReward) != address(0)) {
             revenueReward.notifyTokenMinted(_tokenId);
         }

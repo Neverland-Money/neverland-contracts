@@ -5,8 +5,9 @@ import {RewardsDataTypes} from "@aave-v3-periphery/contracts/rewards/libraries/R
 import {RewardsDistributor} from "@aave-v3-periphery/contracts/rewards/RewardsDistributor.sol";
 import {IScaledBalanceToken} from "@aave/core-v3/contracts/interfaces/IScaledBalanceToken.sol";
 import {SafeCast} from "@aave/core-v3/contracts/dependencies/openzeppelin/contracts/SafeCast.sol";
-import {VersionedInitializable} from
-    "@aave/core-v3/contracts/protocol/libraries/aave-upgradeability/VersionedInitializable.sol";
+import {
+    VersionedInitializable
+} from "@aave/core-v3/contracts/protocol/libraries/aave-upgradeability/VersionedInitializable.sol";
 
 import {IDustRewardsController} from "../interfaces/IDustRewardsController.sol";
 import {IDustTransferStrategy} from "../interfaces/IDustTransferStrategy.sol";

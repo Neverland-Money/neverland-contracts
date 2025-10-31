@@ -7,4 +7,18 @@ optimizer-runs = 200
 extra_output_files = ["abi", "metadata"]
 ignored_error_codes = ["license","code-size","init-code-size","transient-storage",8760,2519,3628]
 
+[lint]
+exclude_lints = [
+  "mixed-case-function",
+  "mixed-case-variable",
+  "unwrapped-modifier-logic",
+  "named-struct-fields",
+  "divide-before-multiply",
+  "unaliased-plain-import",
+  "screaming-snake-case-immutable",
+  "screaming-snake-case-const",
+  "unsafe-typecast",
+  "erc20-unchecked-transfer",
+]
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -197,13 +197,7 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
     }
 
     /// @inheritdoc IRevenueReward
-    function notifyAfterTokenBurned(uint256 tokenId, address from)
-        external
-        virtual
-        override
-        nonReentrant
-        onlyDustLock
-    {
+    function notifyAfterTokenBurned(uint256 tokenId, address from) external virtual override nonReentrant onlyDustLock {
         _claimRewardsTo(tokenId, from);
         _removeToken(tokenId, from);
     }
@@ -221,8 +215,9 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
 
         uint256 len = rewardTokens.length;
         for (uint256 i = 0; i < len; ++i) {
-            tokenRewardsRemainingAccScaled[rewardTokens[i]][toToken] +=
-                tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken];
+            tokenRewardsRemainingAccScaled[
+                rewardTokens[i]
+            ][toToken] += tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken];
             tokenRewardsRemainingAccScaled[rewardTokens[i]][fromToken] = 0;
         }
 
@@ -355,9 +350,12 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
      */
-    function _claimRewardsUntilTs(uint256 tokenId, address receiver, address[] memory tokens, uint256 rewardPeriodEndTs)
-        internal
-    {
+    function _claimRewardsUntilTs(
+        uint256 tokenId,
+        address receiver,
+        address[] memory tokens,
+        uint256 rewardPeriodEndTs
+    ) internal {
         uint256 len = tokens.length;
         for (uint256 i = 0; i < len; ++i) {
             address token = tokens[i];
