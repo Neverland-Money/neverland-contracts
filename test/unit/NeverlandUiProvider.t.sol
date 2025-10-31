@@ -494,9 +494,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
 
         // 4. USER EMISSION REWARDS - From lending protocols
         emit log("--- EMISSION REWARDS ---");
-        try freshUiProvider.getUserEmissions(
-            user
-        ) returns (address[] memory emissionTokens, uint256[] memory emissionRewards) {
+        try freshUiProvider.getUserEmissions(user) returns (
+            address[] memory emissionTokens, uint256[] memory emissionRewards
+        ) {
             emit log_named_uint("Emission Token Types", emissionTokens.length);
             for (uint256 i = 0; i < emissionTokens.length && i < 3; i++) {
                 emit log_named_address("Emission Token", emissionTokens[i]);
@@ -516,9 +516,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
 
         // 6. UNLOCK SCHEDULE
         emit log("--- UNLOCK SCHEDULE ---");
-        try freshUiProvider.getUnlockSchedule(
-            user
-        ) returns (uint256[] memory unlockTimes, uint256[] memory amounts, uint256[] memory tokenIds) {
+        try freshUiProvider.getUnlockSchedule(user) returns (
+            uint256[] memory unlockTimes, uint256[] memory amounts, uint256[] memory tokenIds
+        ) {
             emit log_named_uint("Upcoming Unlocks", unlockTimes.length);
             for (uint256 i = 0; i < unlockTimes.length && i < 3; i++) {
                 emit log_named_uint("Unlock Time", unlockTimes[i]);
@@ -907,17 +907,15 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         vm.stopPrank();
 
         // Now test the UI provider functionality
-        try freshUiProvider.getUserDashboard(
-            testUser, 0, type(uint256).max
-        ) returns (INeverlandUiProvider.UserDashboardData memory dashboard) {
+        try freshUiProvider.getUserDashboard(testUser, 0, type(uint256).max) returns (
+            INeverlandUiProvider.UserDashboardData memory dashboard
+        ) {
             // Verify user has exactly 4 positions and correct total lock
             require(dashboard.tokenIds.length == 4, "User should have exactly 4 veDUST positions");
             require(dashboard.totalLockedAmount == lockAmount * 4, "Total locked amount should be 4000 DUST");
 
             // Test batch token details for these positions
-            try freshUiProvider.getBatchTokenDetails(
-                dashboard.tokenIds
-            ) returns (
+            try freshUiProvider.getBatchTokenDetails(dashboard.tokenIds) returns (
                 INeverlandUiProvider.LockInfo[] memory locks, INeverlandUiProvider.RewardSummary[] memory rewards
             ) {
                 require(locks.length == 4, "Should retrieve details for all 4 tokens");
@@ -942,16 +940,14 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         address targetUser = 0x0000B06460777398083CB501793a4d6393900000;
 
         // First get the user's token IDs
-        try freshUiProvider.getUserDashboard(
-            targetUser, 0, type(uint256).max
-        ) returns (INeverlandUiProvider.UserDashboardData memory dashboard) {
+        try freshUiProvider.getUserDashboard(targetUser, 0, type(uint256).max) returns (
+            INeverlandUiProvider.UserDashboardData memory dashboard
+        ) {
             if (dashboard.tokenIds.length > 0) {
                 emit log_named_uint("Found token IDs count", dashboard.tokenIds.length);
 
                 // Test batch token details
-                try freshUiProvider.getBatchTokenDetails(
-                    dashboard.tokenIds
-                ) returns (
+                try freshUiProvider.getBatchTokenDetails(dashboard.tokenIds) returns (
                     INeverlandUiProvider.LockInfo[] memory locks, INeverlandUiProvider.RewardSummary[] memory rewards
                 ) {
                     emit log_named_uint("Batch query returned locks", locks.length);
@@ -1016,9 +1012,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         emit log("--- VERIFYING POSITIONS WITH UI PROVIDER ---");
 
         // Now test the UI provider functionality
-        try freshUiProvider.getUserDashboard(
-            testUser, 0, type(uint256).max
-        ) returns (INeverlandUiProvider.UserDashboardData memory dashboard) {
+        try freshUiProvider.getUserDashboard(testUser, 0, type(uint256).max) returns (
+            INeverlandUiProvider.UserDashboardData memory dashboard
+        ) {
             emit log("--- USER OVERVIEW ---");
             emit log_named_uint("Total Token Count", dashboard.tokenIds.length);
             emit log_named_uint("Total Voting Power", dashboard.totalVotingPower);
@@ -1056,9 +1052,7 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             }
 
             // Test batch token details for these positions
-            try freshUiProvider.getBatchTokenDetails(
-                dashboard.tokenIds
-            ) returns (
+            try freshUiProvider.getBatchTokenDetails(dashboard.tokenIds) returns (
                 INeverlandUiProvider.LockInfo[] memory locks, INeverlandUiProvider.RewardSummary[] memory rewards
             ) {
                 emit log("--- BATCH TOKEN DETAILS ---");
@@ -1111,9 +1105,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         // Test 1: getUserDashboard - Complete user data
         emit log("");
         emit log("--- TESTING getUserDashboard ---");
-        try freshUiProvider.getUserDashboard(
-            targetUser, 0, type(uint256).max
-        ) returns (INeverlandUiProvider.UserDashboardData memory dashboard) {
+        try freshUiProvider.getUserDashboard(targetUser, 0, type(uint256).max) returns (
+            INeverlandUiProvider.UserDashboardData memory dashboard
+        ) {
             emit log_named_uint("[PASS] Total Token Count", dashboard.tokenIds.length);
             emit log_named_uint("[PASS] Total Voting Power", dashboard.totalVotingPower);
             emit log_named_uint("[PASS] Total Locked Amount (DUST)", dashboard.totalLockedAmount);
@@ -1128,9 +1122,7 @@ contract NeverlandUiProviderTest is BaseTestLocal {
                 // Test getBatchTokenDetails with these real token IDs
                 emit log("");
                 emit log("--- TESTING getBatchTokenDetails ---");
-                try freshUiProvider.getBatchTokenDetails(
-                    dashboard.tokenIds
-                ) returns (
+                try freshUiProvider.getBatchTokenDetails(dashboard.tokenIds) returns (
                     INeverlandUiProvider.LockInfo[] memory locks, INeverlandUiProvider.RewardSummary[] memory rewards
                 ) {
                     emit log_named_uint("[PASS] Retrieved locks count", locks.length);
@@ -1210,9 +1202,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         // Test 6: getUserEmissions - Emission rewards
         emit log("");
         emit log("--- TESTING getUserEmissions ---");
-        try freshUiProvider.getUserEmissions(
-            targetUser
-        ) returns (address[] memory emissionTokens, uint256[] memory emissionRewards) {
+        try freshUiProvider.getUserEmissions(targetUser) returns (
+            address[] memory emissionTokens, uint256[] memory emissionRewards
+        ) {
             emit log_named_uint("[PASS] Emission Tokens Count", emissionTokens.length);
             emit log_named_uint("[PASS] Emission Rewards Count", emissionRewards.length);
         } catch Error(string memory reason) {
@@ -1222,9 +1214,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         // Test 7: getUnlockSchedule - When tokens unlock
         emit log("");
         emit log("--- TESTING getUnlockSchedule ---");
-        try freshUiProvider.getUnlockSchedule(
-            targetUser
-        ) returns (uint256[] memory unlockTimes, uint256[] memory amounts, uint256[] memory tokenIds) {
+        try freshUiProvider.getUnlockSchedule(targetUser) returns (
+            uint256[] memory unlockTimes, uint256[] memory amounts, uint256[] memory tokenIds
+        ) {
             emit log_named_uint("[PASS] Unlock Events Count", unlockTimes.length);
             emit log_named_uint("[PASS] Unlock Events Count", tokenIds.length);
             if (unlockTimes.length > 0) {
@@ -1294,9 +1286,7 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             for (uint256 j = 0; j < knownAssets.length; j++) {
                 address asset = knownAssets[j];
 
-                try dustRewardsController.getRewardsData(
-                    asset, rewardToken
-                ) returns (
+                try dustRewardsController.getRewardsData(asset, rewardToken) returns (
                     uint256 index, uint256 emissionPerSecond, uint256 lastUpdateTimestamp, uint256 distributionEnd
                 ) {
                     if (emissionPerSecond > 0) {
@@ -1378,9 +1368,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
                         activeAssets++;
 
                         // Check if asset had emissions
-                        try dustRewardsController.getRewardsData(
-                            asset, rewardToken
-                        ) returns (uint256, uint256 emissionPerSecond, uint256, uint256) {
+                        try dustRewardsController.getRewardsData(asset, rewardToken) returns (
+                            uint256, uint256 emissionPerSecond, uint256, uint256
+                        ) {
                             if (emissionPerSecond > 0) {
                                 emit log("    [ELIGIBLE] Asset had emission rewards");
                             }
@@ -1400,9 +1390,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             // Try getting all user rewards at once with ALL assets (use empty set on localhost)
             emit log("  Trying getAllUserRewards with all assets:");
             testAssets = new address[](0);
-            try dustRewardsController.getAllUserRewards(
-                testAssets, testUser
-            ) returns (address[] memory allTokens, uint256[] memory allAmounts) {
+            try dustRewardsController.getAllUserRewards(testAssets, testUser) returns (
+                address[] memory allTokens, uint256[] memory allAmounts
+            ) {
                 emit log_named_uint("    Found reward types", allTokens.length);
                 for (uint256 k = 0; k < allTokens.length; k++) {
                     emit log_named_address("    Reward token", allTokens[k]);
@@ -1440,9 +1430,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
 
         // Get all claimable rewards using the rewards controller (empty assets on localhost)
         testAssets = new address[](0);
-        try dustRewardsController.getAllUserRewards(
-            testAssets, testUser
-        ) returns (address[] memory claimableTokens, uint256[] memory claimableAmounts) {
+        try dustRewardsController.getAllUserRewards(testAssets, testUser) returns (
+            address[] memory claimableTokens, uint256[] memory claimableAmounts
+        ) {
             emit log_named_uint("Total claimable reward types", claimableTokens.length);
 
             uint256 totalClaimableValue = 0;
@@ -1521,9 +1511,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         emit log("");
         emit log("--- TESTING NEW getUserEmissions() FUNCTION ---");
 
-        try freshUiProvider.getUserEmissions(
-            testUser
-        ) returns (address[] memory rewardTokens, uint256[] memory totalRewards) {
+        try freshUiProvider.getUserEmissions(testUser) returns (
+            address[] memory rewardTokens, uint256[] memory totalRewards
+        ) {
             emit log_named_uint("Found reward token types", rewardTokens.length);
             emit log("[SUCCESS] getUserEmissions() works!");
 
@@ -1546,9 +1536,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
 
         address existingUser = user1; // User with a lock
 
-        try freshUiProvider.getUserEmissions(
-            existingUser
-        ) returns (address[] memory rewardTokens, uint256[] memory totalRewards) {
+        try freshUiProvider.getUserEmissions(existingUser) returns (
+            address[] memory rewardTokens, uint256[] memory totalRewards
+        ) {
             emit log_named_uint("Found emission reward tokens", rewardTokens.length);
             emit log("[SUCCESS] getUserEmissions() works!");
 
@@ -1582,9 +1572,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         bool dustLockHasEmissions = false;
 
         for (uint256 i = 0; i < dustRewards.length; i++) {
-            try dustRewardsController.getRewardsData(
-                DUST_LOCK_ADDR, dustRewards[i]
-            ) returns (uint256, uint256 emissionPerSecond, uint256, uint256) {
+            try dustRewardsController.getRewardsData(DUST_LOCK_ADDR, dustRewards[i]) returns (
+                uint256, uint256 emissionPerSecond, uint256, uint256
+            ) {
                 if (emissionPerSecond > 0) {
                     dustLockHasEmissions = true;
                     break;
@@ -1657,9 +1647,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             uint256 totalEmissionPerSecond = 0;
 
             for (uint256 j = 0; j < emissionAssets.length; j++) {
-                try dustRewardsController.getRewardsData(
-                    emissionAssets[j], token
-                ) returns (uint256, uint256 emissionPerSecond, uint256, uint256 distributionEnd) {
+                try dustRewardsController.getRewardsData(emissionAssets[j], token) returns (
+                    uint256, uint256 emissionPerSecond, uint256, uint256 distributionEnd
+                ) {
                     emit log_named_address("  Checking asset", emissionAssets[j]);
                     emit log_named_uint("  Emission/sec", emissionPerSecond);
                     emit log_named_uint("  Distribution end", distributionEnd);

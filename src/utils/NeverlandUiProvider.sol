@@ -710,9 +710,9 @@ contract NeverlandUiProvider is INeverlandUiProvider {
 
         // Only call earnedRewardsAll if there are reward tokens
         if (rewardTokens.length > 0) {
-            try revenueReward.earnedRewardsAll(
-                rewardTokens, tokenIds
-            ) returns (uint256[][] memory matrix, uint256[] memory) {
+            try revenueReward.earnedRewardsAll(rewardTokens, tokenIds) returns (
+                uint256[][] memory matrix, uint256[] memory
+            ) {
                 revenueRewardsResult = matrix.length > 0 ? matrix[0] : new uint256[](length);
             } catch {
                 // If earnedRewardsAll fails (e.g., UnknownRewardToken), return zeros
@@ -830,9 +830,9 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         uint256 assetCount = 0;
 
         for (uint256 i = 0; i < reserveTokensLen; ++i) {
-            try dp.getReserveTokensAddresses(
-                reserveTokens[i].tokenAddress
-            ) returns (address aTokenAddr, address, /*stableDebt*/ address variableDebtTokenAddr) {
+            try dp.getReserveTokensAddresses(reserveTokens[i].tokenAddress) returns (
+                address aTokenAddr, address, /*stableDebt*/ address variableDebtTokenAddr
+            ) {
                 if (aTokenAddr != address(0)) {
                     assets[assetCount] = aTokenAddr;
                     unchecked {
@@ -983,9 +983,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         view
         returns (bool, uint256, uint256, uint256, uint256)
     {
-        try dustRewardsController.getRewardsData(
-            asset, rewardToken
-        ) returns (
+        try dustRewardsController.getRewardsData(asset, rewardToken) returns (
             uint256 assetIndex, uint256 emissionPerSecond, uint256 lastUpdateTimestamp, uint256 distributionEnd
         ) {
             return (true, assetIndex, emissionPerSecond, lastUpdateTimestamp, distributionEnd);
