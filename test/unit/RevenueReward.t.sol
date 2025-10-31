@@ -1877,10 +1877,7 @@ contract RevenueRewardsTest is BaseTestLocal {
 
     /* ========== HELPER FUNCTIONS ========== */
 
-    function _createPermanentLock(address _user, uint256 _amount, uint256 _duration)
-        private
-        returns (uint256 tokenId)
-    {
+    function _createPermanentLock(address _user, uint256 _amount, uint256 _duration) private returns (uint256 tokenId) {
         tokenId = _createLock(_user, _amount, _duration);
         vm.prank(_user);
         dustLock.lockPermanent(tokenId);

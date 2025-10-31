@@ -3,13 +3,11 @@ pragma solidity 0.8.30;
 
 import {IDustLock} from "../../src/interfaces/IDustLock.sol";
 import {IRevenueReward} from "../../src/interfaces/IRevenueReward.sol";
-import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 import {CommonChecksLibrary} from "../../src/libraries/CommonChecksLibrary.sol";
 
 import {RevenueReward} from "../../src/rewards/RevenueReward.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "../BaseTestLocal.sol";
 
 contract MaliciousRevenueReward is RevenueReward {
@@ -19,7 +17,14 @@ contract MaliciousRevenueReward is RevenueReward {
         dustLock.transferFrom(from, address(this), tokenId);
     }
 
-    function notifyAfterTokenBurned(uint256 tokenId, address /* from */ ) public override onlyDustLock {
+    function notifyAfterTokenBurned(
+        uint256 tokenId,
+        address /* from */
+    )
+        public
+        override
+        onlyDustLock
+    {
         dustLock.earlyWithdraw(tokenId);
     }
 }

@@ -5,15 +5,11 @@ import "../BaseTestMonadTestnetFork.sol";
 import {HarnessFactory} from "../harness/HarnessFactory.sol";
 
 import {BaseTestLocal} from "../BaseTestLocal.sol";
-import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 import {IPoolAddressesProviderRegistry} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
-import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 
 import {UserVaultHarness} from "../harness/UserVaultHarness.sol";
-import {UserVaultRegistry} from "../../src/self-repaying-loans/UserVaultRegistry.sol";
 
 contract UserVaultForkTest is BaseTestMonadTestnetFork, BaseTestLocal {
     HarnessFactory harnessFactory;

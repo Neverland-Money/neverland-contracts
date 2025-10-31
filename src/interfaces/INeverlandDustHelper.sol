@@ -309,10 +309,7 @@ interface INeverlandDustHelper {
      * @return lastUpdate Cache timestamp of last price update
      * @return isStale True if the cached price is stale
      */
-    function getPriceInfo()
-        external
-        view
-        returns (uint256 price, bool isFromUniswap, uint256 lastUpdate, bool isStale);
+    function getPriceInfo() external view returns (uint256 price, bool isFromUniswap, uint256 lastUpdate, bool isStale);
 
     /*//////////////////////////////////////////////////////////////
                          CHAINLINK COMPATIBILITY

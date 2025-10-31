@@ -654,10 +654,7 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             bool[] memory emptyStale = new bool[](0);
 
             priceData = INeverlandUiProvider.PriceData({
-                tokens: emptyTokens,
-                prices: emptyPrices,
-                lastUpdated: emptyTimestamps,
-                isStale: emptyStale
+                tokens: emptyTokens, prices: emptyPrices, lastUpdated: emptyTimestamps, isStale: emptyStale
             });
             pricesSuccessful = false;
         }

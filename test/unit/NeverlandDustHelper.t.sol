@@ -3,7 +3,6 @@ pragma solidity 0.8.30;
 
 import "forge-std/Test.sol";
 import {NeverlandDustHelper} from "../../src/utils/NeverlandDustHelper.sol";
-import {INeverlandDustHelper} from "../../src/interfaces/INeverlandDustHelper.sol";
 import {MockERC20} from "../_utils/MockERC20.sol";
 
 contract MockV3Pool {

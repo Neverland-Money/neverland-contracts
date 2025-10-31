@@ -2,7 +2,6 @@
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IDustLock} from "../../src/interfaces/IDustLock.sol";
 import {RevenueReward} from "../../src/rewards/RevenueReward.sol";
 import "../BaseTestLocal.sol";
