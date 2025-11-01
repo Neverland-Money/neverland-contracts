@@ -65,6 +65,9 @@ export interface DeployConfig {
     beaconOwner?: string;
     poolAddressesProviderRegistry?: string;
   };
+  proxyAdmin?: {
+    owner?: string;
+  };
 }
 
 export interface DeployNeverlandArgs {

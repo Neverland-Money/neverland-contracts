@@ -1,0 +1,25 @@
+{
+  "networkName": "monadMainnet",
+  "chainId": 143,
+  "addresses": {
+    "Dust": "0xAD96C3dffCD6374294e2573A7fBBA96097CC8d7c",
+    "DustLock": "0xBB4738D05AD1b3Da57a4881baE62Ce9bb1eEeD6C",
+    "DustRewardsController": "0x57ea245cCbFAb074baBb9d01d1F0c60525E52cec",
+    "UserVaultRegistry": "0x794CCdb375Ab08C340528a71Ba433a9016c657A5",
+    "UserVaultImplementation": "0x49f745b5265b6CA695E60e89dc50FD36edD252AB",
+    "UserVaultBeacon": "0xc9Fe3Db9b14A538FaB2eeBa33a8FeaB6ED7DdCeb",
+    "UserVaultFactory": "0xe82f2fa836BC5DB42a36C66027c0113BcAA28143",
+    "RevenueReward": "0xff20ac10eb808B1e31F5CfCa58D80eDE2Ba71c43",
+    "DustLockTransferStrategy": "0x394060Ee4cf4781F5ff6bCf471426D97A11977fA",
+    "NeverlandDustHelper": "0xc91BA13910b358E0De6510D4e2F3AFDaf6395538",
+    "NeverlandUiProvider": "0xc8B7b87EB4a4B404a421bD3a1491a689A0be8611"
+  },
+  "implementations": {
+    "Dust": "0x4522144959Afee1CAe8aa553b6a5cB81E111A4DA",
+    "DustLock": "0x3875cdF0d2B4445B763B7FCAC5d28Db2ad6D30e7",
+    "DustRewardsController": "0x6aD1EcdA817ECB7696D21f6e600C7ec44AcFB1e6",
+    "UserVaultFactory": "0x95AF995C9dcB1b6cFFEe6d81631dab5527884370",
+    "RevenueReward": "0x1df0F25344D29F541a53502a96DfeD3066D40b0A"
+  },
+  "proxyAdmin": "0x6400650cED1eD7179143D40b4431c3cC8c068D90"
+}

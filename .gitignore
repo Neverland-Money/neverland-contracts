@@ -27,3 +27,6 @@ typechain-v6/
 aderyn.md
 solhint.txt
 slither.md
+
+# deployment
+deployment-*.log

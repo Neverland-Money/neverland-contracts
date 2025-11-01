@@ -321,7 +321,10 @@ const deployNeverland = async (
 
   // 1. Deploy Dust (proxy)
   if (!exclude.has("Dust")) {
-    const dustOwner = deployerAddress;
+    const dustOwner = requireConfigValue(
+      config.dust?.initialOwner,
+      "dust.initialOwner"
+    );
     const totalSupplyRaw = requireConfigValue(
       config.dust?.totalSupply,
       "dust.totalSupply"
@@ -444,6 +447,26 @@ const deployNeverland = async (
         console.log("✅ Min lock amount updated.");
       }
     }
+
+    // Propose team transfer if different from deployer (two-step process)
+    if (config.dustLock?.team) {
+      const teamAddress = config.dustLock.team;
+      const currentTeam = await dustLock.team();
+      if (
+        teamAddress.toLowerCase() !== currentTeam.toLowerCase() &&
+        teamAddress.toLowerCase() !== deployerAddress.toLowerCase()
+      ) {
+        console.log(
+          `⚙️  Proposing DustLock team transfer to ${teamAddress}...`
+        );
+        const tx = await dustLock.proposeTeam(teamAddress);
+        await reportTx(hre, tx, "DustLock.proposeTeam", gasLog);
+        console.log("✅ Team transfer proposed (requires acceptance).");
+        pendingActions.push(
+          `New team must call DustLock(${await dustLock.getAddress()}).acceptTeam() from ${teamAddress}`
+        );
+      }
+    }
   } else {
     const existingDustLock = getRecordedAddress("DustLock");
     console.log(
@@ -453,7 +476,10 @@ const deployNeverland = async (
 
   // 3. Deploy DustRewardsController (proxy)
   if (!exclude.has("DustRewardsController")) {
-    const emissionManager = deployerAddress;
+    const emissionManager = requireConfigValue(
+      config.dustRewardsController?.emissionManager,
+      "dustRewardsController.emissionManager"
+    );
 
     console.log("\n⛏️  Deploying DustRewardsController (proxy)...");
     const controllerFactory = await hre.ethers.getContractFactory(
@@ -579,6 +605,28 @@ const deployNeverland = async (
           console.log("✅ Aggregator enabled.");
         }
       }
+
+      // Transfer ownership if different from deployer
+      const ownerAddress = requireConfigValue(
+        registryConfig.owner,
+        "selfRepaying.registry.owner"
+      );
+      const currentOwner = await registry.owner();
+      if (
+        ownerAddress.toLowerCase() !== currentOwner.toLowerCase() &&
+        ownerAddress.toLowerCase() !== deployerAddress.toLowerCase()
+      ) {
+        console.log(
+          `⚙️  Proposing UserVaultRegistry ownership transfer to ${ownerAddress}...`
+        );
+        const tx = await registry.transferOwnership(ownerAddress);
+        await reportTx(hre, tx, "UserVaultRegistry.transferOwnership", gasLog);
+        console.log("✅ Ownership transfer proposed (requires acceptance).");
+        const registryAddress = await registry.getAddress();
+        pendingActions.push(
+          `New owner must call UserVaultRegistry(${registryAddress}).acceptOwnership() from ${ownerAddress}`
+        );
+      }
     }
   } else {
     const existingRegistry = getRecordedAddress("UserVaultRegistry");
@@ -617,7 +665,10 @@ const deployNeverland = async (
 
   // 6. Deploy UserVault UpgradeableBeacon
   if (!exclude.has("UserVaultBeacon")) {
-    const beaconOwner = deployerAddress;
+    const beaconOwner = requireConfigValue(
+      config.selfRepaying?.beaconOwner,
+      "selfRepaying.beaconOwner"
+    );
     const userVaultImplementationAddress = getRecordedAddress(
       "UserVaultImplementation"
     );
@@ -638,9 +689,8 @@ const deployNeverland = async (
       gasLog
     );
 
-    if (
-      beaconOwner.toLowerCase() !== (await deployer.getAddress()).toLowerCase()
-    ) {
+    // Transfer ownership if different from deployer
+    if (beaconOwner.toLowerCase() !== deployerAddress.toLowerCase()) {
       console.log(`⚙️  Transferring beacon ownership to ${beaconOwner}...`);
       const beaconContract = await hre.ethers.getContractAt(
         "UpgradeableBeacon",
@@ -831,8 +881,14 @@ const deployNeverland = async (
     const incentivesController =
       config.transferStrategy?.incentivesControllerOverride ??
       controllerAddress;
-    const emissionManager = deployerAddress;
     const dustAddress = getRecordedAddress("Dust");
+
+    // Get the actual emission manager from the controller
+    const tempController = await hre.ethers.getContractAt(
+      "DustRewardsController",
+      controllerAddress
+    );
+    const emissionManager = await tempController.getEmissionManager();
     console.log("\n⛏️  Deploying DustLockTransferStrategy...");
     const strategyFactory = await hre.ethers.getContractFactory(
       "DustLockTransferStrategy"
@@ -860,10 +916,9 @@ const deployNeverland = async (
       deployer
     );
     const emissionManagerSigner =
-      emissionManager.toLowerCase() ===
-      (await deployer.getAddress()).toLowerCase()
+      emissionManager.toLowerCase() === deployerAddress.toLowerCase()
         ? deployer
-        : await tryGetSigner(hre, emissionManager, { dryRun });
+        : null;
 
     if (emissionManagerSigner) {
       console.log(
@@ -950,7 +1005,10 @@ const deployNeverland = async (
   // 10. Deploy NeverlandDustHelper
   if (!exclude.has("NeverlandDustHelper")) {
     const dustAddress = getRecordedAddress("Dust");
-    const owner = deployerAddress;
+    const owner = requireConfigValue(
+      config.dustHelper?.owner,
+      "dustHelper.owner"
+    );
     const uniswapPair = config.dustHelper?.uniswapPair;
     if (uniswapPair && !isValidAddress(uniswapPair)) {
       throw new Error(
@@ -962,7 +1020,8 @@ const deployNeverland = async (
     const helperFactory = await hre.ethers.getContractFactory(
       "NeverlandDustHelper"
     );
-    const helper = await helperFactory.deploy(dustAddress, owner);
+    // Deploy with deployer as owner initially
+    const helper = await helperFactory.deploy(dustAddress, deployerAddress);
     await helper.waitForDeployment();
     const helperAddress = await helper.getAddress();
     recordAddress("NeverlandDustHelper", helperAddress);
@@ -973,42 +1032,37 @@ const deployNeverland = async (
     await verifyContract(
       hre,
       helperAddress,
-      [dustAddress, owner],
+      [dustAddress, deployerAddress],
       "src/helpers/NeverlandDustHelper.sol:NeverlandDustHelper",
       dryRun
     );
 
     if (uniswapPair) {
-      const currentOwner = await helper.owner();
-      const desiredPair = uniswapPair;
-      const ownerSigner =
-        currentOwner.toLowerCase() ===
-        (await deployer.getAddress()).toLowerCase()
-          ? deployer
-          : await tryGetSigner(hre, currentOwner, { dryRun });
-
-      if (ownerSigner) {
-        const helperWithOwner = helper.connect(ownerSigner);
-        console.log(
-          `⚙️  Setting NeverlandDustHelper Uniswap pair to ${desiredPair}...`
+      console.log(
+        `⚙️  Setting NeverlandDustHelper Uniswap pair to ${uniswapPair}...`
+      );
+      try {
+        const tx = await helper.setUniswapPair(uniswapPair);
+        await reportTx(hre, tx, "NeverlandDustHelper.setUniswapPair", gasLog);
+        console.log("✅ Uniswap pair configured.");
+      } catch (err) {
+        console.warn(
+          "⚠️  Could not set Uniswap pair now. Deferring as a pending action."
         );
-        try {
-          const tx = await (helperWithOwner as any).setUniswapPair(desiredPair);
-          await reportTx(hre, tx, "NeverlandDustHelper.setUniswapPair", gasLog);
-          console.log("✅ Uniswap pair configured.");
-        } catch (err) {
-          console.warn(
-            "⚠️  Could not set Uniswap pair now. Deferring as a pending action."
-          );
-          pendingActions.push(
-            `Call NeverlandDustHelper.setUniswapPair(${desiredPair}) from owner ${currentOwner}.`
-          );
-        }
-      } else {
         pendingActions.push(
-          `Call NeverlandDustHelper.setUniswapPair(${desiredPair}) from owner ${currentOwner}.`
+          `Call NeverlandDustHelper.setUniswapPair(${uniswapPair}) from owner.`
         );
       }
+    }
+
+    // Transfer ownership if different from deployer
+    if (owner.toLowerCase() !== deployerAddress.toLowerCase()) {
+      console.log(
+        `⚙️  Transferring NeverlandDustHelper ownership to ${owner}...`
+      );
+      const tx = await helper.transferOwnership(owner);
+      await reportTx(hre, tx, "NeverlandDustHelper.transferOwnership", gasLog);
+      console.log("✅ NeverlandDustHelper ownership transferred.");
     }
   } else {
     const existingHelper = getRecordedAddress("NeverlandDustHelper");
@@ -1068,6 +1122,31 @@ const deployNeverland = async (
     console.log(
       `\n⏭️  Skipping NeverlandUiProvider deployment (excluded). Using provided UI provider at ${existingUi}.`
     );
+  }
+
+  // 12. Transfer ProxyAdmin ownership if configured
+  if (proxyAdminAddress && config.proxyAdmin?.owner) {
+    const desiredOwner = config.proxyAdmin.owner;
+    const proxyAdmin = await hre.ethers.getContractAt(
+      "ProxyAdmin",
+      proxyAdminAddress,
+      deployer
+    );
+    const currentOwner = await proxyAdmin.owner();
+
+    if (
+      desiredOwner.toLowerCase() !== currentOwner.toLowerCase() &&
+      desiredOwner.toLowerCase() !== deployerAddress.toLowerCase()
+    ) {
+      console.log(
+        `\n⚙️  Transferring ProxyAdmin ownership to ${desiredOwner}...`
+      );
+      const tx = await proxyAdmin.transferOwnership(desiredOwner);
+      await reportTx(hre, tx, "ProxyAdmin.transferOwnership", gasLog);
+      console.log("✅ ProxyAdmin ownership transferred.");
+    } else if (desiredOwner.toLowerCase() === currentOwner.toLowerCase()) {
+      console.log(`\n✅ ProxyAdmin owner already set to ${desiredOwner}`);
+    }
   }
 
   // Summary and cleanup

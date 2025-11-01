@@ -16,6 +16,11 @@ if (!SKIP_LOAD) {
 
 const ETHERSCAN_KEY = process.env.ETHERSCAN_KEY || "";
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
+const MONAD_MAINNET_RPC = process.env.MONAD_MAINNET_RPC || "";
+// Anvil fork chain ID: 143 for mainnet, 10143 for testnet
+const ANVIL_CHAIN_ID = process.env.ANVIL_CHAIN_ID
+  ? parseInt(process.env.ANVIL_CHAIN_ID)
+  : 143;
 
 export default {
   solidity: {
@@ -36,10 +41,25 @@ export default {
         url: `https://monad-testnet.g.alchemy.com/v2/u6NNPB_CUTwPMMW-zQsiJ8d3QHATGJLA`,
       },
     },
+    // Local Anvil Fork
+    anvilFork: {
+      url: "http://127.0.0.1:8545",
+      chainId: ANVIL_CHAIN_ID,
+      accounts: [PRIVATE_KEY],
+      timeout: 60000,
+    },
+    // Monad Testnet
     monadTestnet: {
       url: `https://testnet-rpc.monad.xyz`,
       chainId: 10143,
       accounts: [PRIVATE_KEY],
+    },
+    // Monad Mainnet
+    monadMainnet: {
+      url: MONAD_MAINNET_RPC,
+      chainId: 143,
+      accounts: [PRIVATE_KEY],
+      gasPrice: "auto",
     },
   },
   typechain: {
@@ -49,7 +69,7 @@ export default {
   sourcify: {
     enabled: true,
     apiUrl: "https://sourcify-api-monad.blockvision.org",
-    browserUrl: "https://testnet.monadexplorer.com",
+    browserUrl: "https://mainnet-beta.monvision.io/",
   },
   etherscan: {
     enabled: true,
@@ -61,6 +81,14 @@ export default {
         urls: {
           apiURL: "https://api.etherscan.io/v2/api?chainid=10143",
           browserURL: "https://testnet.monadscan.com/",
+        },
+      },
+      {
+        network: "monadMainnet",
+        chainId: 143,
+        urls: {
+          apiURL: "https://api.etherscan.io/v2/api?chainid=143",
+          browserURL: "https://monadscan.com/",
         },
       },
     ],
