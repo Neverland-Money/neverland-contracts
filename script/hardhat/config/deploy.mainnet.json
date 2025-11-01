@@ -1,0 +1,57 @@
+{
+  "addresses": {
+    "Dust": "",
+    "DustLock": "",
+    "RevenueReward": "",
+    "DustRewardsController": "",
+    "DustLockTransferStrategy": "",
+    "NeverlandDustHelper": "",
+    "NeverlandUiProvider": "",
+    "UserVaultRegistry": "",
+    "UserVaultImplementation": "",
+    "UserVaultBeacon": "",
+    "UserVaultFactory": ""
+  },
+  "dust": {
+    "initialOwner": "0xe72df2DDE84880DD706C5976E92ed34BB586A38F",
+    "totalSupply": "100000000"
+  },
+  "dustLock": {
+    "forwarder": "0x1111111111111111111111111111111111111111",
+    "baseURI": "https://mainnet-beta.neverland.money/api/vedust/",
+    "team": "0x8D3e4D6188D207641E3d8f9c08e43956D4Daa66A",
+    "earlyWithdrawTreasury": "0x909b176220b7e782C0f3cEccaB4b19D2c433c6BB",
+    "minLockAmount": "1000000000000000000"
+  },
+  "dustRewardsController": {
+    "emissionManager": "0x8D3e4D6188D207641E3d8f9c08e43956D4Daa66A"
+  },
+  "revenueReward": {
+    "forwarder": "0x1111111111111111111111111111111111111111",
+    "distributor": "0x909b176220b7e782C0f3cEccaB4b19D2c433c6BB"
+  },
+  "transferStrategy": {
+    "rewardsAdmin": "0x8D3e4D6188D207641E3d8f9c08e43956D4Daa66A",
+    "dustVault": "0x178D5F48a27f728E24e7d530a7c5c901778AAdE7"
+  },
+  "dustHelper": {
+    "owner": "0x8D3e4D6188D207641E3d8f9c08e43956D4Daa66A",
+    "uniswapPair": ""
+  },
+  "uiProvider": {
+    "aaveLendingPoolAddressProvider": "0x49D75170F55C964dfdd6726c74fdEDEe75553A0f"
+  },
+  "selfRepaying": {
+    "registry": {
+      "owner": "0x8D3e4D6188D207641E3d8f9c08e43956D4Daa66A",
+      "executor": "0x0000B06460777398083CB501793a4d6393900000",
+      "maxSwapSlippageBps": "1000",
+      "supportedAggregators": []
+    },
+    "beaconOwner": "0x8D3e4D6188D207641E3d8f9c08e43956D4Daa66A",
+    "poolAddressesProviderRegistry": "0xD0CCDe10CAcd12f1c839Db6400B82a82ab90fa9B"
+  },
+  "proxyAdmin": {
+    "owner": "0x8D3e4D6188D207641E3d8f9c08e43956D4Daa66A"
+  }
+}
