@@ -1,0 +1,74 @@
+{
+  "addresses": {
+    "dustLock": "0x6bAf63f7959EA253006e7Af0BeFf29810CcbF661"
+  },
+  "leaderboard": {
+    "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+    "depositRateBps": "100",
+    "borrowRateBps": "500",
+    "supplyDailyBonus": "10000000000000000000",
+    "borrowDailyBonus": "20000000000000000000",
+    "repayDailyBonus": "0",
+    "withdrawDailyBonus": "0",
+    "cooldownSeconds": "3600",
+    "minDailyBonusUsd": "0"
+  },
+  "epochManager": {
+    "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
+  },
+  "nftRegistry": {
+    "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+    "firstBonus": "1000",
+    "decayRatio": "9000"
+  },
+  "votingPowerMultiplier": {
+    "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+    "tiers": [
+      {
+        "minVotingPower": "0",
+        "multiplierBps": "10000"
+      },
+      {
+        "minVotingPower": "400000000000000000000",
+        "multiplierBps": "10100"
+      },
+      {
+        "minVotingPower": "2000000000000000000000",
+        "multiplierBps": "10200"
+      },
+      {
+        "minVotingPower": "4000000000000000000000",
+        "multiplierBps": "10300"
+      },
+      {
+        "minVotingPower": "8000000000000000000000",
+        "multiplierBps": "10400"
+      },
+      {
+        "minVotingPower": "16000000000000000000000",
+        "multiplierBps": "10500"
+      },
+      {
+        "minVotingPower": "32000000000000000000000",
+        "multiplierBps": "11000"
+      },
+      {
+        "minVotingPower": "64000000000000000000000",
+        "multiplierBps": "12000"
+      },
+      {
+        "minVotingPower": "128000000000000000000000",
+        "multiplierBps": "13000"
+      },
+      {
+        "minVotingPower": "256000000000000000000000",
+        "multiplierBps": "14000"
+      },
+      {
+        "minVotingPower": "512000000000000000000000",
+        "multiplierBps": "15000"
+      }
+    ]
+  },
+  "verify": true
+}
