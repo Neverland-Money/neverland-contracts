@@ -34,19 +34,19 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice DustLock contract for veNFT and voting power data
-    IDustLock public immutable dustLock;
+    IDustLock public immutable DUST_LOCK;
 
     /// @notice RevenueReward contract for revenue distribution data
-    IRevenueReward public immutable revenueReward;
+    IRevenueReward public immutable REVENUE_REWARD;
 
     /// @notice DustRewardsController contract for emission rewards data
-    IDustRewardsController public immutable dustRewardsController;
+    IDustRewardsController public immutable DUST_REWARDS_CONTROLLER;
 
     /// @notice DustOracle contract for DUST price data
-    INeverlandDustHelper public immutable dustOracle;
+    INeverlandDustHelper public immutable DUST_HELPER;
 
     /// @notice Aave Lending Pool Address Provider for protocol integration
-    IPoolAddressesProvider public immutable aaveLendingPoolAddressProvider;
+    IPoolAddressesProvider public immutable AAVE_LENDING_POOL_ADDRESS_PROVIDER;
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -73,11 +73,11 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         CommonChecksLibrary.revertIfZeroAddress(_dustOracle);
         CommonChecksLibrary.revertIfZeroAddress(_aaveLendingPoolAddressProvider);
 
-        dustLock = IDustLock(_dustLock);
-        revenueReward = IRevenueReward(_revenueReward);
-        dustRewardsController = IDustRewardsController(_dustRewardsController);
-        dustOracle = INeverlandDustHelper(_dustOracle);
-        aaveLendingPoolAddressProvider = IPoolAddressesProvider(_aaveLendingPoolAddressProvider);
+        DUST_LOCK = IDustLock(_dustLock);
+        REVENUE_REWARD = IRevenueReward(_revenueReward);
+        DUST_REWARDS_CONTROLLER = IDustRewardsController(_dustRewardsController);
+        DUST_HELPER = INeverlandDustHelper(_dustOracle);
+        AAVE_LENDING_POOL_ADDRESS_PROVIDER = IPoolAddressesProvider(_aaveLendingPoolAddressProvider);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -85,19 +85,9 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INeverlandUiProvider
-    function getBatchTokenDetails(uint256[] calldata tokenIds)
-        public
-        view
-        override
-        returns (LockInfo[] memory locks, RewardSummary[] memory rewards)
-    {
-        return _getBatchTokenDetailsInternal(tokenIds);
-    }
-
-    /// @inheritdoc INeverlandUiProvider
     function getUserTokenCount(address user) external view override returns (uint256 count) {
         CommonChecksLibrary.revertIfZeroAddress(user);
-        return dustLock.balanceOf(user);
+        return DUST_LOCK.balanceOf(user);
     }
 
     /// @inheritdoc INeverlandUiProvider
@@ -109,7 +99,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     {
         CommonChecksLibrary.revertIfZeroAddress(user);
 
-        uint256 tokenCount = dustLock.balanceOf(user);
+        uint256 tokenCount = DUST_LOCK.balanceOf(user);
         uint256 start = offset > tokenCount ? tokenCount : offset;
         uint256 end = tokenCount;
         unchecked {
@@ -121,7 +111,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
 
         uint256[] memory tokenIds = new uint256[](pageLen);
         for (uint256 i; i < pageLen;) {
-            try dustLock.ownerToNFTokenIdList(user, start + i) returns (uint256 tokenId) {
+            try DUST_LOCK.ownerToNFTokenIdList(user, start + i) returns (uint256 tokenId) {
                 tokenIds[i] = tokenId;
             } catch {
                 tokenIds[i] = 0;
@@ -154,33 +144,25 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     }
 
     /// @inheritdoc INeverlandUiProvider
-    function getTokenDetails(uint256 tokenId) public view override returns (LockInfo memory, RewardSummary memory) {
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = tokenId;
-        (LockInfo[] memory locks, RewardSummary[] memory rewards) = _getBatchTokenDetailsInternal(tokenIds);
-        return (locks[0], rewards[0]);
-    }
-
-    /// @inheritdoc INeverlandUiProvider
     function getGlobalStats() public view override returns (GlobalStats memory) {
-        address[] memory rewardTokens = revenueReward.getRewardTokens();
+        address[] memory rewardTokens = REVENUE_REWARD.getRewardTokens();
         uint256[] memory totalRewardsPerToken = new uint256[](rewardTokens.length);
 
         for (uint256 i; i < rewardTokens.length;) {
-            totalRewardsPerToken[i] = revenueReward.totalRewardsPerToken(rewardTokens[i]);
+            totalRewardsPerToken[i] = REVENUE_REWARD.totalRewardsPerToken(rewardTokens[i]);
             unchecked {
                 ++i;
             }
         }
 
         GlobalStats memory stats;
-        stats.totalSupply = dustLock.supply();
-        stats.totalVotingPower = dustLock.totalSupplyAt(block.timestamp);
-        stats.permanentLockBalance = dustLock.permanentLockBalance();
+        stats.totalSupply = DUST_LOCK.supply();
+        stats.totalVotingPower = DUST_LOCK.totalSupplyAt(block.timestamp);
+        stats.permanentLockBalance = DUST_LOCK.permanentLockBalance();
         stats.rewardTokens = rewardTokens;
         stats.totalRewardsPerToken = totalRewardsPerToken;
-        stats.epoch = dustLock.epoch();
-        stats.activeTokenCount = dustLock.tokenId();
+        stats.epoch = DUST_LOCK.epoch();
+        stats.activeTokenCount = DUST_LOCK.tokenId();
         return stats;
     }
 
@@ -212,11 +194,10 @@ contract NeverlandUiProvider is INeverlandUiProvider {
 
         summary.totalRevenue = new uint256[](rewardTokenCount);
         summary.totalEmissions = new uint256[](rewardTokenCount);
-        summary.totalHistorical = new uint256[](rewardTokenCount);
 
-        address[] memory revTokens = revenueReward.getRewardTokens();
+        address[] memory revTokens = REVENUE_REWARD.getRewardTokens();
         if (revTokens.length > 0 && tokenCount > 0) {
-            (, uint256[] memory totalsPerToken) = revenueReward.earnedRewardsAll(revTokens, tokenIds);
+            (, uint256[] memory totalsPerToken) = REVENUE_REWARD.earnedRewardsAll(revTokens, tokenIds);
             for (uint256 j; j < rewardTokenCount;) {
                 address t = rewardTokens[j];
                 for (uint256 r; r < revTokens.length;) {
@@ -234,7 +215,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
             }
         }
 
-        address[] memory emissionTokens = dustRewardsController.getRewardsList();
+        address[] memory emissionTokens = DUST_REWARDS_CONTROLLER.getRewardsList();
         for (uint256 j; j < rewardTokenCount;) {
             address rewardToken = rewardTokens[j];
             for (uint256 k; k < emissionTokens.length;) {
@@ -258,8 +239,8 @@ contract NeverlandUiProvider is INeverlandUiProvider {
      * @return ids Array of tokenIds
      */
     function _getUserRelatedTokenIds(address user) internal view returns (uint256[] memory ids) {
-        uint256 owned = dustLock.balanceOf(user);
-        uint256[] memory srl = revenueReward.getUserTokensWithSelfRepayingLoan(user);
+        uint256 owned = DUST_LOCK.balanceOf(user);
+        uint256[] memory srl = REVENUE_REWARD.getUserTokensWithSelfRepayingLoan(user);
 
         if (owned == 0 && srl.length == 0) return new uint256[](0);
 
@@ -269,7 +250,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
 
         // Add owned tokenIds (unique by ERC721 invariant)
         for (uint256 i; i < owned;) {
-            try dustLock.ownerToNFTokenIdList(user, i) returns (uint256 tokenId) {
+            try DUST_LOCK.ownerToNFTokenIdList(user, i) returns (uint256 tokenId) {
                 tmp[n] = tokenId;
                 unchecked {
                     ++n;
@@ -320,84 +301,6 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     }
 
     /// @inheritdoc INeverlandUiProvider
-    function getUserRevenueRewards(address user, address[] calldata rewardTokens)
-        public
-        view
-        override
-        returns (uint256[] memory revenueRewards)
-    {
-        CommonChecksLibrary.revertIfZeroAddress(user);
-
-        uint256[] memory tokenIds = _getUserRelatedTokenIds(user);
-        uint256 tokenCount = tokenIds.length;
-        uint256 rewardTokenCount = rewardTokens.length;
-
-        // Initialize result (defaults to zeros)
-        revenueRewards = new uint256[](rewardTokenCount);
-
-        // Gather all user's tokenIds
-        if (tokenCount == 0) return revenueRewards;
-
-        // Fetch only registered revenue tokens and compute totals via matrix API
-        address[] memory revTokens = revenueReward.getRewardTokens();
-        if (revTokens.length == 0 || tokenIds.length == 0) return revenueRewards;
-
-        (, uint256[] memory totalsPerToken) = revenueReward.earnedRewardsAll(revTokens, tokenIds);
-
-        // Map into requested order; non-revenue tokens remain zero
-        for (uint256 j; j < rewardTokenCount;) {
-            address t = rewardTokens[j];
-            for (uint256 r; r < revTokens.length;) {
-                if (revTokens[r] == t) {
-                    revenueRewards[j] = totalsPerToken[r];
-                    break;
-                }
-                unchecked {
-                    ++r;
-                }
-            }
-            unchecked {
-                ++j;
-            }
-        }
-    }
-
-    /// @inheritdoc INeverlandUiProvider
-    function getUserEmissionRewards(address user, address[] calldata rewardTokens)
-        public
-        view
-        override
-        returns (uint256[] memory emissionRewards)
-    {
-        CommonChecksLibrary.revertIfZeroAddress(user);
-
-        address[] memory emissionTokens = dustRewardsController.getRewardsList();
-        uint256 rewardTokenCount = rewardTokens.length;
-        // Allocate once outside the loop (was incorrectly reallocated per-iteration)
-        emissionRewards = new uint256[](rewardTokenCount);
-        for (uint256 j; j < rewardTokenCount;) {
-            address rewardToken = rewardTokens[j];
-
-            // Check if this token is supported by the emissions controller
-            bool isEmissionToken = false;
-            for (uint256 k; k < emissionTokens.length;) {
-                if (emissionTokens[k] == rewardToken) {
-                    isEmissionToken = true;
-                    break;
-                }
-                unchecked {
-                    ++k;
-                }
-            }
-
-            if (isEmissionToken) emissionRewards[j] = _getUserEmissionRewards(user, rewardToken);
-            unchecked {
-                ++j;
-            }
-        }
-    }
-
-    /// @inheritdoc INeverlandUiProvider
     function getUserEmissionBreakdown(address user, address rewardToken)
         public
         view
@@ -409,7 +312,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         uint256 n = assets.length;
         amounts = new uint256[](n);
         for (uint256 i; i < n;) {
-            amounts[i] = _calculateAssetEmissionRewards(user, assets[i], rewardToken);
+            amounts[i] = _tryUserRewardsSingle(user, assets[i], rewardToken);
             unchecked {
                 ++i;
             }
@@ -425,7 +328,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     {
         CommonChecksLibrary.revertIfZeroAddress(user);
 
-        rewardTokens = dustRewardsController.getRewardsList();
+        rewardTokens = DUST_REWARDS_CONTROLLER.getRewardsList();
         uint256 n = rewardTokens.length;
         totalRewards = new uint256[](n);
 
@@ -450,11 +353,11 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     {
         CommonChecksLibrary.revertIfZeroAddress(user);
 
-        uint256 tokenCount = dustLock.balanceOf(user);
+        uint256 tokenCount = DUST_LOCK.balanceOf(user);
         uint256 unlockCount = 0;
         for (uint256 i; i < tokenCount;) {
-            try dustLock.ownerToNFTokenIdList(user, i) returns (uint256 tokenId) {
-                IDustLock.LockedBalance memory locked = dustLock.locked(tokenId);
+            try DUST_LOCK.ownerToNFTokenIdList(user, i) returns (uint256 tokenId) {
+                IDustLock.LockedBalance memory locked = DUST_LOCK.locked(tokenId);
                 if (!locked.isPermanent && locked.end > block.timestamp) {
                     ++unlockCount;
                 }
@@ -472,8 +375,8 @@ contract NeverlandUiProvider is INeverlandUiProvider {
 
         uint256 index = 0;
         for (uint256 i; i < tokenCount;) {
-            try dustLock.ownerToNFTokenIdList(user, i) returns (uint256 tokenId) {
-                IDustLock.LockedBalance memory locked = dustLock.locked(tokenId);
+            try DUST_LOCK.ownerToNFTokenIdList(user, i) returns (uint256 tokenId) {
+                IDustLock.LockedBalance memory locked = DUST_LOCK.locked(tokenId);
 
                 if (!locked.isPermanent && locked.end > block.timestamp) {
                     unlockTimes[index] = locked.end;
@@ -521,7 +424,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         uint256 nT = pageDash.tokenIds.length;
         uint256 count;
         for (uint256 i; i < nT;) {
-            IDustLock.LockedBalance memory lockInfo = dustLock.locked(pageDash.tokenIds[i]);
+            IDustLock.LockedBalance memory lockInfo = DUST_LOCK.locked(pageDash.tokenIds[i]);
             if (!lockInfo.isPermanent && lockInfo.end > block.timestamp) {
                 unchecked {
                     ++count;
@@ -537,7 +440,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         uint256 idx;
         for (uint256 i; i < nT;) {
             uint256 tid = pageDash.tokenIds[i];
-            IDustLock.LockedBalance memory lockInfo2 = dustLock.locked(tid);
+            IDustLock.LockedBalance memory lockInfo2 = DUST_LOCK.locked(tid);
             if (!lockInfo2.isPermanent && lockInfo2.end > block.timestamp) {
                 uts[idx] = lockInfo2.end;
                 ams[idx] = uint256(lockInfo2.amount);
@@ -551,13 +454,8 @@ contract NeverlandUiProvider is INeverlandUiProvider {
             }
         }
         ext.unlockSchedule = UnlockSchedule({unlockTimes: uts, amounts: ams, tokenIds: tids});
-
-        // Keep view lightweight to avoid stack/gas issues in large users; fetch detailed components separately
-        ext.rewardsSummary.totalRevenue = new uint256[](0);
-        ext.rewardsSummary.totalEmissions = new uint256[](0);
-        ext.rewardsSummary.totalHistorical = new uint256[](0);
         ext.allPrices = getAllPrices();
-        ext.emissionBreakdowns = new EmissionAssetBreakdown[](0);
+
         return ext;
     }
 
@@ -567,7 +465,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
 
     /// @inheritdoc INeverlandUiProvider
     function getMarketData() public view override returns (MarketData memory) {
-        address[] memory rewardTokens = revenueReward.getRewardTokens();
+        address[] memory rewardTokens = REVENUE_REWARD.getRewardTokens();
         uint256 length = rewardTokens.length;
 
         uint256[] memory balances = new uint256[](length);
@@ -580,11 +478,11 @@ contract NeverlandUiProvider is INeverlandUiProvider {
 
         for (uint256 i; i < length;) {
             address token = rewardTokens[i];
-            balances[i] = IERC20(token).balanceOf(address(revenueReward));
-            uint256 perEpoch = revenueReward.tokenRewardsPerEpoch(token, currentEpoch);
+            balances[i] = IERC20(token).balanceOf(address(REVENUE_REWARD));
+            uint256 perEpoch = REVENUE_REWARD.tokenRewardsPerEpoch(token, currentEpoch);
             rates[i] = perEpoch;
             epochRewards[i] = perEpoch;
-            nextEpochRewards[i] = revenueReward.tokenRewardsPerEpoch(token, nextEpoch);
+            nextEpochRewards[i] = REVENUE_REWARD.tokenRewardsPerEpoch(token, nextEpoch);
             unchecked {
                 ++i;
             }
@@ -595,28 +493,26 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         m.rewardTokenBalances = balances;
         m.distributionRates = rates;
         m.nextEpochTimestamp = nextEpoch;
-        m.currentEpoch = dustLock.epoch();
+        m.currentEpoch = DUST_LOCK.epoch();
         m.epochRewards = epochRewards;
         m.nextEpochRewards = nextEpochRewards;
-        m.totalValueLockedUSD = dustOracle.getDustValueInUSD(dustLock.supply());
+        m.totalValueLockedUSD = DUST_HELPER.getDustValueInUSD(DUST_LOCK.supply());
         return m;
     }
 
     /// @inheritdoc INeverlandUiProvider
     function getAllPrices() public view override returns (PriceData memory) {
-        address[] memory rewardTokens = revenueReward.getRewardTokens();
+        address[] memory rewardTokens = REVENUE_REWARD.getRewardTokens();
         uint256 length = rewardTokens.length + 1;
 
         PriceData memory p;
         p.tokens = new address[](length);
         p.prices = new uint256[](length);
         p.lastUpdated = new uint256[](length);
-        p.isStale = new bool[](length);
 
-        p.tokens[0] = dustLock.token();
-        (p.prices[0],) = dustOracle.getPrice();
-        p.lastUpdated[0] = dustOracle.latestTimestamp();
-        p.isStale[0] = dustOracle.isPriceCacheStale();
+        p.tokens[0] = DUST_LOCK.token();
+        (p.prices[0],) = DUST_HELPER.getPrice();
+        p.lastUpdated[0] = DUST_HELPER.latestTimestamp();
         for (uint256 i; i < rewardTokens.length;) {
             uint256 idx = i + 1;
             address t = rewardTokens[i];
@@ -658,7 +554,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         locks = new LockInfo[](length);
         rewards = new RewardSummary[](length);
 
-        address[] memory rewardTokens = revenueReward.getRewardTokens();
+        address[] memory rewardTokens = REVENUE_REWARD.getRewardTokens();
         for (uint256 i = 0; i < length; ++i) {
             uint256 tokenId = tokenIds[i];
             locks[i] = _getLockInfo(tokenId);
@@ -672,10 +568,10 @@ contract NeverlandUiProvider is INeverlandUiProvider {
      * @return LockInfo Detailed lock information
      */
     function _getLockInfo(uint256 tokenId) internal view returns (LockInfo memory) {
-        IDustLock.LockedBalance memory locked = dustLock.locked(tokenId);
-        address owner = dustLock.ownerOf(tokenId);
-        uint256 votingPower = dustLock.balanceOfNFT(tokenId);
-        address rewardReceiver = revenueReward.tokenRewardReceiver(tokenId);
+        IDustLock.LockedBalance memory locked = DUST_LOCK.locked(tokenId);
+        address owner = DUST_LOCK.ownerOf(tokenId);
+        uint256 votingPower = DUST_LOCK.balanceOfNFT(tokenId);
+        address rewardReceiver = REVENUE_REWARD.tokenRewardReceiver(tokenId);
 
         LockInfo memory info;
         info.tokenId = tokenId;
@@ -704,13 +600,11 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         tokenIds[0] = tokenId;
 
         uint256 length = rewardTokens.length;
-        uint256[] memory emissionRewards = new uint256[](length);
-        uint256[] memory totalEarned = new uint256[](length);
         uint256[] memory revenueRewardsResult = new uint256[](length);
 
         // Only call earnedRewardsAll if there are reward tokens
         if (rewardTokens.length > 0) {
-            try revenueReward.earnedRewardsAll(rewardTokens, tokenIds) returns (
+            try REVENUE_REWARD.earnedRewardsAll(rewardTokens, tokenIds) returns (
                 uint256[][] memory matrix, uint256[] memory
             ) {
                 revenueRewardsResult = matrix.length > 0 ? matrix[0] : new uint256[](length);
@@ -723,30 +617,28 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         RewardSummary memory summary;
         summary.tokenId = tokenId;
         summary.revenueRewards = revenueRewardsResult;
-        summary.emissionRewards = emissionRewards;
         summary.rewardTokens = rewardTokens;
-        summary.totalEarned = totalEarned;
         return summary;
     }
 
     /// @inheritdoc INeverlandUiProvider
     function getProtocolMeta() public view returns (ProtocolMeta memory meta) {
-        meta.dustLock = address(dustLock);
-        meta.revenueReward = address(revenueReward);
-        meta.dustRewardsController = address(dustRewardsController);
-        meta.dustOracle = address(dustOracle);
-        meta.earlyWithdrawPenalty = dustLock.earlyWithdrawPenalty();
-        meta.minLockAmount = dustLock.minLockAmount();
-        try revenueReward.rewardDistributor() returns (address rd) {
+        meta.dustLock = address(DUST_LOCK);
+        meta.revenueReward = address(REVENUE_REWARD);
+        meta.dustRewardsController = address(DUST_REWARDS_CONTROLLER);
+        meta.dustOracle = address(DUST_HELPER);
+        meta.earlyWithdrawPenalty = DUST_LOCK.earlyWithdrawPenalty();
+        meta.minLockAmount = DUST_LOCK.minLockAmount();
+        try REVENUE_REWARD.rewardDistributor() returns (address rd) {
             meta.rewardDistributor = rd;
         } catch {
             meta.rewardDistributor = address(0);
         }
-        meta.revenueRewardTokens = revenueReward.getRewardTokens();
-        meta.emissionRewardTokens = dustRewardsController.getRewardsList();
+        meta.revenueRewardTokens = REVENUE_REWARD.getRewardTokens();
+        meta.emissionRewardTokens = DUST_REWARDS_CONTROLLER.getRewardsList();
         meta.emissionStrategies = new address[](meta.emissionRewardTokens.length);
         for (uint256 i; i < meta.emissionRewardTokens.length;) {
-            meta.emissionStrategies[i] = dustRewardsController.getTransferStrategy(meta.emissionRewardTokens[i]);
+            meta.emissionStrategies[i] = DUST_REWARDS_CONTROLLER.getTransferStrategy(meta.emissionRewardTokens[i]);
             unchecked {
                 ++i;
             }
@@ -795,11 +687,7 @@ contract NeverlandUiProvider is INeverlandUiProvider {
 
         for (uint256 i = 0; i < assets.length; ++i) {
             address asset = assets[i];
-            uint256 userBalance = _getUserAssetBalance(user, asset);
-
-            if (userBalance > 0) {
-                totalRewards += _calculateAssetEmissionRewards(user, asset, rewardToken);
-            }
+            totalRewards += _tryUserRewardsSingle(user, asset, rewardToken);
         }
     }
 
@@ -808,20 +696,13 @@ contract NeverlandUiProvider is INeverlandUiProvider {
      * @return assets Array of lending pool asset addresses (ATokens + Variable Debt Tokens)
      */
     function _getAllLendingPoolAssets() internal view returns (address[] memory assets) {
-        address dataProviderAddr = aaveLendingPoolAddressProvider.getPoolDataProvider();
+        address dataProviderAddr = AAVE_LENDING_POOL_ADDRESS_PROVIDER.getPoolDataProvider();
         if (dataProviderAddr == address(0)) {
             return new address[](0);
         }
 
         IPoolDataProvider dp = IPoolDataProvider(dataProviderAddr);
-
-        // Get all reserve tokens
-        IPoolDataProvider.TokenData[] memory reserveTokens;
-        try dp.getAllReservesTokens() returns (IPoolDataProvider.TokenData[] memory tokens) {
-            reserveTokens = tokens;
-        } catch {
-            return new address[](0);
-        }
+        IPoolDataProvider.TokenData[] memory reserveTokens = dp.getAllReservesTokens();
 
         uint256 reserveTokensLen = reserveTokens.length;
         if (reserveTokensLen == 0) return new address[](0);
@@ -874,61 +755,6 @@ contract NeverlandUiProvider is INeverlandUiProvider {
         }
     }
 
-    /**
-     * @notice Calculate emission rewards for a user on a specific asset
-     * @param user User address
-     * @param asset Asset address
-     * @param rewardToken Reward token address
-     * @return rewards Calculated emission rewards
-     */
-    function _calculateAssetEmissionRewards(address user, address asset, address rewardToken)
-        internal
-        view
-        returns (uint256 rewards)
-    {
-        uint256 direct = _tryUserRewardsSingle(user, asset, rewardToken);
-        if (direct > 0) return direct;
-
-        uint256 accrued = _tryUserAccruedProRata(user, asset, rewardToken);
-        if (accrued > 0) return accrued;
-
-        return _calculateManualEmissionRewards(user, asset, rewardToken);
-    }
-
-    /**
-     * @notice Manual calculation of emission rewards using indices
-     * @param user User address
-     * @param asset Asset address
-     * @param rewardToken Reward token address
-     * @return rewards Manually calculated rewards
-     */
-    function _calculateManualEmissionRewards(address user, address asset, address rewardToken)
-        internal
-        view
-        returns (uint256 rewards)
-    {
-        (bool ok, uint256 assetIndex, uint256 emissionPerSecond, uint256 lastUpdateTimestamp, uint256 distributionEnd) =
-            _safeGetRewardsData(asset, rewardToken);
-        if (!ok || emissionPerSecond < 1) return 0;
-
-        uint256 userBalance = _getUserAssetBalance(user, asset);
-        if (userBalance < 1) return 0;
-
-        (bool hasUserIndex, uint256 userIndex) = _safeGetUserAssetIndex(user, asset, rewardToken);
-        if (hasUserIndex && assetIndex > userIndex) {
-            uint256 indexDiff = assetIndex - userIndex;
-            return (userBalance * indexDiff) / 1e27;
-        }
-
-        if (distributionEnd <= lastUpdateTimestamp) return 0;
-        uint256 activeEnd = distributionEnd < block.timestamp ? distributionEnd : block.timestamp;
-        uint256 activeDuration = activeEnd - lastUpdateTimestamp;
-        uint256 totalEmissions = emissionPerSecond * activeDuration;
-        uint256 totalSupply = _safeTotalSupply(asset);
-        if (totalSupply < 1) return 0;
-        return (totalEmissions * userBalance) / totalSupply;
-    }
-
     /// @notice Tries to read user rewards via controller for a single asset
     /// @param user The user address
     /// @param asset The asset address
@@ -941,96 +767,10 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     {
         address[] memory singleAsset = new address[](1);
         singleAsset[0] = asset;
-        try dustRewardsController.getUserRewards(singleAsset, user, rewardToken) returns (uint256 userRewards) {
+        try DUST_REWARDS_CONTROLLER.getUserRewards(singleAsset, user, rewardToken) returns (uint256 userRewards) {
             return userRewards;
         } catch {
             return 0;
-        }
-    }
-
-    /// @notice Estimates rewards pro-rata from accrued rewards across all assets
-    /// @param user The user address
-    /// @param asset The asset address
-    /// @param rewardToken The reward token address
-    /// @return amount Estimated rewards (0 on failure)
-    function _tryUserAccruedProRata(address user, address asset, address rewardToken)
-        internal
-        view
-        returns (uint256 amount)
-    {
-        try dustRewardsController.getUserAccruedRewards(user, rewardToken) returns (uint256 accruedRewards) {
-            if (accruedRewards < 1) return 0;
-            uint256 userAssetBalance = _getUserAssetBalance(user, asset);
-            if (userAssetBalance < 1) return 0;
-            uint256 totalUserBalance = _getTotalUserBalance(user);
-            if (totalUserBalance < 1) return 0;
-            return (accruedRewards * userAssetBalance) / totalUserBalance;
-        } catch {
-            return 0;
-        }
-    }
-
-    /// @notice Safely reads rewards data for an asset/reward pair
-    /// @param asset The asset address
-    /// @param rewardToken The reward token address
-    /// @return ok True if the call succeeded
-    /// @return assetIndex Asset index value
-    /// @return emissionPerSecond Emission rate per second
-    /// @return lastUpdateTimestamp Last update timestamp
-    /// @return distributionEnd Distribution end timestamp
-    function _safeGetRewardsData(address asset, address rewardToken)
-        internal
-        view
-        returns (bool, uint256, uint256, uint256, uint256)
-    {
-        try dustRewardsController.getRewardsData(asset, rewardToken) returns (
-            uint256 assetIndex, uint256 emissionPerSecond, uint256 lastUpdateTimestamp, uint256 distributionEnd
-        ) {
-            return (true, assetIndex, emissionPerSecond, lastUpdateTimestamp, distributionEnd);
-        } catch {
-            return (false, 0, 0, 0, 0);
-        }
-    }
-
-    /// @notice Safely reads user's asset index for a given reward
-    /// @param user The user address
-    /// @param asset The asset address
-    /// @param rewardToken The reward token address
-    /// @return ok True if the call succeeded
-    /// @return userIndex The user index value
-    function _safeGetUserAssetIndex(address user, address asset, address rewardToken)
-        internal
-        view
-        returns (bool, uint256)
-    {
-        try dustRewardsController.getUserAssetIndex(user, asset, rewardToken) returns (uint256 userIndex) {
-            return (true, userIndex);
-        } catch {
-            return (false, 0);
-        }
-    }
-
-    /// @notice Safely returns total supply for an ERC20 asset (0 on failure)
-    /// @param asset The asset address
-    /// @return supply Total supply
-    function _safeTotalSupply(address asset) internal view returns (uint256 supply) {
-        try IERC20(asset).totalSupply() returns (uint256 totalSupply) {
-            return totalSupply;
-        } catch {
-            return 0;
-        }
-    }
-
-    /**
-     * @notice Get total user balance across all lending assets
-     * @param user User address
-     * @return totalBalance Total balance across all assets
-     */
-    function _getTotalUserBalance(address user) internal view returns (uint256 totalBalance) {
-        address[] memory assets = _getAllLendingPoolAssets();
-
-        for (uint256 i = 0; i < assets.length; ++i) {
-            totalBalance += _getUserAssetBalance(user, assets[i]);
         }
     }
 
@@ -1038,12 +778,12 @@ contract NeverlandUiProvider is INeverlandUiProvider {
     /// @param token The token address
     /// @return price USD price (8 decimals)
     function _getTokenPriceInUSD(address token) internal view returns (uint256 price) {
-        if (token == dustLock.token()) {
-            (price,) = dustOracle.getPrice();
+        if (token == DUST_LOCK.token()) {
+            (price,) = DUST_HELPER.getPrice();
             return price;
         }
 
-        address oracleAddr = aaveLendingPoolAddressProvider.getPriceOracle();
+        address oracleAddr = AAVE_LENDING_POOL_ADDRESS_PROVIDER.getPriceOracle();
         if (oracleAddr == address(0)) revert PriceOracleUnavailable();
 
         IPriceOracleGetter oracle = IPriceOracleGetter(oracleAddr);

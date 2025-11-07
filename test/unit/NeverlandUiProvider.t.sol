@@ -184,7 +184,7 @@ contract NeverlandUiProviderTest is BaseTestLocal {
     address private REVENUE_REWARD_ADDR;
     address private DUST_LOCK_ADDR;
     address private DUST_REWARDS_CONTROLLER_ADDR;
-    address private DUST_ORACLE_ADDR;
+    address private DUST_HELPER_ADDR;
     address private USDC_TOKEN_ADDR;
     address private UNDERLYING_ADDR;
     address private ATOKEN_ADDR;
@@ -236,7 +236,7 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         REVENUE_REWARD_ADDR = address(revenueReward);
         DUST_LOCK_ADDR = address(dustLock);
         USDC_TOKEN_ADDR = address(mockUSDC);
-        DUST_ORACLE_ADDR = address(0xF00371);
+        DUST_HELPER_ADDR = address(0xF00371);
 
         // Create an example reserve with aToken & variable debt token
         MockERC20Test underlying = new MockERC20Test("UNDER", "UNDER", 18);
@@ -332,9 +332,9 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         assertEq(address(dustRewardsController), DUST_REWARDS_CONTROLLER_ADDR);
 
         // Test fresh contract references
-        assertEq(address(freshUiProvider.dustLock()), DUST_LOCK_ADDR);
-        assertEq(address(freshUiProvider.revenueReward()), REVENUE_REWARD_ADDR);
-        assertEq(address(freshUiProvider.dustRewardsController()), DUST_REWARDS_CONTROLLER_ADDR);
+        assertEq(address(freshUiProvider.DUST_LOCK()), DUST_LOCK_ADDR);
+        assertEq(address(freshUiProvider.REVENUE_REWARD()), REVENUE_REWARD_ADDR);
+        assertEq(address(freshUiProvider.DUST_REWARDS_CONTROLLER()), DUST_REWARDS_CONTROLLER_ADDR);
 
         emit log("Contract configuration verified");
     }
@@ -651,10 +651,8 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             address[] memory emptyTokens = new address[](0);
             uint256[] memory emptyPrices = new uint256[](0);
             uint256[] memory emptyTimestamps = new uint256[](0);
-            bool[] memory emptyStale = new bool[](0);
-
             priceData = INeverlandUiProvider.PriceData({
-                tokens: emptyTokens, prices: emptyPrices, lastUpdated: emptyTimestamps, isStale: emptyStale
+                tokens: emptyTokens, prices: emptyPrices, lastUpdated: emptyTimestamps
             });
             pricesSuccessful = false;
         }
@@ -663,12 +661,8 @@ contract NeverlandUiProviderTest is BaseTestLocal {
         INeverlandUiProvider.UnlockSchedule memory unlockSchedule =
             INeverlandUiProvider.UnlockSchedule({unlockTimes: unlockTimes, amounts: amounts, tokenIds: tokenIds});
 
-        INeverlandUiProvider.ExtendedUserView memory extended = INeverlandUiProvider.ExtendedUserView({
-            unlockSchedule: unlockSchedule,
-            rewardsSummary: rewardsSummary,
-            allPrices: priceData,
-            emissionBreakdowns: new INeverlandUiProvider.EmissionAssetBreakdown[](0)
-        });
+        INeverlandUiProvider.ExtendedUserView memory extended =
+            INeverlandUiProvider.ExtendedUserView({unlockSchedule: unlockSchedule, allPrices: priceData});
 
         emit log_named_string("Price data status", pricesSuccessful ? "SUCCESS" : "FALLBACK");
 
@@ -680,15 +674,13 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             emit log_named_uint("First unlock token ID", extended.unlockSchedule.tokenIds[0]);
         }
 
-        // Validate rewards summary
-        emit log_named_uint("Revenue reward types", extended.rewardsSummary.totalRevenue.length);
-        emit log_named_uint("Emission reward types", extended.rewardsSummary.totalEmissions.length);
-        emit log_named_uint("Historical reward types", extended.rewardsSummary.totalHistorical.length);
+        // Validate rewards summary separately (not in extended view)
+        emit log_named_uint("Revenue reward types", rewardsSummary.totalRevenue.length);
+        emit log_named_uint("Emission reward types", rewardsSummary.totalEmissions.length);
 
-        if (extended.rewardsSummary.totalRevenue.length > 0) {
-            emit log_named_uint("Total revenue rewards", extended.rewardsSummary.totalRevenue[0]);
-            emit log_named_uint("Total emission rewards", extended.rewardsSummary.totalEmissions[0]);
-            emit log_named_uint("Total historical rewards", extended.rewardsSummary.totalHistorical[0]);
+        if (rewardsSummary.totalRevenue.length > 0) {
+            emit log_named_uint("Total revenue rewards", rewardsSummary.totalRevenue[0]);
+            emit log_named_uint("Total emission rewards", rewardsSummary.totalEmissions[0]);
         }
 
         // Validate price data
@@ -717,9 +709,8 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             extended.unlockSchedule.unlockTimes.length >= 0, "Extended view should have unlock schedule (can be empty)"
         );
 
-        require(
-            extended.rewardsSummary.totalRevenue.length >= 0, "Extended view should have rewards summary (can be empty)"
-        );
+        // Rewards are fetched separately via getUserRewardsSummary
+        require(rewardsSummary.totalRevenue.length >= 0, "Should have rewards summary (can be empty)");
 
         // 4. DATA COMPLETENESS CHECK
         emit log("");
@@ -735,7 +726,7 @@ contract NeverlandUiProviderTest is BaseTestLocal {
 
         // Extended view data points
         totalDataPoints += extended.unlockSchedule.unlockTimes.length; // Unlocks
-        totalDataPoints += extended.rewardsSummary.totalRevenue.length; // Revenue rewards
+        totalDataPoints += rewardsSummary.totalRevenue.length; // Revenue rewards (separate call)
         totalDataPoints += extended.allPrices.tokens.length; // Price data
 
         emit log_named_uint("Total data points across both views", totalDataPoints);
@@ -779,7 +770,6 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             emit log_named_address("Token", priceData.tokens[i]);
             emit log_named_uint("Price", priceData.prices[i]);
             emit log_named_uint("Last updated", priceData.lastUpdated[i]);
-            emit log_named_string("Is stale", priceData.isStale[i] ? "Yes" : "No");
         }
 
         emit log("Price data retrieval test passed");
@@ -914,20 +904,13 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             require(dashboard.tokenIds.length == 4, "User should have exactly 4 veDUST positions");
             require(dashboard.totalLockedAmount == lockAmount * 4, "Total locked amount should be 4000 DUST");
 
-            // Test batch token details for these positions
-            try freshUiProvider.getBatchTokenDetails(dashboard.tokenIds) returns (
-                INeverlandUiProvider.LockInfo[] memory locks, INeverlandUiProvider.RewardSummary[] memory rewards
-            ) {
-                require(locks.length == 4, "Should retrieve details for all 4 tokens");
-                require(rewards.length == 4, "Should retrieve rewards for all 4 tokens");
-                for (uint256 i = 0; i < locks.length; i++) {
-                    require(locks[i].amount == lockAmount, "Token lock amount should match");
-                }
-                emit log("[SUCCESS] All 4 veDUST positions created and verified successfully");
-            } catch Error(string memory reason) {
-                emit log_named_string("Batch token details failed", reason);
-                revert("Batch token details should work");
+            // Test lock details from dashboard (replaces getBatchTokenDetails which was removed)
+            require(dashboard.locks.length == 4, "Should retrieve details for all 4 tokens");
+            require(dashboard.rewardSummaries.length == 4, "Should retrieve rewards for all 4 tokens");
+            for (uint256 i = 0; i < dashboard.locks.length; i++) {
+                require(dashboard.locks[i].amount == lockAmount, "Token lock amount should match");
             }
+            emit log("[SUCCESS] All 4 veDUST positions created and verified successfully");
         } catch Error(string memory reason) {
             emit log_named_string("User dashboard failed", reason);
             revert("User dashboard should work");
@@ -946,20 +929,17 @@ contract NeverlandUiProviderTest is BaseTestLocal {
             if (dashboard.tokenIds.length > 0) {
                 emit log_named_uint("Found token IDs count", dashboard.tokenIds.length);
 
-                // Test batch token details
-                try freshUiProvider.getBatchTokenDetails(dashboard.tokenIds) returns (
-                    INeverlandUiProvider.LockInfo[] memory locks, INeverlandUiProvider.RewardSummary[] memory rewards
-                ) {
-                    emit log_named_uint("Batch query returned locks", locks.length);
-                    emit log_named_uint("Batch query returned rewards", rewards.length);
+                // Test lock details from dashboard (getBatchTokenDetails was removed)
+                emit log_named_uint("Dashboard returned locks", dashboard.locks.length);
+                emit log_named_uint("Dashboard returned rewards", dashboard.rewardSummaries.length);
 
-                    require(locks.length == dashboard.tokenIds.length, "Locks count should match token IDs");
-                    require(rewards.length == dashboard.tokenIds.length, "Rewards count should match token IDs");
+                require(dashboard.locks.length == dashboard.tokenIds.length, "Locks count should match token IDs");
+                require(
+                    dashboard.rewardSummaries.length == dashboard.tokenIds.length,
+                    "Rewards count should match token IDs"
+                );
 
-                    emit log("[SUCCESS] Batch token details query works correctly");
-                } catch Error(string memory reason) {
-                    emit log_named_string("Batch token details failed", reason);
-                }
+                emit log("[SUCCESS] Dashboard query works correctly");
             } else {
                 emit log("No tokens found for user");
             }
@@ -1044,42 +1024,33 @@ contract NeverlandUiProviderTest is BaseTestLocal {
                     if (dashboard.rewardSummaries[i].revenueRewards.length > 0) {
                         emit log_named_uint("  Revenue Rewards", dashboard.rewardSummaries[i].revenueRewards[0]);
                     }
-                    if (dashboard.rewardSummaries[i].emissionRewards.length > 0) {
-                        emit log_named_uint("  Emission Rewards", dashboard.rewardSummaries[i].emissionRewards[0]);
-                    }
+                    // Note: emissionRewards field was removed from RewardSummary (emissions are per-user, not per-token)
                 }
                 emit log("");
             }
 
-            // Test batch token details for these positions
-            try freshUiProvider.getBatchTokenDetails(dashboard.tokenIds) returns (
-                INeverlandUiProvider.LockInfo[] memory locks, INeverlandUiProvider.RewardSummary[] memory rewards
-            ) {
-                emit log("--- BATCH TOKEN DETAILS ---");
-                emit log_named_uint("Retrieved locks count", locks.length);
-                emit log_named_uint("Retrieved rewards count", rewards.length);
+            // Test lock details from dashboard (getBatchTokenDetails was removed)
+            emit log("--- TOKEN DETAILS FROM DASHBOARD ---");
+            emit log_named_uint("Retrieved locks count", dashboard.locks.length);
+            emit log_named_uint("Retrieved rewards count", dashboard.rewardSummaries.length);
 
-                require(locks.length == 4, "Should retrieve details for all 4 tokens");
-                require(rewards.length == 4, "Should retrieve rewards for all 4 tokens");
+            require(dashboard.locks.length == 4, "Should retrieve details for all 4 tokens");
+            require(dashboard.rewardSummaries.length == 4, "Should retrieve rewards for all 4 tokens");
 
-                for (uint256 i = 0; i < locks.length; i++) {
-                    emit log_named_string(
-                        "Token Details", string(abi.encodePacked("Token #", vm.toString(locks[i].tokenId)))
-                    );
-                    emit log_named_uint("  Lock Amount", locks[i].amount);
-                    emit log_named_uint("  Lock End", locks[i].end);
-                    emit log_named_uint("  Voting Power", locks[i].votingPower);
-                    emit log_named_string("  Is Permanent", locks[i].isPermanent ? "true" : "false");
+            for (uint256 i = 0; i < dashboard.locks.length; i++) {
+                emit log_named_string(
+                    "Token Details", string(abi.encodePacked("Token #", vm.toString(dashboard.locks[i].tokenId)))
+                );
+                emit log_named_uint("  Lock Amount", dashboard.locks[i].amount);
+                emit log_named_uint("  Lock End", dashboard.locks[i].end);
+                emit log_named_uint("  Voting Power", dashboard.locks[i].votingPower);
+                emit log_named_string("  Is Permanent", dashboard.locks[i].isPermanent ? "true" : "false");
 
-                    // Verify token data consistency
-                    require(locks[i].amount == lockAmount, "Token lock amount should match");
-                }
-
-                emit log("[SUCCESS] All 4 veDUST positions created and verified successfully");
-            } catch Error(string memory reason) {
-                emit log_named_string("Batch token details failed", reason);
-                revert("Batch token details should work");
+                // Verify token data consistency
+                require(dashboard.locks[i].amount == lockAmount, "Token lock amount should match");
             }
+
+            emit log("[SUCCESS] All 4 veDUST positions created and verified successfully");
         } catch Error(string memory reason) {
             emit log_named_string("User dashboard failed", reason);
             revert("User dashboard should work");
@@ -1119,25 +1090,17 @@ contract NeverlandUiProviderTest is BaseTestLocal {
                     "[PASS] First Lock Type", dashboard.locks[0].isPermanent ? "Permanent" : "Temporary"
                 );
 
-                // Test getBatchTokenDetails with these real token IDs
+                // Test lock details from dashboard (getBatchTokenDetails was removed)
                 emit log("");
-                emit log("--- TESTING getBatchTokenDetails ---");
-                try freshUiProvider.getBatchTokenDetails(dashboard.tokenIds) returns (
-                    INeverlandUiProvider.LockInfo[] memory locks, INeverlandUiProvider.RewardSummary[] memory rewards
-                ) {
-                    emit log_named_uint("[PASS] Retrieved locks count", locks.length);
-                    emit log_named_uint("[PASS] Retrieved rewards count", rewards.length);
+                emit log("--- TESTING LOCK DETAILS FROM DASHBOARD ---");
+                emit log_named_uint("[PASS] Dashboard locks count", dashboard.locks.length);
+                emit log_named_uint("[PASS] Dashboard rewards count", dashboard.rewardSummaries.length);
 
-                    for (uint256 i = 0; i < locks.length && i < 3; i++) {
-                        emit log_named_string(
-                            "Token Detail", string(abi.encodePacked("Position #", vm.toString(i + 1)))
-                        );
-                        emit log_named_uint("  Token ID", locks[i].tokenId);
-                        emit log_named_uint("  Amount", locks[i].amount);
-                        emit log_named_uint("  Voting Power", locks[i].votingPower);
-                    }
-                } catch Error(string memory reason) {
-                    emit log_named_string("[FAIL] getBatchTokenDetails failed", reason);
+                for (uint256 i = 0; i < dashboard.locks.length && i < 3; i++) {
+                    emit log_named_string("Token Detail", string(abi.encodePacked("Position #", vm.toString(i + 1))));
+                    emit log_named_uint("  Token ID", dashboard.locks[i].tokenId);
+                    emit log_named_uint("  Amount", dashboard.locks[i].amount);
+                    emit log_named_uint("  Voting Power", dashboard.locks[i].votingPower);
                 }
             } else {
                 emit log("[INFO] User has no positions, testing with empty arrays");

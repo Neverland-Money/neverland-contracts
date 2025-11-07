@@ -42,20 +42,20 @@ export default {
       },
     },
     // Local Anvil Fork
-    anvilFork: {
+    "anvil-fork": {
       url: "http://127.0.0.1:8545",
       chainId: ANVIL_CHAIN_ID,
       accounts: [PRIVATE_KEY],
       timeout: 60000,
     },
     // Monad Testnet
-    monadTestnet: {
+    "monad-testnet": {
       url: `https://testnet-rpc.monad.xyz`,
       chainId: 10143,
       accounts: [PRIVATE_KEY],
     },
     // Monad Mainnet
-    monadMainnet: {
+    "monad-mainnet": {
       url: MONAD_MAINNET_RPC,
       chainId: 143,
       accounts: [PRIVATE_KEY],
@@ -76,7 +76,7 @@ export default {
     apiKey: ETHERSCAN_KEY,
     customChains: [
       {
-        network: "monadTestnet",
+        network: "monad-testnet",
         chainId: 10143,
         urls: {
           apiURL: "https://api.etherscan.io/v2/api?chainid=10143",
@@ -84,7 +84,7 @@ export default {
         },
       },
       {
-        network: "monadMainnet",
+        network: "monad-mainnet",
         chainId: 143,
         urls: {
           apiURL: "https://api.etherscan.io/v2/api?chainid=143",

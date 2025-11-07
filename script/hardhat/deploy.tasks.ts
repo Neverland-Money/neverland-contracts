@@ -1075,27 +1075,32 @@ const deployNeverland = async (
   if (!exclude.has("NeverlandUiProvider")) {
     const dustLockAddress = getRecordedAddress("DustLock");
     const revenueRewardAddress = getRecordedAddress("RevenueReward");
-    const controllerAddress = getRecordedAddress("DustRewardsController");
-    const dustOracleAddress = getRecordedAddress("NeverlandDustHelper");
-    const aaveProvider = requireConfigValue(
+    const dustRewardsControllerAddress = getRecordedAddress(
+      "DustRewardsController"
+    );
+    const neverlandDustHelperAddress = getRecordedAddress(
+      "NeverlandDustHelper"
+    );
+    const aaveLendingPoolAddressProvider = requireConfigValue(
       config.uiProvider?.aaveLendingPoolAddressProvider,
       "uiProvider.aaveLendingPoolAddressProvider"
     );
+
     console.log("\n⛏️  Deploying NeverlandUiProvider...");
-    const uiFactory = await hre.ethers.getContractFactory(
+    const uiProviderFactory = await hre.ethers.getContractFactory(
       "NeverlandUiProvider"
     );
-    const uiProvider = await uiFactory.deploy(
+    const uiProvider = await uiProviderFactory.deploy(
       dustLockAddress,
       revenueRewardAddress,
-      controllerAddress,
-      dustOracleAddress,
-      aaveProvider
+      dustRewardsControllerAddress,
+      neverlandDustHelperAddress,
+      aaveLendingPoolAddressProvider
     );
     await uiProvider.waitForDeployment();
-    const uiAddress = await uiProvider.getAddress();
-    recordAddress("NeverlandUiProvider", uiAddress);
-    console.log(`✅ NeverlandUiProvider deployed at ${uiAddress}`);
+    const uiProviderAddress = await uiProvider.getAddress();
+    recordAddress("NeverlandUiProvider", uiProviderAddress);
+    console.log(`✅ NeverlandUiProvider deployed at ${uiProviderAddress}`);
     await reportDeployment(
       hre,
       uiProvider,
@@ -1106,21 +1111,21 @@ const deployNeverland = async (
     // Verify NeverlandUiProvider
     await verifyContract(
       hre,
-      uiAddress,
+      uiProviderAddress,
       [
         dustLockAddress,
         revenueRewardAddress,
-        controllerAddress,
-        dustOracleAddress,
-        aaveProvider,
+        dustRewardsControllerAddress,
+        neverlandDustHelperAddress,
+        aaveLendingPoolAddressProvider,
       ],
-      "src/ui/NeverlandUiProvider.sol:NeverlandUiProvider",
+      "src/utils/NeverlandUiProvider.sol:NeverlandUiProvider",
       dryRun
     );
   } else {
-    const existingUi = getRecordedAddress("NeverlandUiProvider");
+    const existingUiProvider = getRecordedAddress("NeverlandUiProvider");
     console.log(
-      `\n⏭️  Skipping NeverlandUiProvider deployment (excluded). Using provided UI provider at ${existingUi}.`
+      `\n⏭️  Skipping NeverlandUiProvider deployment (excluded). Using provided UI provider at ${existingUiProvider}.`
     );
   }
 
