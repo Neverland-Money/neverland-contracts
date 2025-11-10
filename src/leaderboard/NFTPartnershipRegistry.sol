@@ -205,4 +205,9 @@ contract NFTPartnershipRegistry is INFTPartnershipRegistry, Ownable {
     function getPartnershipCount() external view returns (uint256) {
         return allPartnerships.length;
     }
+
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
+    }
 }

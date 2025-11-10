@@ -189,4 +189,9 @@ contract VotingPowerMultiplier is IVotingPowerMultiplier, Ownable {
         }
         return tiers[tierIndex];
     }
+
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
+    }
 }

@@ -590,4 +590,9 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     function version() external pure override returns (uint256) {
         return 1;
     }
+
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
+    }
 }

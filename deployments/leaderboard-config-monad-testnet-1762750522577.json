@@ -1,0 +1,19 @@
+{
+  "leaderboardConfig": "0x2FE57290Bb29e8f850A635B5073e7Efb23B51DaA",
+  "deployer": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+  "network": "monad-testnet",
+  "timestamp": "2025-11-10T04:55:22.577Z",
+  "parameters": {
+    "leaderboard": {
+      "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+      "depositRateBps": "100",
+      "borrowRateBps": "500",
+      "supplyDailyBonus": "10000000000000000000",
+      "borrowDailyBonus": "20000000000000000000",
+      "repayDailyBonus": "0",
+      "withdrawDailyBonus": "0",
+      "cooldownSeconds": "3600",
+      "minDailyBonusUsd": "0"
+    }
+  }
+}

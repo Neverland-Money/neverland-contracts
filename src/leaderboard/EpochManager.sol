@@ -96,6 +96,11 @@ contract EpochManager is IEpochManager, Ownable {
         emit EpochEnded(epochNumber, block.number, block.timestamp, startBlock, startTime, duration);
     }
 
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
+    }
+
     /*//////////////////////////////////////////////////////////////
                                  VIEWS
     //////////////////////////////////////////////////////////////*/

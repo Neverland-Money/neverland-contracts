@@ -266,6 +266,17 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         );
     }
 
+    /// @inheritdoc ILeaderboardConfig
+    function awardPoints(address user, uint256 points, string calldata reason) external onlyOwner {
+        CommonChecksLibrary.revertIfZeroAddress(user);
+        emit PointsAwarded(user, points, reason, block.timestamp);
+    }
+
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
+    }
+
     /*//////////////////////////////////////////////////////////////
                                  VIEWS
     //////////////////////////////////////////////////////////////*/

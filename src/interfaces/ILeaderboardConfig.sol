@@ -91,6 +91,15 @@ interface ILeaderboardConfig {
         uint256 timestamp
     );
 
+    /**
+     * @notice Emitted when points are manually awarded to a user
+     * @param user Wallet address receiving points
+     * @param points Amount of points awarded (18 decimals)
+     * @param reason Optional description for the award
+     * @param timestamp Block timestamp of award
+     */
+    event PointsAwarded(address indexed user, uint256 points, string reason, uint256 timestamp);
+
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -159,6 +168,14 @@ interface ILeaderboardConfig {
      */
     function updateAllRates(uint256 _depositRate, uint256 _borrowRate, uint256 _supplyBonus, uint256 _borrowBonus)
         external;
+
+    /**
+     * @notice Manually award points to a user (e.g., for special events)
+     * @param user Wallet address to receive points
+     * @param points Amount of points to award (18 decimals)
+     * @param reason Optional description for the award
+     */
+    function awardPoints(address user, uint256 points, string calldata reason) external;
 
     /*//////////////////////////////////////////////////////////////
                                  VIEWS
