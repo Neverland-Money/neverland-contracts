@@ -254,7 +254,7 @@ const deployLeaderboardConfigOnly = async (
     "   • DepositRateUpdated / BorrowRateUpdated / DailyBonusUpdated"
   );
   console.log("   • ConfigSnapshot (on every config change)");
-  console.log("   • PointsAwarded (manual point awards) - NEW!");
+  console.log("   • PointsAwarded (manual point awards)");
 
   console.log(
     "\n⚠️  Remember to update your subgraph with the new contract address!"

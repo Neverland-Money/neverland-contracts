@@ -177,6 +177,14 @@ interface ILeaderboardConfig {
      */
     function awardPoints(address user, uint256 points, string calldata reason) external;
 
+    /**
+     * @notice Batch award points to multiple users (gas efficient)
+     * @param users Array of wallet addresses to receive points
+     * @param points Array of points amounts to award (18 decimals)
+     * @param reason Optional description for the batch award
+     */
+    function batchAwardPoints(address[] calldata users, uint256[] calldata points, string calldata reason) external;
+
     /*//////////////////////////////////////////////////////////////
                                  VIEWS
     //////////////////////////////////////////////////////////////*/

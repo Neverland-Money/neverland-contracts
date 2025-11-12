@@ -272,6 +272,21 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         emit PointsAwarded(user, points, reason, block.timestamp);
     }
 
+    /// @inheritdoc ILeaderboardConfig
+    function batchAwardPoints(address[] calldata users, uint256[] calldata points, string calldata reason)
+        external
+        onlyOwner
+    {
+        if (users.length != points.length) revert("Array length mismatch");
+        if (users.length == 0) revert("Empty arrays");
+
+        for (uint256 i = 0; i < users.length; i++) {
+            CommonChecksLibrary.revertIfZeroAddress(users[i]);
+
+            emit PointsAwarded(users[i], points[i], reason, block.timestamp);
+        }
+    }
+
     /// @notice Disabled to prevent accidental renouncement of ownership
     function renounceOwnership() public view override onlyOwner {
         revert();
