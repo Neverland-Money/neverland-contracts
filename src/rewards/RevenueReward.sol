@@ -350,12 +350,9 @@ contract RevenueReward is IRevenueReward, Initializable, ERC2771ContextUpgradeab
      * @param tokens Array of reward token addresses to claim (must be registered reward tokens)
      * @param rewardPeriodEndTs The end timestamp to calculate rewards up to (must not be in the future)
      */
-    function _claimRewardsUntilTs(
-        uint256 tokenId,
-        address receiver,
-        address[] memory tokens,
-        uint256 rewardPeriodEndTs
-    ) internal {
+    function _claimRewardsUntilTs(uint256 tokenId, address receiver, address[] memory tokens, uint256 rewardPeriodEndTs)
+        internal
+    {
         uint256 len = tokens.length;
         for (uint256 i = 0; i < len; ++i) {
             address token = tokens[i];
