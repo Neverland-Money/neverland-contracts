@@ -6,6 +6,7 @@
     "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
     "depositRateBps": "100",
     "borrowRateBps": "500",
+    "vpRateBps": "200",
     "supplyDailyBonus": "10000000000000000000",
     "borrowDailyBonus": "20000000000000000000",
     "repayDailyBonus": "0",

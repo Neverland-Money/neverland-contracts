@@ -160,8 +160,8 @@ async function verifyDeployment(
     details: teamMatches
       ? `Current: ${lockTeam}`
       : teamPending
-      ? `Pending acceptance: ${lockPendingTeam} (current: ${lockTeam})`
-      : `Expected: ${expected.dustLock.team}, Got: ${lockTeam}`,
+        ? `Pending acceptance: ${lockPendingTeam} (current: ${lockTeam})`
+        : `Expected: ${expected.dustLock.team}, Got: ${lockTeam}`,
   });
 
   checks.push({
@@ -232,8 +232,8 @@ async function verifyDeployment(
     details: strategyIsSet
       ? `Set: ${controllerStrategy}`
       : strategyIsZero
-      ? `Not set yet (will be configured with emissions)`
-      : `Unexpected: ${controllerStrategy}`,
+        ? `Not set yet (will be configured with emissions)`
+        : `Unexpected: ${controllerStrategy}`,
   });
 
   // ============= REVENUE REWARD =============
@@ -361,8 +361,8 @@ async function verifyDeployment(
     details: ownerMatches
       ? `Current: ${registryOwner}`
       : ownerPending
-      ? `Pending acceptance: ${registryPendingOwner} (current: ${registryOwner})`
-      : `Expected: ${expected.selfRepaying.registry.owner}, Got: ${registryOwner}`,
+        ? `Pending acceptance: ${registryPendingOwner} (current: ${registryOwner})`
+        : `Expected: ${expected.selfRepaying.registry.owner}, Got: ${registryOwner}`,
   });
 
   checks.push({

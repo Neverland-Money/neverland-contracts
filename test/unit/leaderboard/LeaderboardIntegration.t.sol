@@ -15,7 +15,7 @@ contract LeaderboardIntegrationTest is LeaderboardBase {
 
         // Configure rates
         vm.startPrank(admin);
-        leaderboardConfig.updateAllRates(100, 500, 10e18, 20e18);
+        leaderboardConfig.updateAllRates(100, 500, 200, 10e18, 20e18);
 
         // Setup NFT partnerships
         nftRegistry.addPartnership(address(nftCollection1), "Collection1", block.timestamp, 0);
@@ -181,7 +181,7 @@ contract LeaderboardIntegrationTest is LeaderboardBase {
         // Setup
         vm.startPrank(admin);
         epochManager.startNewEpoch();
-        leaderboardConfig.updateAllRates(100, 500, 10e18, 20e18);
+        leaderboardConfig.updateAllRates(100, 500, 200, 10e18, 20e18);
         nftRegistry.addPartnership(address(nftCollection1), "Collection1", block.timestamp, 0);
         vpMultiplier.addTier(1_000e18, 11_000);
         vm.stopPrank();
@@ -242,7 +242,7 @@ contract LeaderboardIntegrationTest is LeaderboardBase {
         // Epoch 1 setup
         vm.startPrank(admin);
         epochManager.startNewEpoch();
-        leaderboardConfig.updateAllRates(100, 0, 0, 0); // Simple: only deposit points
+        leaderboardConfig.updateAllRates(100, 0, 200, 0, 0); // Deposit and VP points
         vm.stopPrank();
 
         (, uint256 epoch1Start,,) = epochManager.getEpochDetails(1);

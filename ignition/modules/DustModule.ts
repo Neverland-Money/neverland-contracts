@@ -17,7 +17,7 @@ const DustModule = buildModule("DustModule", (m) => {
 
   const dust = m.contractAt("Dust", proxy);
 
-  m.call(dust, "initialize", [proxyAdminOwner, ts])
+  m.call(dust, "initialize", [proxyAdminOwner, ts]);
 
   return { dustProxyAdmin, dust, dustImpl };
 });

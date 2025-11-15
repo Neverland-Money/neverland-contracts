@@ -14,6 +14,7 @@ contract LeaderboardGasTest is Test {
             owner,
             100, // depositRateBps
             500, // borrowRateBps
+            200, // vpRateBps
             10e18, // supplyDailyBonus
             20e18, // borrowDailyBonus
             0, // repayDailyBonus

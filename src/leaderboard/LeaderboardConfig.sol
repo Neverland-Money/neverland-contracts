@@ -36,6 +36,9 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
     /// @notice Borrow point rate in basis points per day per USD (500 = 0.05)
     uint256 public borrowRateBps;
 
+    /// @notice VP point rate in basis points per day per 1e18 VP
+    uint256 public vpRateBps;
+
     /// @notice Supply daily bonus in points (18 decimals)
     uint256 public supplyDailyBonus;
 
@@ -63,6 +66,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
      * @param _initialOwner Initial owner for Ownable
      * @param _depositRateBps Initial deposit rate (100 = 0.01)
      * @param _borrowRateBps Initial borrow rate (500 = 0.05)
+     * @param _vpRateBps Initial VP rate (per 1e18 VP)
      * @param _supplyDailyBonus Initial supply bonus (10e18 = 10 points)
      * @param _borrowDailyBonus Initial borrow bonus (20e18 = 20 points)
      * @param _repayDailyBonus Initial repay bonus (0 = disabled)
@@ -74,6 +78,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         address _initialOwner,
         uint256 _depositRateBps,
         uint256 _borrowRateBps,
+        uint256 _vpRateBps,
         uint256 _supplyDailyBonus,
         uint256 _borrowDailyBonus,
         uint256 _repayDailyBonus,
@@ -86,14 +91,26 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
 
         if (_depositRateBps > MAX_RATE_BPS) revert RateTooHigh(_depositRateBps);
         if (_borrowRateBps > MAX_RATE_BPS) revert RateTooHigh(_borrowRateBps);
-        if (_supplyDailyBonus > MAX_DAILY_BONUS) revert BonusTooHigh(_supplyDailyBonus);
-        if (_borrowDailyBonus > MAX_DAILY_BONUS) revert BonusTooHigh(_borrowDailyBonus);
-        if (_repayDailyBonus > MAX_DAILY_BONUS) revert BonusTooHigh(_repayDailyBonus);
-        if (_withdrawDailyBonus > MAX_DAILY_BONUS) revert BonusTooHigh(_withdrawDailyBonus);
-        if (_cooldownSeconds > MAX_COOLDOWN_SECONDS) revert CooldownTooLong(_cooldownSeconds);
+        if (_vpRateBps > MAX_RATE_BPS) revert RateTooHigh(_vpRateBps);
+        if (_supplyDailyBonus > MAX_DAILY_BONUS) {
+            revert BonusTooHigh(_supplyDailyBonus);
+        }
+        if (_borrowDailyBonus > MAX_DAILY_BONUS) {
+            revert BonusTooHigh(_borrowDailyBonus);
+        }
+        if (_repayDailyBonus > MAX_DAILY_BONUS) {
+            revert BonusTooHigh(_repayDailyBonus);
+        }
+        if (_withdrawDailyBonus > MAX_DAILY_BONUS) {
+            revert BonusTooHigh(_withdrawDailyBonus);
+        }
+        if (_cooldownSeconds > MAX_COOLDOWN_SECONDS) {
+            revert CooldownTooLong(_cooldownSeconds);
+        }
 
         depositRateBps = _depositRateBps;
         borrowRateBps = _borrowRateBps;
+        vpRateBps = _vpRateBps;
         supplyDailyBonus = _supplyDailyBonus;
         borrowDailyBonus = _borrowDailyBonus;
         repayDailyBonus = _repayDailyBonus;
@@ -103,6 +120,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
 
         emit DepositRateUpdated(0, _depositRateBps, block.timestamp);
         emit BorrowRateUpdated(0, _borrowRateBps, block.timestamp);
+        emit VpRateUpdated(0, _vpRateBps, block.timestamp);
         emit DailyBonusUpdated(
             0, _supplyDailyBonus, 0, _borrowDailyBonus, 0, _repayDailyBonus, 0, _withdrawDailyBonus, block.timestamp
         );
@@ -111,6 +129,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         emit ConfigSnapshot(
             _depositRateBps,
             _borrowRateBps,
+            _vpRateBps,
             _supplyDailyBonus,
             _borrowDailyBonus,
             _repayDailyBonus,
@@ -134,6 +153,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         emit ConfigSnapshot(
             depositRateBps,
             borrowRateBps,
+            vpRateBps,
             supplyDailyBonus,
             borrowDailyBonus,
             repayDailyBonus,
@@ -153,6 +173,27 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         emit ConfigSnapshot(
             depositRateBps,
             borrowRateBps,
+            vpRateBps,
+            supplyDailyBonus,
+            borrowDailyBonus,
+            repayDailyBonus,
+            withdrawDailyBonus,
+            cooldownSeconds,
+            minDailyBonusUsd,
+            block.timestamp
+        );
+    }
+
+    /// @inheritdoc ILeaderboardConfig
+    function setVpRate(uint256 newRateBps) external onlyOwner {
+        if (newRateBps > MAX_RATE_BPS) revert RateTooHigh(newRateBps);
+        uint256 oldRate = vpRateBps;
+        vpRateBps = newRateBps;
+        emit VpRateUpdated(oldRate, newRateBps, block.timestamp);
+        emit ConfigSnapshot(
+            depositRateBps,
+            borrowRateBps,
+            vpRateBps,
             supplyDailyBonus,
             borrowDailyBonus,
             repayDailyBonus,
@@ -183,6 +224,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         emit ConfigSnapshot(
             depositRateBps,
             borrowRateBps,
+            vpRateBps,
             supplyDailyBonus,
             borrowDailyBonus,
             repayDailyBonus,
@@ -195,13 +237,16 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
 
     /// @inheritdoc ILeaderboardConfig
     function setCooldown(uint256 newSeconds) external onlyOwner {
-        if (newSeconds > MAX_COOLDOWN_SECONDS) revert CooldownTooLong(newSeconds);
+        if (newSeconds > MAX_COOLDOWN_SECONDS) {
+            revert CooldownTooLong(newSeconds);
+        }
         uint256 oldSeconds = cooldownSeconds;
         cooldownSeconds = newSeconds;
         emit CooldownUpdated(oldSeconds, newSeconds, block.timestamp);
         emit ConfigSnapshot(
             depositRateBps,
             borrowRateBps,
+            vpRateBps,
             supplyDailyBonus,
             borrowDailyBonus,
             repayDailyBonus,
@@ -220,6 +265,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         emit ConfigSnapshot(
             depositRateBps,
             borrowRateBps,
+            vpRateBps,
             supplyDailyBonus,
             borrowDailyBonus,
             repayDailyBonus,
@@ -231,31 +277,39 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
     }
 
     /// @inheritdoc ILeaderboardConfig
-    function updateAllRates(uint256 _depositRate, uint256 _borrowRate, uint256 _supplyBonus, uint256 _borrowBonus)
-        external
-        onlyOwner
-    {
+    function updateAllRates(
+        uint256 _depositRate,
+        uint256 _borrowRate,
+        uint256 _vpRate,
+        uint256 _supplyBonus,
+        uint256 _borrowBonus
+    ) external onlyOwner {
         if (_depositRate > MAX_RATE_BPS) revert RateTooHigh(_depositRate);
         if (_borrowRate > MAX_RATE_BPS) revert RateTooHigh(_borrowRate);
+        if (_vpRate > MAX_RATE_BPS) revert RateTooHigh(_vpRate);
         if (_supplyBonus > MAX_DAILY_BONUS) revert BonusTooHigh(_supplyBonus);
         if (_borrowBonus > MAX_DAILY_BONUS) revert BonusTooHigh(_borrowBonus);
 
         uint256 oldDepositRate = depositRateBps;
         uint256 oldBorrowRate = borrowRateBps;
+        uint256 oldVpRate = vpRateBps;
         uint256 oldSupply = supplyDailyBonus;
         uint256 oldBorrow = borrowDailyBonus;
 
         depositRateBps = _depositRate;
         borrowRateBps = _borrowRate;
+        vpRateBps = _vpRate;
         supplyDailyBonus = _supplyBonus;
         borrowDailyBonus = _borrowBonus;
 
         emit DepositRateUpdated(oldDepositRate, _depositRate, block.timestamp);
         emit BorrowRateUpdated(oldBorrowRate, _borrowRate, block.timestamp);
+        emit VpRateUpdated(oldVpRate, _vpRate, block.timestamp);
         emit DailyBonusUpdated(oldSupply, _supplyBonus, oldBorrow, _borrowBonus, 0, 0, 0, 0, block.timestamp);
         emit ConfigSnapshot(
             depositRateBps,
             borrowRateBps,
+            vpRateBps,
             supplyDailyBonus,
             borrowDailyBonus,
             repayDailyBonus,
@@ -287,6 +341,27 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         }
     }
 
+    /// @inheritdoc ILeaderboardConfig
+    function removePoints(address user, uint256 points, string calldata reason) external onlyOwner {
+        CommonChecksLibrary.revertIfZeroAddress(user);
+        emit PointsRemoved(user, points, reason, block.timestamp);
+    }
+
+    /// @inheritdoc ILeaderboardConfig
+    function batchRemovePoints(address[] calldata users, uint256[] calldata points, string calldata reason)
+        external
+        onlyOwner
+    {
+        if (users.length != points.length) revert("Array length mismatch");
+        if (users.length == 0) revert("Empty arrays");
+
+        for (uint256 i = 0; i < users.length; i++) {
+            CommonChecksLibrary.revertIfZeroAddress(users[i]);
+
+            emit PointsRemoved(users[i], points[i], reason, block.timestamp);
+        }
+    }
+
     /// @notice Disabled to prevent accidental renouncement of ownership
     function renounceOwnership() public view override onlyOwner {
         revert();
@@ -307,6 +382,11 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
     }
 
     /// @inheritdoc ILeaderboardConfig
+    function getVpRatePerDay() external view returns (uint256 rate) {
+        return vpRateBps;
+    }
+
+    /// @inheritdoc ILeaderboardConfig
     function getDailyBonuses() external view returns (uint256 supply, uint256 borrow, uint256 repay, uint256 withdraw) {
         return (supplyDailyBonus, borrowDailyBonus, repayDailyBonus, withdrawDailyBonus);
     }
@@ -318,6 +398,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         returns (
             uint256 depositRate,
             uint256 borrowRate,
+            uint256 vpRate,
             uint256 supplyBonus,
             uint256 borrowBonus,
             uint256 repayBonus,
@@ -329,6 +410,7 @@ contract LeaderboardConfig is ILeaderboardConfig, Ownable {
         return (
             depositRateBps,
             borrowRateBps,
+            vpRateBps,
             supplyDailyBonus,
             borrowDailyBonus,
             repayDailyBonus,

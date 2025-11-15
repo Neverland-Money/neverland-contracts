@@ -21,6 +21,7 @@ abstract contract LeaderboardBase is BaseTestLocal {
     // Test constants
     uint256 constant DEPOSIT_RATE = 100; // 0.01 per USD/day
     uint256 constant BORROW_RATE = 500; // 0.05 per USD/day
+    uint256 constant VP_RATE = 200; // 0.02 per veDUST/day
     uint256 constant SUPPLY_BONUS = 10e18; // 10 points/day
     uint256 constant BORROW_BONUS = 20e18; // 20 points/day
     uint256 constant COOLDOWN = 3600; // 1 hour
@@ -40,7 +41,7 @@ abstract contract LeaderboardBase is BaseTestLocal {
 
         // Deploy LeaderboardConfig
         leaderboardConfig = new LeaderboardConfig(
-            admin, DEPOSIT_RATE, BORROW_RATE, SUPPLY_BONUS, BORROW_BONUS, 0, 0, COOLDOWN, MIN_DAILY_BONUS_USD
+            admin, DEPOSIT_RATE, BORROW_RATE, VP_RATE, SUPPLY_BONUS, BORROW_BONUS, 0, 0, COOLDOWN, MIN_DAILY_BONUS_USD
         );
 
         // Deploy NFTPartnershipRegistry

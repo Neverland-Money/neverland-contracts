@@ -7,8 +7,11 @@ contract LeaderboardConfigTest is LeaderboardBase {
     function testInitialConfiguration() public view {
         assertEq(leaderboardConfig.depositRateBps(), DEPOSIT_RATE, "Initial deposit rate");
         assertEq(leaderboardConfig.borrowRateBps(), BORROW_RATE, "Initial borrow rate");
+        assertEq(leaderboardConfig.vpRateBps(), VP_RATE, "Initial VP rate");
         assertEq(leaderboardConfig.supplyDailyBonus(), SUPPLY_BONUS, "Initial supply bonus");
         assertEq(leaderboardConfig.borrowDailyBonus(), BORROW_BONUS, "Initial borrow bonus");
+        assertEq(leaderboardConfig.repayDailyBonus(), 0, "Initial repay bonus");
+        assertEq(leaderboardConfig.withdrawDailyBonus(), 0, "Initial withdraw bonus");
         assertEq(leaderboardConfig.cooldownSeconds(), COOLDOWN, "Initial cooldown");
         assertEq(leaderboardConfig.minDailyBonusUsd(), MIN_DAILY_BONUS_USD, "Initial min daily bonus USD");
 
@@ -121,7 +124,7 @@ contract LeaderboardConfigTest is LeaderboardBase {
         uint256 newBorrowBonus = 50e18;
 
         vm.prank(admin);
-        leaderboardConfig.updateAllRates(newDepositRate, newBorrowRate, newSupplyBonus, newBorrowBonus);
+        leaderboardConfig.updateAllRates(newDepositRate, newBorrowRate, 200, newSupplyBonus, newBorrowBonus);
 
         assertEq(leaderboardConfig.depositRateBps(), newDepositRate, "Deposit rate updated");
         assertEq(leaderboardConfig.borrowRateBps(), newBorrowRate, "Borrow rate updated");
@@ -136,19 +139,19 @@ contract LeaderboardConfigTest is LeaderboardBase {
     function testUpdateAllRatesWithInvalidValues() public {
         vm.prank(admin);
         vm.expectRevert();
-        leaderboardConfig.updateAllRates(10_001, 500, 10e18, 20e18);
+        leaderboardConfig.updateAllRates(10_001, 500, 200, 10e18, 20e18);
 
         vm.prank(admin);
         vm.expectRevert();
-        leaderboardConfig.updateAllRates(100, 10_001, 10e18, 20e18);
+        leaderboardConfig.updateAllRates(100, 10_001, 200, 10e18, 20e18);
 
         vm.prank(admin);
         vm.expectRevert();
-        leaderboardConfig.updateAllRates(100, 500, 1001e18, 20e18);
+        leaderboardConfig.updateAllRates(100, 500, 200, 1001e18, 20e18);
 
         vm.prank(admin);
         vm.expectRevert();
-        leaderboardConfig.updateAllRates(100, 500, 10e18, 1001e18);
+        leaderboardConfig.updateAllRates(100, 500, 200, 10e18, 1001e18);
     }
 
     function testGetDepositRatePerDay() public view {
@@ -173,6 +176,7 @@ contract LeaderboardConfigTest is LeaderboardBase {
         (
             uint256 depositRate,
             uint256 borrowRate,
+            uint256 vpRate,
             uint256 supplyBonus,
             uint256 borrowBonus,
             uint256 repayBonus,
@@ -183,6 +187,7 @@ contract LeaderboardConfigTest is LeaderboardBase {
 
         assertEq(depositRate, DEPOSIT_RATE, "Deposit rate");
         assertEq(borrowRate, BORROW_RATE, "Borrow rate");
+        assertEq(vpRate, VP_RATE, "VP rate");
         assertEq(supplyBonus, SUPPLY_BONUS, "Supply bonus");
         assertEq(borrowBonus, BORROW_BONUS, "Borrow bonus");
         assertEq(repayBonus, 0, "Repay bonus");
@@ -209,12 +214,14 @@ contract LeaderboardConfigTest is LeaderboardBase {
         leaderboardConfig.updateAllRates(
             100, // 0.01 per USD/day = 1 point per 100 USD per day
             500, // 0.05 per USD/day = 5 points per 100 USD per day
+            200, // 0.02 per veDUST/day = 2 points per 100 veDUST per day
             15e18, // 15 points/day
             30e18 // 30 points/day
         );
 
         assertEq(leaderboardConfig.depositRateBps(), 100, "Deposit: 100 bps");
         assertEq(leaderboardConfig.borrowRateBps(), 500, "Borrow: 500 bps");
+        assertEq(leaderboardConfig.vpRateBps(), 200, "VP: 200 bps");
         assertEq(leaderboardConfig.supplyDailyBonus(), 15e18, "Supply bonus: 15");
         assertEq(leaderboardConfig.borrowDailyBonus(), 30e18, "Borrow bonus: 30");
 

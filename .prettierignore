@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+lib
+.vscode
+
+# Build outputs
+artifacts
+cache
+out
+typechain
+typechain-v5
+typechain-v6
+
+# Coverage
+coverage
+coverage.json
+
+# Deployments
+deployments
+
+# Env files
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# Smart contracts
+src/
+
+# Other
+*.log
+*.md
+LICENSE

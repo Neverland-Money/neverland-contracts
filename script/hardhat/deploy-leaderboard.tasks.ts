@@ -200,9 +200,8 @@ const deployLeaderboardConfig = async (
 
   // Deploy EpochManager
   console.log("\n⛏️  Deploying EpochManager...");
-  const EpochManagerFactory = await hre.ethers.getContractFactory(
-    "EpochManager"
-  );
+  const EpochManagerFactory =
+    await hre.ethers.getContractFactory("EpochManager");
   const epochManager = await EpochManagerFactory.deploy(epochOwner);
   await epochManager.waitForDeployment();
   const epochManagerAddress = await epochManager.getAddress();
@@ -224,9 +223,8 @@ const deployLeaderboardConfig = async (
 
   // Deploy LeaderboardConfig
   console.log("\n⛏️  Deploying LeaderboardConfig...");
-  const LeaderboardConfigFactory = await hre.ethers.getContractFactory(
-    "LeaderboardConfig"
-  );
+  const LeaderboardConfigFactory =
+    await hre.ethers.getContractFactory("LeaderboardConfig");
   const leaderboard = await LeaderboardConfigFactory.deploy(
     leaderboardOwner,
     depositRateBps,
@@ -269,9 +267,7 @@ const deployLeaderboardConfig = async (
         );
         await tx.wait();
         console.log(
-          `   ✅ Tier ${i}: ${tier.minVotingPower} VP = ${
-            Number(tier.multiplierBps) / 100
-          }%`
+          `   ✅ Tier ${i}: ${tier.minVotingPower} VP = ${Number(tier.multiplierBps) / 100}%`
         );
       }
     } else {
@@ -279,9 +275,7 @@ const deployLeaderboardConfig = async (
       console.log(`   Deployer: ${deployerAddress}`);
       console.log(`   Owner: ${vpOwner}`);
       console.log(
-        `   Please add ${
-          tiers.length - 1
-        } additional tiers manually using the owner account`
+        `   Please add ${tiers.length - 1} additional tiers manually using the owner account`
       );
     }
   }

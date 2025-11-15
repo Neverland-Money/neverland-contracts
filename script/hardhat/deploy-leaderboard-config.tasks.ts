@@ -137,9 +137,8 @@ const deployLeaderboardConfigOnly = async (
 
   // Deploy LeaderboardConfig
   console.log("\n⛏️  Deploying LeaderboardConfig...");
-  const LeaderboardConfigFactory = await hre.ethers.getContractFactory(
-    "LeaderboardConfig"
-  );
+  const LeaderboardConfigFactory =
+    await hre.ethers.getContractFactory("LeaderboardConfig");
   const leaderboard = await LeaderboardConfigFactory.deploy(
     leaderboardOwner,
     depositRateBps,
@@ -229,9 +228,7 @@ const deployLeaderboardConfigOnly = async (
 
   const outputPath = path.resolve(
     __dirname,
-    `../../deployments/leaderboard-config-${
-      hre.network.name
-    }-${Date.now()}.json`
+    `../../deployments/leaderboard-config-${hre.network.name}-${Date.now()}.json`
   );
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify(deploymentInfo, null, 2));

@@ -81,9 +81,7 @@ const tryGetSigner = async (
       return await hre.ethers.getSigner(address);
     } catch (impErr) {
       console.warn(
-        `⚠️  Unable to impersonate signer for ${address}: ${
-          (impErr as Error).message
-        }`
+        `⚠️  Unable to impersonate signer for ${address}: ${(impErr as Error).message}`
       );
     }
   }
@@ -274,9 +272,8 @@ const deployNeverland = async (
     proxyAddr: string
   ): Promise<void> => {
     try {
-      const impl = await hre.upgrades.erc1967.getImplementationAddress(
-        proxyAddr
-      );
+      const impl =
+        await hre.upgrades.erc1967.getImplementationAddress(proxyAddr);
       implementations[name] = impl;
     } catch (e) {
       console.warn(
@@ -349,9 +346,8 @@ const deployNeverland = async (
     await recordProxyInfo("Dust", dustAddress);
 
     // Verify Dust implementation
-    const dustImpl = await hre.upgrades.erc1967.getImplementationAddress(
-      dustAddress
-    );
+    const dustImpl =
+      await hre.upgrades.erc1967.getImplementationAddress(dustAddress);
     await verifyContract(hre, dustImpl, [], "src/tokens/Dust.sol:Dust", dryRun);
   } else {
     const existingDust = getRecordedAddress("Dust");
@@ -410,9 +406,8 @@ const deployNeverland = async (
     await recordProxyInfo("DustLock", dustLockAddress);
 
     // Verify DustLock implementation
-    const dustLockImpl = await hre.upgrades.erc1967.getImplementationAddress(
-      dustLockAddress
-    );
+    const dustLockImpl =
+      await hre.upgrades.erc1967.getImplementationAddress(dustLockAddress);
     await verifyContract(
       hre,
       dustLockImpl,
@@ -509,9 +504,8 @@ const deployNeverland = async (
     await recordProxyInfo("DustRewardsController", controllerAddress);
 
     // Verify DustRewardsController implementation
-    const controllerImpl = await hre.upgrades.erc1967.getImplementationAddress(
-      controllerAddress
-    );
+    const controllerImpl =
+      await hre.upgrades.erc1967.getImplementationAddress(controllerAddress);
     await verifyContract(
       hre,
       controllerImpl,
@@ -556,9 +550,8 @@ const deployNeverland = async (
 
     {
       console.log("\n⛏️  Deploying UserVaultRegistry...");
-      const registryFactory = await hre.ethers.getContractFactory(
-        "UserVaultRegistry"
-      );
+      const registryFactory =
+        await hre.ethers.getContractFactory("UserVaultRegistry");
       const registry = await registryFactory.deploy();
       await registry.waitForDeployment();
       const registryAddress = await registry.getAddress();
@@ -638,9 +631,8 @@ const deployNeverland = async (
   // 5. Deploy UserVault implementation
   if (!exclude.has("UserVaultImplementation")) {
     console.log("\n⛏️  Deploying UserVault implementation...");
-    const userVaultImplFactory = await hre.ethers.getContractFactory(
-      "UserVault"
-    );
+    const userVaultImplFactory =
+      await hre.ethers.getContractFactory("UserVault");
     const userVaultImpl = await userVaultImplFactory.deploy();
     await userVaultImpl.waitForDeployment();
     const userVaultImplAddress = await userVaultImpl.getAddress();
@@ -674,9 +666,8 @@ const deployNeverland = async (
     );
 
     console.log("\n⛏️  Deploying UserVault UpgradeableBeacon...");
-    const beaconFactory = await hre.ethers.getContractFactory(
-      "UpgradeableBeacon"
-    );
+    const beaconFactory =
+      await hre.ethers.getContractFactory("UpgradeableBeacon");
     const beacon = await beaconFactory.deploy(userVaultImplementationAddress);
     await beacon.waitForDeployment();
     const beaconAddress = await beacon.getAddress();
@@ -721,9 +712,8 @@ const deployNeverland = async (
     }
 
     console.log("\n⛏️  Deploying UserVaultFactory (proxy, uninitialized)...");
-    const factoryFactory = await hre.ethers.getContractFactory(
-      "UserVaultFactory"
-    );
+    const factoryFactory =
+      await hre.ethers.getContractFactory("UserVaultFactory");
     const userVaultFactory = await hre.upgrades.deployProxy(
       factoryFactory,
       [],
@@ -778,9 +768,8 @@ const deployNeverland = async (
     }
 
     console.log("\n⛏️  Deploying RevenueReward (proxy)...");
-    const revenueRewardFactory = await hre.ethers.getContractFactory(
-      "RevenueReward"
-    );
+    const revenueRewardFactory =
+      await hre.ethers.getContractFactory("RevenueReward");
     const revenueReward = await hre.upgrades.deployProxy(
       revenueRewardFactory,
       [forwarder, dustLockAddress, distributor, userVaultFactoryAddress],
@@ -959,9 +948,9 @@ const deployNeverland = async (
       const vaultSigner = dustVaultWallet
         ? dustVaultWallet
         : dustVault.toLowerCase() ===
-          (await deployer.getAddress()).toLowerCase()
-        ? deployer
-        : await tryGetSigner(hre, dustVault, { dryRun });
+            (await deployer.getAddress()).toLowerCase()
+          ? deployer
+          : await tryGetSigner(hre, dustVault, { dryRun });
       if (vaultSigner) {
         console.log("⚙️  Approving DUST vault allowance for strategy...");
         try {
