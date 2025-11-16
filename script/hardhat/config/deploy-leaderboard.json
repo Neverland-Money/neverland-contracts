@@ -28,46 +28,6 @@
       {
         "minVotingPower": "0",
         "multiplierBps": "10000"
-      },
-      {
-        "minVotingPower": "400000000000000000000",
-        "multiplierBps": "10100"
-      },
-      {
-        "minVotingPower": "2000000000000000000000",
-        "multiplierBps": "10200"
-      },
-      {
-        "minVotingPower": "4000000000000000000000",
-        "multiplierBps": "10300"
-      },
-      {
-        "minVotingPower": "8000000000000000000000",
-        "multiplierBps": "10400"
-      },
-      {
-        "minVotingPower": "16000000000000000000000",
-        "multiplierBps": "10500"
-      },
-      {
-        "minVotingPower": "32000000000000000000000",
-        "multiplierBps": "11000"
-      },
-      {
-        "minVotingPower": "64000000000000000000000",
-        "multiplierBps": "12000"
-      },
-      {
-        "minVotingPower": "128000000000000000000000",
-        "multiplierBps": "13000"
-      },
-      {
-        "minVotingPower": "256000000000000000000000",
-        "multiplierBps": "14000"
-      },
-      {
-        "minVotingPower": "512000000000000000000000",
-        "multiplierBps": "15000"
       }
     ]
   },

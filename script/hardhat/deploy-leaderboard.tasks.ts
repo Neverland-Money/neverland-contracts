@@ -26,6 +26,7 @@ interface LeaderboardConfig {
     initialOwner?: string;
     depositRateBps?: string;
     borrowRateBps?: string;
+    vpRateBps?: string;
     supplyDailyBonus?: string;
     borrowDailyBonus?: string;
     repayDailyBonus?: string;
@@ -150,6 +151,7 @@ const deployLeaderboardConfig = async (
     config.leaderboard.borrowRateBps,
     "leaderboard.borrowRateBps"
   );
+  const vpRateBps = config.leaderboard.vpRateBps || "0";
   const supplyDailyBonus = requireConfigValue(
     config.leaderboard.supplyDailyBonus,
     "leaderboard.supplyDailyBonus"
@@ -229,6 +231,7 @@ const deployLeaderboardConfig = async (
     leaderboardOwner,
     depositRateBps,
     borrowRateBps,
+    vpRateBps,
     supplyDailyBonus,
     borrowDailyBonus,
     repayDailyBonus,
@@ -267,7 +270,9 @@ const deployLeaderboardConfig = async (
         );
         await tx.wait();
         console.log(
-          `   ✅ Tier ${i}: ${tier.minVotingPower} VP = ${Number(tier.multiplierBps) / 100}%`
+          `   ✅ Tier ${i}: ${tier.minVotingPower} VP = ${
+            Number(tier.multiplierBps) / 100
+          }%`
         );
       }
     } else {
@@ -275,7 +280,9 @@ const deployLeaderboardConfig = async (
       console.log(`   Deployer: ${deployerAddress}`);
       console.log(`   Owner: ${vpOwner}`);
       console.log(
-        `   Please add ${tiers.length - 1} additional tiers manually using the owner account`
+        `   Please add ${
+          tiers.length - 1
+        } additional tiers manually using the owner account`
       );
     }
   }
@@ -301,6 +308,7 @@ const deployLeaderboardConfig = async (
   console.log(`   Owner: ${leaderboardOwner}`);
   console.log(`   Deposit Rate: ${depositRateBps} bps`);
   console.log(`   Borrow Rate: ${borrowRateBps} bps`);
+  console.log(`   VP Rate: ${vpRateBps} bps (per 1e18 VP)`);
   console.log(`   Supply Bonus: ${supplyDailyBonus}`);
   console.log(`   Borrow Bonus: ${borrowDailyBonus}`);
   console.log(`   Repay Bonus: ${repayDailyBonus}`);
@@ -352,6 +360,7 @@ const deployLeaderboardConfig = async (
       leaderboardOwner,
       depositRateBps,
       borrowRateBps,
+      vpRateBps,
       supplyDailyBonus,
       borrowDailyBonus,
       repayDailyBonus,
@@ -392,6 +401,7 @@ const deployLeaderboardConfig = async (
         initialOwner: leaderboardOwner,
         depositRateBps,
         borrowRateBps,
+        vpRateBps,
         supplyDailyBonus,
         borrowDailyBonus,
         repayDailyBonus,
@@ -442,6 +452,7 @@ const deployLeaderboardConfig = async (
   console.log("\n📌 LeaderboardConfig - Update point rates:");
   console.log("   • setDepositRate(uint256 newRateBps)");
   console.log("   • setBorrowRate(uint256 newRateBps)");
+  console.log("   • setVpRate(uint256 newRateBps)");
   console.log("   • setDailyBonuses(supply, borrow, repay, withdraw)");
   console.log("   • setCooldown(uint256 newSeconds)");
   console.log("   • setMinDailyBonusUsd(uint256 newMin)");
@@ -463,7 +474,7 @@ const deployLeaderboardConfig = async (
   );
   console.log("   • TierAdded / TierUpdated / TierRemoved");
   console.log(
-    "   • DepositRateUpdated / BorrowRateUpdated / DailyBonusUpdated"
+    "   • DepositRateUpdated / BorrowRateUpdated / VpRateUpdated / DailyBonusUpdated"
   );
   console.log("   • ConfigSnapshot (on every config change)");
 
@@ -614,6 +625,9 @@ task(
       console.log(`   Owner: ${config.leaderboard!.initialOwner}`);
       console.log(`   Deposit Rate: ${config.leaderboard!.depositRateBps} bps`);
       console.log(`   Borrow Rate: ${config.leaderboard!.borrowRateBps} bps`);
+      console.log(
+        `   VP Rate: ${config.leaderboard!.vpRateBps || "0"} bps (per 1e18 VP)`
+      );
       console.log(
         `   Supply Bonus: ${config.leaderboard!.supplyDailyBonus} points`
       );

@@ -17,7 +17,8 @@
     "build:wagmi": "wagmi generate",
     "tests": "yarn run tests:foundry && yarn run tests:hardhat",
     "tests:foundry": "forge test -v",
-    "tests:hardhat": "hardhat test"
+    "tests:hardhat": "hardhat test",
+    "format": "forge fmt && yarn prettier --write ."
   },
   "devDependencies": {
     "@cyfrin/aderyn": "^0.6.1",
