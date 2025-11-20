@@ -2,10 +2,9 @@
 pragma solidity 0.8.30;
 
 import "forge-std/Test.sol";
+
 import {NeverlandDustHelper} from "../../src/utils/NeverlandDustHelper.sol";
-import {INeverlandDustHelper} from "../../src/interfaces/INeverlandDustHelper.sol";
 import {MockERC20} from "../_utils/MockERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract MockOracle {
     int256 private _answer;
