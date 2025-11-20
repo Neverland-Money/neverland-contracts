@@ -1,0 +1,10 @@
+{
+  "keeper": {
+    "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+    "keeperAddress": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+    "minSettlementInterval": "3600",
+    "dustLock": "0x6bAf63f7959EA253006e7Af0BeFf29810CcbF661",
+    "nftRegistry": "0x6C9a9FEb325a88de0bD3ed3A3a0dddD6f95B30aF"
+  },
+  "verify": false
+}

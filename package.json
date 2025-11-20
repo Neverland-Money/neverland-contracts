@@ -17,7 +17,8 @@
     "build:wagmi": "wagmi generate",
     "tests": "yarn run tests:foundry && yarn run tests:hardhat",
     "tests:foundry": "forge test -v",
-    "tests:hardhat": "hardhat test"
+    "tests:hardhat": "hardhat test",
+    "format": "forge fmt && yarn prettier --write ."
   },
   "devDependencies": {
     "@cyfrin/aderyn": "^0.6.1",
@@ -44,6 +45,7 @@
     "ethers": "^6.15.0",
     "hardhat": "^2.26.3",
     "hardhat-gas-reporter": "^2.3.0",
+    "prettier": "^3.6.2",
     "solhint": "^6.0.1",
     "solidity-coverage": "^0.8.16",
     "ts-node": ">=8.0.0",
@@ -52,5 +54,9 @@
   },
   "resolutions": {
     "@types/minimatch": "5.1.2"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "enquirer": "^2.4.1"
   }
 }

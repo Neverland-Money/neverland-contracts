@@ -46,9 +46,7 @@
       "owner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
       "executor": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
       "maxSwapSlippageBps": "100",
-      "supportedAggregators": [
-        "0x525b929fcd6a64aff834f4eecc6e860486ced700"
-      ]
+      "supportedAggregators": ["0x525b929fcd6a64aff834f4eecc6e860486ced700"]
     },
     "beaconOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
     "poolAddressesProviderRegistry": "0x2F7ae2EebE5Dd10BfB13f3fB2956C7b7FFD60A5F"

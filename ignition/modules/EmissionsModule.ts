@@ -7,14 +7,24 @@ const EmissionsModule = buildModule("EmissionsModule", (m) => {
   const dustVault = m.getParameter("dustVault");
   const emissionsManager = m.getParameter("emissionsManager");
 
-  const {dust} = m.useModule(DustModule);
-  const {dustLock} = m.useModule(DustLockModule);
+  const { dust } = m.useModule(DustModule);
+  const { dustLock } = m.useModule(DustLockModule);
 
-  const dustRewardsController = m.contract("DustRewardsController", [emissionsManager]);
-  
-  const dustTransferStrategy = m.contract("DustLockTransferStrategy", [dustRewardsController, rewardsAdmin, dustVault, dustLock]);
+  const dustRewardsController = m.contract("DustRewardsController", [
+    emissionsManager,
+  ]);
 
-  m.call(dustRewardsController, "setTransferStrategy", [dust, dustTransferStrategy]);
+  const dustTransferStrategy = m.contract("DustLockTransferStrategy", [
+    dustRewardsController,
+    rewardsAdmin,
+    dustVault,
+    dustLock,
+  ]);
+
+  m.call(dustRewardsController, "setTransferStrategy", [
+    dust,
+    dustTransferStrategy,
+  ]);
 
   return { dustRewardsController, dustTransferStrategy };
 });

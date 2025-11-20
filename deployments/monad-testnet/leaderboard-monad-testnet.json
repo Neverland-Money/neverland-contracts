@@ -1,0 +1,43 @@
+{
+  "epochManager": "0x723Cbe9dE79348CB4C53F03A29c1679Bad5A2082",
+  "nftPartnershipRegistry": "0x6C9a9FEb325a88de0bD3ed3A3a0dddD6f95B30aF",
+  "leaderboardConfig": "0x1D345C660C1e9731679a694301B8ea22886350aF",
+  "votingPowerMultiplier": "0x56E535a35d39b16E0C334bd0Ee267031AA2F2270",
+  "deployer": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+  "network": "monad-testnet",
+  "timestamp": "2025-11-15T13:23:27.225Z",
+  "parameters": {
+    "addresses": {
+      "dustLock": "0x6bAf63f7959EA253006e7Af0BeFf29810CcbF661"
+    },
+    "epochManager": {
+      "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371"
+    },
+    "nftRegistry": {
+      "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+      "firstBonus": "1000",
+      "decayRatio": "9000"
+    },
+    "leaderboard": {
+      "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+      "depositRateBps": "100",
+      "borrowRateBps": "500",
+      "vpRateBps": "200",
+      "supplyDailyBonus": "10000000000000000000",
+      "borrowDailyBonus": "20000000000000000000",
+      "repayDailyBonus": "0",
+      "withdrawDailyBonus": "0",
+      "cooldownSeconds": "3600",
+      "minDailyBonusUsd": "0"
+    },
+    "votingPowerMultiplier": {
+      "initialOwner": "0x532D4c80b14C7f50095E8E8FD69d9658b5F00371",
+      "tiers": [
+        {
+          "minVotingPower": "0",
+          "multiplierBps": "10000"
+        }
+      ]
+    }
+  }
+}

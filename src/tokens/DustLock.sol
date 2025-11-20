@@ -799,7 +799,7 @@ contract DustLock is IDustLock, Initializable, ERC2771ContextUpgradeable, Reentr
         // Set newLocked to _oldLocked without mangling memory
         LockedBalance memory newLocked;
         (newLocked.amount, newLocked.effectiveStart, newLocked.end, newLocked.isPermanent) =
-            (_oldLocked.amount, _oldLocked.effectiveStart, _oldLocked.end, _oldLocked.isPermanent);
+        (_oldLocked.amount, _oldLocked.effectiveStart, _oldLocked.end, _oldLocked.isPermanent);
 
         // Adding to existing lock, or if a lock is expired - creating a new one
         newLocked.amount += _value.toInt256();

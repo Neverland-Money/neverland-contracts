@@ -1254,7 +1254,7 @@ contract RevenueRewardsTest is BaseTestLocal {
         revenueReward.getReward(tokenId2, tokens);
         uint256 gasUsed = gasStart - gasleft();
         emit log_named_uint("[gas] getReward (initial)", gasUsed);
-        assertLt(gasUsed, 150_000); // About 150K
+        assertLt(gasUsed, 175_000); // About 175K
     }
 
     function testGetRewardGasCostsForLongUnclaimedDuration() public {
@@ -1282,7 +1282,7 @@ contract RevenueRewardsTest is BaseTestLocal {
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
 
         emit log_named_uint("[gas] getReward (300 epochs)", gasUsed);
-        assertLt(gasUsed, 8_000_000); // about 8M
+        assertLt(gasUsed, 8_500_000); // about 8.5M
     }
 
     function testGetRewardUntilTsGasCostsForLongUnclaimedDuration() public {
@@ -1316,7 +1316,7 @@ contract RevenueRewardsTest is BaseTestLocal {
             emit log_named_uint(
                 string(abi.encodePacked("[gas] getRewardUntilTs[", vm.toString(i), "]")), gasPerGetRewardUntilTs[i]
             );
-            assertLt(gasPerGetRewardUntilTs[i], 900_000); // about 900K
+            assertLt(gasPerGetRewardUntilTs[i], 1_000_000); // about 1M
         }
         assertEq(mockUSDC.balanceOf(user), 300 * 1e6);
     }

@@ -81,9 +81,7 @@ const tryGetSigner = async (
       return await hre.ethers.getSigner(address);
     } catch (impErr) {
       console.warn(
-        `⚠️  Unable to impersonate signer for ${address}: ${
-          (impErr as Error).message
-        }`
+        `⚠️  Unable to impersonate signer for ${address}: ${(impErr as Error).message}`
       );
     }
   }
@@ -274,9 +272,8 @@ const deployNeverland = async (
     proxyAddr: string
   ): Promise<void> => {
     try {
-      const impl = await hre.upgrades.erc1967.getImplementationAddress(
-        proxyAddr
-      );
+      const impl =
+        await hre.upgrades.erc1967.getImplementationAddress(proxyAddr);
       implementations[name] = impl;
     } catch (e) {
       console.warn(
@@ -349,9 +346,8 @@ const deployNeverland = async (
     await recordProxyInfo("Dust", dustAddress);
 
     // Verify Dust implementation
-    const dustImpl = await hre.upgrades.erc1967.getImplementationAddress(
-      dustAddress
-    );
+    const dustImpl =
+      await hre.upgrades.erc1967.getImplementationAddress(dustAddress);
     await verifyContract(hre, dustImpl, [], "src/tokens/Dust.sol:Dust", dryRun);
   } else {
     const existingDust = getRecordedAddress("Dust");
@@ -410,9 +406,8 @@ const deployNeverland = async (
     await recordProxyInfo("DustLock", dustLockAddress);
 
     // Verify DustLock implementation
-    const dustLockImpl = await hre.upgrades.erc1967.getImplementationAddress(
-      dustLockAddress
-    );
+    const dustLockImpl =
+      await hre.upgrades.erc1967.getImplementationAddress(dustLockAddress);
     await verifyContract(
       hre,
       dustLockImpl,
@@ -509,9 +504,8 @@ const deployNeverland = async (
     await recordProxyInfo("DustRewardsController", controllerAddress);
 
     // Verify DustRewardsController implementation
-    const controllerImpl = await hre.upgrades.erc1967.getImplementationAddress(
-      controllerAddress
-    );
+    const controllerImpl =
+      await hre.upgrades.erc1967.getImplementationAddress(controllerAddress);
     await verifyContract(
       hre,
       controllerImpl,
@@ -556,9 +550,8 @@ const deployNeverland = async (
 
     {
       console.log("\n⛏️  Deploying UserVaultRegistry...");
-      const registryFactory = await hre.ethers.getContractFactory(
-        "UserVaultRegistry"
-      );
+      const registryFactory =
+        await hre.ethers.getContractFactory("UserVaultRegistry");
       const registry = await registryFactory.deploy();
       await registry.waitForDeployment();
       const registryAddress = await registry.getAddress();
@@ -638,9 +631,8 @@ const deployNeverland = async (
   // 5. Deploy UserVault implementation
   if (!exclude.has("UserVaultImplementation")) {
     console.log("\n⛏️  Deploying UserVault implementation...");
-    const userVaultImplFactory = await hre.ethers.getContractFactory(
-      "UserVault"
-    );
+    const userVaultImplFactory =
+      await hre.ethers.getContractFactory("UserVault");
     const userVaultImpl = await userVaultImplFactory.deploy();
     await userVaultImpl.waitForDeployment();
     const userVaultImplAddress = await userVaultImpl.getAddress();
@@ -674,9 +666,8 @@ const deployNeverland = async (
     );
 
     console.log("\n⛏️  Deploying UserVault UpgradeableBeacon...");
-    const beaconFactory = await hre.ethers.getContractFactory(
-      "UpgradeableBeacon"
-    );
+    const beaconFactory =
+      await hre.ethers.getContractFactory("UpgradeableBeacon");
     const beacon = await beaconFactory.deploy(userVaultImplementationAddress);
     await beacon.waitForDeployment();
     const beaconAddress = await beacon.getAddress();
@@ -721,9 +712,8 @@ const deployNeverland = async (
     }
 
     console.log("\n⛏️  Deploying UserVaultFactory (proxy, uninitialized)...");
-    const factoryFactory = await hre.ethers.getContractFactory(
-      "UserVaultFactory"
-    );
+    const factoryFactory =
+      await hre.ethers.getContractFactory("UserVaultFactory");
     const userVaultFactory = await hre.upgrades.deployProxy(
       factoryFactory,
       [],
@@ -778,9 +768,8 @@ const deployNeverland = async (
     }
 
     console.log("\n⛏️  Deploying RevenueReward (proxy)...");
-    const revenueRewardFactory = await hre.ethers.getContractFactory(
-      "RevenueReward"
-    );
+    const revenueRewardFactory =
+      await hre.ethers.getContractFactory("RevenueReward");
     const revenueReward = await hre.upgrades.deployProxy(
       revenueRewardFactory,
       [forwarder, dustLockAddress, distributor, userVaultFactoryAddress],
@@ -959,9 +948,9 @@ const deployNeverland = async (
       const vaultSigner = dustVaultWallet
         ? dustVaultWallet
         : dustVault.toLowerCase() ===
-          (await deployer.getAddress()).toLowerCase()
-        ? deployer
-        : await tryGetSigner(hre, dustVault, { dryRun });
+            (await deployer.getAddress()).toLowerCase()
+          ? deployer
+          : await tryGetSigner(hre, dustVault, { dryRun });
       if (vaultSigner) {
         console.log("⚙️  Approving DUST vault allowance for strategy...");
         try {
@@ -1075,27 +1064,32 @@ const deployNeverland = async (
   if (!exclude.has("NeverlandUiProvider")) {
     const dustLockAddress = getRecordedAddress("DustLock");
     const revenueRewardAddress = getRecordedAddress("RevenueReward");
-    const controllerAddress = getRecordedAddress("DustRewardsController");
-    const dustOracleAddress = getRecordedAddress("NeverlandDustHelper");
-    const aaveProvider = requireConfigValue(
+    const dustRewardsControllerAddress = getRecordedAddress(
+      "DustRewardsController"
+    );
+    const neverlandDustHelperAddress = getRecordedAddress(
+      "NeverlandDustHelper"
+    );
+    const aaveLendingPoolAddressProvider = requireConfigValue(
       config.uiProvider?.aaveLendingPoolAddressProvider,
       "uiProvider.aaveLendingPoolAddressProvider"
     );
+
     console.log("\n⛏️  Deploying NeverlandUiProvider...");
-    const uiFactory = await hre.ethers.getContractFactory(
+    const uiProviderFactory = await hre.ethers.getContractFactory(
       "NeverlandUiProvider"
     );
-    const uiProvider = await uiFactory.deploy(
+    const uiProvider = await uiProviderFactory.deploy(
       dustLockAddress,
       revenueRewardAddress,
-      controllerAddress,
-      dustOracleAddress,
-      aaveProvider
+      dustRewardsControllerAddress,
+      neverlandDustHelperAddress,
+      aaveLendingPoolAddressProvider
     );
     await uiProvider.waitForDeployment();
-    const uiAddress = await uiProvider.getAddress();
-    recordAddress("NeverlandUiProvider", uiAddress);
-    console.log(`✅ NeverlandUiProvider deployed at ${uiAddress}`);
+    const uiProviderAddress = await uiProvider.getAddress();
+    recordAddress("NeverlandUiProvider", uiProviderAddress);
+    console.log(`✅ NeverlandUiProvider deployed at ${uiProviderAddress}`);
     await reportDeployment(
       hre,
       uiProvider,
@@ -1106,21 +1100,21 @@ const deployNeverland = async (
     // Verify NeverlandUiProvider
     await verifyContract(
       hre,
-      uiAddress,
+      uiProviderAddress,
       [
         dustLockAddress,
         revenueRewardAddress,
-        controllerAddress,
-        dustOracleAddress,
-        aaveProvider,
+        dustRewardsControllerAddress,
+        neverlandDustHelperAddress,
+        aaveLendingPoolAddressProvider,
       ],
-      "src/ui/NeverlandUiProvider.sol:NeverlandUiProvider",
+      "src/utils/NeverlandUiProvider.sol:NeverlandUiProvider",
       dryRun
     );
   } else {
-    const existingUi = getRecordedAddress("NeverlandUiProvider");
+    const existingUiProvider = getRecordedAddress("NeverlandUiProvider");
     console.log(
-      `\n⏭️  Skipping NeverlandUiProvider deployment (excluded). Using provided UI provider at ${existingUi}.`
+      `\n⏭️  Skipping NeverlandUiProvider deployment (excluded). Using provided UI provider at ${existingUiProvider}.`
     );
   }
 

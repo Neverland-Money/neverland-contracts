@@ -59,19 +59,16 @@ interface INeverlandUiProvider {
     }
 
     /**
-     * @notice Summary of rewards for a specific token
+     * @notice Summary of rewards for a specific veNFT token
      * @param tokenId The veNFT token ID
      * @param revenueRewards Array of pending revenue rewards per reward token
-     * @param emissionRewards Array of pending emission rewards per reward token
      * @param rewardTokens Array of reward token addresses
-     * @param totalEarned Array of total rewards earned historically per token
+     * @dev Emission rewards are per-user (not per-token), use getUserEmissions() instead
      */
     struct RewardSummary {
         uint256 tokenId;
         uint256[] revenueRewards;
-        uint256[] emissionRewards;
         address[] rewardTokens;
-        uint256[] totalEarned;
     }
 
     /**
@@ -118,25 +115,6 @@ interface INeverlandUiProvider {
     function getUserTokenCount(address user) external view returns (uint256 count);
 
     /**
-     * @notice Get detailed information for a specific token
-     * @param tokenId The veNFT token ID
-     * @return LockInfo Detailed lock information
-     * @return RewardSummary Reward summary for the token
-     */
-    function getTokenDetails(uint256 tokenId) external view returns (LockInfo memory, RewardSummary memory);
-
-    /**
-     * @notice Get detailed information for multiple tokens efficiently
-     * @param tokenIds Array of veNFT token IDs
-     * @return locks Array of lock information
-     * @return rewards Array of reward summaries
-     */
-    function getBatchTokenDetails(uint256[] calldata tokenIds)
-        external
-        view
-        returns (LockInfo[] memory locks, RewardSummary[] memory rewards);
-
-    /**
      * @notice Get protocol-wide statistics
      * @return GlobalStats Protocol statistics
      */
@@ -146,18 +124,16 @@ interface INeverlandUiProvider {
      * @notice User reward summary data structure
      * @param totalRevenue Total pending revenue rewards per reward token
      * @param totalEmissions Total pending emission rewards per reward token
-     * @param totalHistorical Total historical rewards earned per reward token
      */
     struct UserRewardsSummary {
         uint256[] totalRevenue;
         uint256[] totalEmissions;
-        uint256[] totalHistorical;
     }
 
     /**
      * @notice Returns comprehensive reward summary for a user across specified reward tokens
      * @dev Aggregates all rewards earned by user's veNFTs for the given tokens
-     *      Provides separate totals for revenue rewards, emission rewards, and historical rewards
+     *      Provides separate totals for revenue rewards and emission rewards
      * @param user The address to query rewards for
      * @param rewardTokens Array of reward token addresses to check
      * @return summary User rewards summary containing all reward arrays
@@ -166,28 +142,6 @@ interface INeverlandUiProvider {
         external
         view
         returns (UserRewardsSummary memory summary);
-
-    /**
-     * @notice Returns user revenue rewards for specified reward tokens (simpler array return)
-     * @param user The address to query rewards for
-     * @param rewardTokens Array of reward token addresses to check
-     * @return revenueRewards Array of total revenue rewards per token
-     */
-    function getUserRevenueRewards(address user, address[] calldata rewardTokens)
-        external
-        view
-        returns (uint256[] memory revenueRewards);
-
-    /**
-     * @notice Returns user emission rewards for specified reward tokens (simpler array return)
-     * @param user The address to query rewards for
-     * @param rewardTokens Array of reward token addresses to check
-     * @return emissionRewards Array of total emission rewards per token
-     */
-    function getUserEmissionRewards(address user, address[] calldata rewardTokens)
-        external
-        view
-        returns (uint256[] memory emissionRewards);
 
     /**
      * @notice Returns per-asset emission rewards for a specific reward token
@@ -268,17 +222,15 @@ interface INeverlandUiProvider {
     }
 
     /**
-     * @notice Price data for all tokens
-     * @param tokens Array of token addresses
-     * @param prices USD prices (18 decimals)
+     * @notice Price information for all tokens
+     * @param tokens Token addresses
+     * @param prices Token prices in USD (8 decimals)
      * @param lastUpdated Price update timestamps
-     * @param isStale Price staleness flags
      */
     struct PriceData {
         address[] tokens;
         uint256[] prices;
         uint256[] lastUpdated;
-        bool[] isStale;
     }
 
     /**
@@ -334,16 +286,13 @@ interface INeverlandUiProvider {
     }
 
     /**
-     * @notice Extended user data with additional detailed information
-     * @param unlockSchedule Scheduled unlock times and amounts
-     * @param rewardsSummary Comprehensive rewards breakdown
+     * @notice Extended user data for detailed dashboards
+     * @param unlockSchedule Future unlock schedule for user's tokens
      * @param allPrices Token price information
      */
     struct ExtendedUserView {
         UnlockSchedule unlockSchedule;
-        UserRewardsSummary rewardsSummary;
         PriceData allPrices;
-        EmissionAssetBreakdown[] emissionBreakdowns;
     }
 
     /**
@@ -366,7 +315,7 @@ interface INeverlandUiProvider {
      * @notice Complete user-focused UI data in a single call
      * @param meta Protocol metadata and core addresses
      * @param essential Essential user view (dashboard + emissions + global + market)
-     * @param extended Extended user view (unlock schedule + rewards summary + prices)
+     * @param extended Extended user view (unlock schedule + prices)
      * @param network Network status and system information
      */
     struct UiFullBundle {

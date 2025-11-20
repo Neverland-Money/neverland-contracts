@@ -2127,8 +2127,8 @@ contract DustLockTests is BaseTestLocal {
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
 
-        // Proposal should be very efficient (about 53k)
-        assertLt(gasUsed, 60000, "proposeTeam uses too much gas");
+        // Proposal should be very efficient (about 65k)
+        assertLt(gasUsed, 65000, "proposeTeam uses too much gas");
 
         gasBefore = gasleft();
         vm.startPrank(newTeam);

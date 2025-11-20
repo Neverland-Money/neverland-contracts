@@ -20,7 +20,7 @@ interface INeverlandDustHelper {
         uint256 marketCap; // 8 decimals
         uint256 fullyDilutedMarketCap; // 8 decimals
         uint256 timestamp;
-        bool isPriceFromUniswap;
+        bool isPriceFromOracle;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -32,16 +32,23 @@ interface INeverlandDustHelper {
      * @param oldPrice Previous price (8 decimals)
      * @param newPrice New price (8 decimals)
      * @param timestamp Block timestamp when the price was updated
-     * @param fromUniswap True if the price came from Uniswap, false if hardcoded
+     * @param fromOracle True if the price came from oracle, false if hardcoded
      */
-    event PriceUpdated(uint256 oldPrice, uint256 newPrice, uint256 timestamp, bool fromUniswap);
+    event PriceUpdated(uint256 oldPrice, uint256 newPrice, uint256 timestamp, bool fromOracle);
 
     /**
-     * @notice Emitted when the Uniswap pair used for price discovery changes
+     * @notice Emitted when the oracle address used for price discovery changes
      * @param oldPair Previous pair address
      * @param newPair New pair address (zero to disable)
      */
-    event UniswapPairUpdated(address oldPair, address newPair);
+    event PairUpdated(address oldPair, address newPair);
+
+    /**
+     * @notice Emitted when the DUST/<PAIR> Uniswap pair oracle address changes
+     * @param oldPairOracle Previous pair oracle address
+     * @param newPairOracle New pair oracle address (zero to disable)
+     */
+    event PairOracleUpdated(address oldPairOracle, address newPairOracle);
 
     /**
      * @notice Emitted when a team address is added to the exclusion list
@@ -133,6 +140,12 @@ interface INeverlandDustHelper {
      */
     error InvalidRoundId(uint256 roundId);
 
+    /// @notice No data present for the requested round
+    error NoDataPresent();
+
+    /// @notice No rounds have been recorded yet
+    error NoRoundsRecorded();
+
     /*//////////////////////////////////////////////////////////////
                            TEAM MANAGEMENT
     //////////////////////////////////////////////////////////////*/
@@ -181,25 +194,25 @@ interface INeverlandDustHelper {
     function isTeamAddress(address account) external view returns (bool isTeam);
 
     /*//////////////////////////////////////////////////////////////
-                         UNISWAP INTEGRATION
+                         ORACLE INTEGRATION
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Set the Uniswap pair address
+     * @notice Set the oracle address for price discovery
      * @param pairAddress Uniswap pair address
      */
-    function setUniswapPair(address pairAddress) external;
+    function setPair(address pairAddress) external;
 
     /**
-     * @notice Remove the Uniswap pair address
+     * @notice Remove the oracle address
      */
-    function removeUniswapPair() external;
+    function removePair() external;
 
     /**
-     * @notice Get the Uniswap pair address
-     * @return pairAddress Uniswap pair address
+     * @notice Get the oracle address
+     * @return pairAddress Pair address
      */
-    function uniswapPair() external view returns (address pairAddress);
+    function pair() external view returns (address pairAddress);
 
     /*//////////////////////////////////////////////////////////////
                            PRICE MANAGEMENT
@@ -232,9 +245,9 @@ interface INeverlandDustHelper {
     /**
      * @notice Get the current price
      * @return price Current price (8 decimals)
-     * @return fromUniswap Whether the price came from Uniswap
+     * @return fromOracle Whether the price came from oracle
      */
-    function getPrice() external view returns (uint256 price, bool fromUniswap);
+    function getPrice() external view returns (uint256 price, bool fromOracle);
 
     /*//////////////////////////////////////////////////////////////
                          SUPPLY CALCULATIONS
@@ -305,11 +318,11 @@ interface INeverlandDustHelper {
     /**
      * @notice Detailed price info and cache state
      * @return price USD price (8 decimals)
-     * @return isFromUniswap True if the price comes from Uniswap
+     * @return isFromOracle True if the price comes from oracle
      * @return lastUpdate Cache timestamp of last price update
      * @return isStale True if the cached price is stale
      */
-    function getPriceInfo() external view returns (uint256 price, bool isFromUniswap, uint256 lastUpdate, bool isStale);
+    function getPriceInfo() external view returns (uint256 price, bool isFromOracle, uint256 lastUpdate, bool isStale);
 
     /*//////////////////////////////////////////////////////////////
                          CHAINLINK COMPATIBILITY

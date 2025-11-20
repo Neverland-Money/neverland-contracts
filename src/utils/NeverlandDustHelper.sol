@@ -4,18 +4,18 @@ pragma solidity 0.8.30;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IUniswapV2Pair} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 import {INeverlandDustHelper} from "../interfaces/INeverlandDustHelper.sol";
+import {IChainlinkAggregator} from "../interfaces/IChainlinkAggregator.sol";
 
 /**
  * @title NeverlandDustHelper
  * @author Neverland
  * @notice Production-ready oracle and helper contract for DUST token
- * @dev Provides market data, circulating supply, and price discovery via Uniswap integration
+ * @dev Provides market data, circulating supply, and price discovery via oracle integration
  */
 contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -31,9 +31,6 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     /// @notice 18-decimals unit
     uint256 private constant WAD = 1e18;
 
-    /// @notice 2^192 used for Uniswap V3 price math
-    uint256 private constant Q192 = 1 << 192;
-
     /// @notice One USD in 8-decimal scale
     uint256 private constant USD_SCALE = 1e8;
 
@@ -47,8 +44,13 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     /// @notice Current hardcoded DUST price in USD (8 decimals)
     uint256 public hardcodedPrice;
 
-    /// @notice Uniswap pair address for price discovery (zero means use hardcoded)
-    address public uniswapPair;
+    /// @notice DUST/<PAIR> pool/oracle or direct DUST/USD oracle
+    /// @dev Can be: Uniswap V2/V3 pool, UniV3 TWAP oracle, or direct DUST/USD Chainlink oracle
+    address public dustPair;
+
+    /// @notice <PAIR>/USD oracle for two-step conversion (optional if dustPair is DUST/USD)
+    /// @dev If not set (address(0)), dustPair is assumed to return DUST/USD directly
+    address public pairOracle;
 
     /// @notice Last price update timestamp
     uint256 public lastPriceUpdate;
@@ -61,6 +63,9 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /// @notice Cache timestamp
     uint256 private cacheTimestamp;
+
+    /// @notice Whether the cached price came from oracle (true) or hardcoded (false)
+    bool private cachedPriceFromOracle;
 
     /// @notice Team addresses mapping
     mapping(address => bool) public isTeamAddress;
@@ -75,7 +80,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     uint256 public minReasonablePrice = 1e5;
 
     /// @notice Round ID for Chainlink compatibility
-    uint256 private currentRoundId = 1;
+    uint256 private currentRoundId;
 
     /// @notice Round data for Chainlink compatibility
     mapping(uint256 => RoundData) private rounds;
@@ -91,11 +96,13 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
      * @param answer The answer of the round
      * @param timestamp The timestamp of the round
      * @param startedAt The start timestamp of the round
+     * @param answeredInRound The round in which the answer was computed
      */
     struct RoundData {
         uint256 answer;
         uint256 timestamp;
         uint256 startedAt;
+        uint256 answeredInRound;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -117,6 +124,13 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         lastPriceUpdate = block.timestamp;
         cachedPrice = DEFAULT_DUST_PRICE;
         cacheTimestamp = block.timestamp;
+        cachedPriceFromOracle = false;
+
+        // Initialize round data with hardcoded price so Chainlink interface works immediately
+        currentRoundId = 1;
+        rounds[currentRoundId] = RoundData({
+            answer: DEFAULT_DUST_PRICE, timestamp: block.timestamp, startedAt: block.timestamp, answeredInRound: 1
+        });
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -127,9 +141,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     function addTeamAddress(address teamAddress) external override onlyOwner {
         CommonChecksLibrary.revertIfZeroAddress(teamAddress);
 
-        if (isTeamAddress[teamAddress]) {
-            revert TeamAddressAlreadyExists(teamAddress);
-        }
+        if (isTeamAddress[teamAddress]) revert TeamAddressAlreadyExists(teamAddress);
 
         isTeamAddress[teamAddress] = true;
         teamAddresses.push(teamAddress);
@@ -139,9 +151,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /// @inheritdoc INeverlandDustHelper
     function removeTeamAddress(address teamAddress) external override onlyOwner {
-        if (!isTeamAddress[teamAddress]) {
-            revert TeamAddressNotFound(teamAddress);
-        }
+        if (!isTeamAddress[teamAddress]) revert TeamAddressNotFound(teamAddress);
 
         isTeamAddress[teamAddress] = false;
 
@@ -178,9 +188,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
             address teamAddress = teamAddressesBatch[i];
             CommonChecksLibrary.revertIfZeroAddress(teamAddress);
 
-            if (isTeamAddress[teamAddress]) {
-                revert TeamAddressAlreadyExists(teamAddress);
-            }
+            if (isTeamAddress[teamAddress]) revert TeamAddressAlreadyExists(teamAddress);
 
             isTeamAddress[teamAddress] = true;
             teamAddresses.push(teamAddress);
@@ -198,9 +206,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         for (uint256 i = 0; i < teamAddressesBatch.length; ++i) {
             address teamAddress = teamAddressesBatch[i];
 
-            if (!isTeamAddress[teamAddress]) {
-                revert TeamAddressNotFound(teamAddress);
-            }
+            if (!isTeamAddress[teamAddress]) revert TeamAddressNotFound(teamAddress);
 
             isTeamAddress[teamAddress] = false;
 
@@ -219,49 +225,75 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                         UNISWAP INTEGRATION
+                         ORACLE INTEGRATION
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INeverlandDustHelper
-    function setUniswapPair(address pairAddress) external override onlyOwner {
+    function pair() external view override returns (address pairAddress) {
+        return dustPair;
+    }
+
+    /**
+     * @notice Set the price source for DUST
+     * @param pairAddress Can be:
+     *        - Uniswap V2/V3 pool (DUST/<PAIR> or <PAIR>/DUST)
+     *        - UniV3 TWAP oracle (Chainlink-compatible with token0/token1)
+     *        - Direct DUST/USD Chainlink oracle (if pairOracle not needed)
+     *        - DUST/<PAIR> Chainlink oracle (used with pairOracle for two-step conversion)
+     */
+    function setPair(address pairAddress) external override onlyOwner {
         CommonChecksLibrary.revertIfZeroAddress(pairAddress);
 
-        address oldPair = uniswapPair;
-        uniswapPair = pairAddress;
+        address oldPair = dustPair;
+        dustPair = pairAddress;
 
         // Clear cache when switching pairs
         cacheTimestamp = 0;
 
-        emit UniswapPairUpdated(oldPair, pairAddress);
+        emit PairUpdated(oldPair, pairAddress);
     }
 
-    /// @inheritdoc INeverlandDustHelper
-    function removeUniswapPair() external override onlyOwner {
-        address oldPair = uniswapPair;
-        uniswapPair = address(0);
+    /**
+     * @notice Remove the DUST/<PAIR> pool/oracle
+     */
+    function removePair() external override onlyOwner {
+        address oldPair = dustPair;
+        dustPair = address(0);
         cacheTimestamp = 0;
 
-        emit UniswapPairUpdated(oldPair, address(0));
+        emit PairUpdated(oldPair, address(0));
+    }
+
+    /**
+     * @notice Set the <PAIR>/USD Chainlink oracle for USD conversion
+     * @param pairOracleAddress <PAIR>/USD Chainlink oracle address (e.g., MON/USD, USDC/USD)
+     */
+    function setPairOracle(address pairOracleAddress) external onlyOwner {
+        CommonChecksLibrary.revertIfZeroAddress(pairOracleAddress);
+
+        address oldPairOracle = pairOracle;
+        pairOracle = pairOracleAddress;
+
+        emit PairOracleUpdated(oldPairOracle, pairOracleAddress);
     }
 
     /*//////////////////////////////////////////////////////////////
-                           PRICE MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
+                               PRICE MANAGEMENT
+        //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INeverlandDustHelper
     function updateHardcodedPrice(uint256 newPrice) external override onlyOwner {
-        if (newPrice < minReasonablePrice || newPrice > maxReasonablePrice) {
-            revert InvalidPrice(newPrice);
-        }
+        if (newPrice < minReasonablePrice || newPrice > maxReasonablePrice) revert InvalidPrice(newPrice);
 
         uint256 oldPrice = hardcodedPrice;
         hardcodedPrice = newPrice;
         lastPriceUpdate = block.timestamp;
 
         // Update cache if using hardcoded price
-        if (uniswapPair == address(0)) {
+        if (dustPair == address(0)) {
             cachedPrice = newPrice;
             cacheTimestamp = block.timestamp;
+            cachedPriceFromOracle = false;
         }
 
         emit PriceUpdated(oldPrice, newPrice, block.timestamp, false);
@@ -269,9 +301,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /// @inheritdoc INeverlandDustHelper
     function setPriceUpdateInterval(uint256 interval) external override onlyOwner {
-        if (interval < 60 || interval > 24 hours) {
-            revert InvalidPriceUpdateInterval(interval);
-        }
+        if (interval < 60 || interval > 24 hours) revert InvalidPriceUpdateInterval(interval);
 
         uint256 oldInterval = priceUpdateInterval;
         priceUpdateInterval = interval;
@@ -281,9 +311,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /// @inheritdoc INeverlandDustHelper
     function setPriceLimits(uint256 minPrice, uint256 maxPrice) external override onlyOwner {
-        if (minPrice == 0 || maxPrice <= minPrice) {
-            revert InvalidPriceLimits(minPrice, maxPrice);
-        }
+        if (minPrice == 0 || maxPrice <= minPrice) revert InvalidPriceLimits(minPrice, maxPrice);
 
         minReasonablePrice = minPrice;
         maxReasonablePrice = maxPrice;
@@ -327,22 +355,22 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INeverlandDustHelper
-    function getPrice() public view override returns (uint256 price, bool fromUniswap) {
+    function getPrice() public view override returns (uint256 price, bool fromOracle) {
         // Use cache if valid
         if (cacheTimestamp > 0 && block.timestamp <= cacheTimestamp + priceUpdateInterval) {
-            return (cachedPrice, uniswapPair != address(0));
+            return (cachedPrice, cachedPriceFromOracle);
         }
 
-        if (uniswapPair != address(0)) {
-            return (_getUniswapPrice(), true);
-        } else {
-            return (hardcodedPrice, false);
+        if (dustPair != address(0)) {
+            (uint256 oraclePrice, bool oracleSuccess) = _getOraclePrice();
+            return (oraclePrice, oracleSuccess);
         }
+        return (hardcodedPrice, false);
     }
 
     /// @inheritdoc INeverlandDustHelper
     function updatePriceCache() external override {
-        (uint256 newPrice, bool fromUniswap) = _getPriceWithoutCache();
+        (uint256 newPrice, bool fromOracle) = _getPriceWithoutCache();
 
         // Validate price reasonableness
         if (newPrice < minReasonablePrice || newPrice > maxReasonablePrice) {
@@ -352,85 +380,301 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         uint256 oldPrice = cachedPrice;
         cachedPrice = newPrice;
         cacheTimestamp = block.timestamp;
+        cachedPriceFromOracle = fromOracle;
 
-        // Update Chainlink round data
-        _updateRoundData(newPrice);
+        // Update lastPriceUpdate when cache is refreshed
+        lastPriceUpdate = block.timestamp;
 
-        emit PriceUpdated(oldPrice, newPrice, block.timestamp, fromUniswap);
+        // Always update Chainlink round data (even for hardcoded prices)
+        _updateRoundData(newPrice, fromOracle);
+
+        emit PriceUpdated(oldPrice, newPrice, block.timestamp, fromOracle);
     }
 
     /**
      * @notice Internal function to update Chainlink round data
      * @param price New price to record
+     * @param fromOracle Whether price came from oracle or is hardcoded
      */
-    function _updateRoundData(uint256 price) internal {
-        ++currentRoundId;
-        rounds[currentRoundId] = RoundData({answer: price, timestamp: block.timestamp, startedAt: block.timestamp});
+    function _updateRoundData(uint256 price, bool fromOracle) internal {
+        // If we have a <PAIR>/USD oracle and price is from oracle, use its round data
+        if (pairOracle != address(0) && fromOracle) {
+            (uint80 oracleRoundId,, uint256 oracleStartedAt, uint256 oracleUpdatedAt, uint80 oracleAnsweredInRound) =
+                IChainlinkAggregator(pairOracle).latestRoundData();
 
-        // Emit Chainlink-compatible event
-        emit AnswerUpdated(int256(price), currentRoundId, block.timestamp);
+            currentRoundId = uint256(oracleRoundId);
+            rounds[currentRoundId] = RoundData({
+                answer: price,
+                timestamp: oracleUpdatedAt,
+                startedAt: oracleStartedAt,
+                answeredInRound: uint256(oracleAnsweredInRound)
+            });
+
+            emit AnswerUpdated(int256(price), currentRoundId, oracleUpdatedAt);
+        } else {
+            // Hardcoded price or no oracle - create synthetic round data
+            currentRoundId += 1;
+            rounds[currentRoundId] = RoundData({
+                answer: price, timestamp: block.timestamp, startedAt: block.timestamp, answeredInRound: currentRoundId
+            });
+
+            emit AnswerUpdated(int256(price), currentRoundId, block.timestamp);
+        }
     }
 
     /**
      * @notice Get price without using cache
      * @return price Current price (8 decimals)
-     * @return fromUniswap Whether price is from Uniswap
+     * @return fromOracle Whether price is from oracle
      */
-    function _getPriceWithoutCache() internal view returns (uint256 price, bool fromUniswap) {
-        if (uniswapPair != address(0)) {
-            return (_getUniswapPrice(), true);
-        } else {
+    function _getPriceWithoutCache() internal view returns (uint256 price, bool fromOracle) {
+        if (dustPair != address(0)) {
+            (uint256 oraclePrice, bool oracleSuccess) = _getOraclePrice();
+            return (oraclePrice, oracleSuccess);
+        }
+        return (hardcodedPrice, false);
+    }
+
+    /**
+     * @notice Get price from oracle
+     * @return price Price from oracle (8 decimals), or hardcoded price if validation fails
+     * @return success True if price came from successful oracle read, false if fallback
+     */
+    function _getOraclePrice() internal view returns (uint256 price, bool success) {
+        // Need at least dustPair to get oracle price
+        if (dustPair == address(0)) {
             return (hardcodedPrice, false);
+        }
+
+        uint256 dustPerUsdPrice18; // Price in 18 decimals
+
+        // Case 1: Direct DUST/USD oracle (no pairOracle needed)
+        if (pairOracle == address(0)) {
+            // dustPair is assumed to return DUST/USD directly
+            bool dustUsdSuccess;
+            (dustPerUsdPrice18, dustUsdSuccess) = _getDustPairPrice();
+            if (!dustUsdSuccess) return (hardcodedPrice, false);
+        } else {
+            // Case 2: Two-step conversion via DUST/<PAIR> and <PAIR>/USD
+            // Get DUST/<PAIR> price from pool or oracle
+            (uint256 dustPerPairPrice, bool dustPairSuccess) = _getDustPairPrice();
+            if (!dustPairSuccess) return (hardcodedPrice, false);
+
+            // Get <PAIR>/USD price from oracle
+            (uint256 pairPerUsdPrice, bool pairUsdSuccess) = _getPairUsdPrice();
+            if (!pairUsdSuccess) return (hardcodedPrice, false);
+
+            // Calculate DUST/USD = DUST/<PAIR> * <PAIR>/USD
+            // Both prices are in 18 decimals, result is 36 decimals, divide by 1e18
+            dustPerUsdPrice18 = (dustPerPairPrice * pairPerUsdPrice) / 1e18;
+        }
+
+        // Convert to 8 decimals
+        uint256 finalPrice = dustPerUsdPrice18 / 1e10;
+
+        // Final bounds check
+        if (finalPrice >= minReasonablePrice && finalPrice <= maxReasonablePrice) {
+            return (finalPrice, true);
+        }
+        return (hardcodedPrice, false);
+    }
+
+    /**
+     * @notice Get DUST/<PAIR> price from Uniswap pool or oracle
+     * @dev Tries Uniswap V3 pool first, falls back to V2, then Chainlink oracle
+     * @return price Price in 18 decimals (DUST per PAIR token)
+     * @return success Whether price was successfully retrieved
+     */
+    function _getDustPairPrice() internal view returns (uint256 price, bool success) {
+        // Try Uniswap V3 pool first
+        (uint256 v3Price, bool v3Success) = _getUniswapV3Price();
+        if (v3Success) return (v3Price, true);
+
+        // Try Uniswap V2 pool
+        (uint256 v2Price, bool v2Success) = _getUniswapV2Price();
+        if (v2Success) return (v2Price, true);
+
+        // Try Chainlink oracle as fallback
+        (uint256 oraclePrice, bool oracleSuccess) = _getChainlinkPrice();
+        if (oracleSuccess) return (oraclePrice, true);
+
+        return (0, false);
+    }
+
+    /**
+     * @notice Get price from Uniswap V3 pool using slot0
+     */
+    function _getUniswapV3Price() internal view returns (uint256 price, bool success) {
+        try IUniswapV3Pool(dustPair).slot0() returns (
+            uint160 sqrtPriceX96, int24, uint16, uint16, uint16, uint8, bool
+        ) {
+            if (sqrtPriceX96 == 0) return (0, false);
+
+            // Get token addresses and decimals to determine ordering
+            address token0 = IUniswapV3Pool(dustPair).token0();
+            address token1 = IUniswapV3Pool(dustPair).token1();
+            address dustAddr = address(dustToken);
+
+            // Get token decimals for proper scaling
+            uint8 decimals0 = IERC20Metadata(token0).decimals();
+            uint8 decimals1 = IERC20Metadata(token1).decimals();
+
+            // Calculate price from sqrtPriceX96
+            // sqrtPriceX96 = sqrt(token1/token0) * 2^96 (in raw token amounts)
+            // price = (sqrtPriceX96)^2 / 2^192 = token1/token0
+            // But we need to adjust for decimals to get the price in 18-decimal format
+
+            // Multiply sqrtPrice by itself to get price * 2^192
+            uint256 priceX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
+
+            // Adjust for decimals: price_adjusted = price_raw * 10^decimals0 / 10^decimals1
+            // Combine with shifting: price18 = priceX192 * 1e18 * 10^decimals0 / (2^192 * 10^decimals1)
+            uint256 price18;
+            if (decimals0 >= decimals1) {
+                // Avoid overflow: first shift, then multiply
+                uint256 shifted = priceX192 >> 192;
+                price18 = shifted * 1e18 * (10 ** (decimals0 - decimals1));
+            } else {
+                // More complex: need to divide by extra decimals
+                uint256 shifted = priceX192 >> 192;
+                price18 = (shifted * 1e18) / (10 ** (decimals1 - decimals0));
+            }
+
+            // Handle token ordering
+            if (token0 == dustAddr) {
+                // Pool is DUST/<PAIR>, price18 = <PAIR> per DUST in 18 decimals
+                // We want DUST per <PAIR>, so invert
+                if (price18 == 0) return (0, false);
+                price = (1e18 * 1e18) / price18;
+            } else if (token1 == dustAddr) {
+                // Pool is <PAIR>/DUST, price18 = DUST per <PAIR> in 18 decimals
+                price = price18;
+            } else {
+                // DUST not in pool
+                return (0, false);
+            }
+
+            return (price, true);
+        } catch {
+            return (0, false);
         }
     }
 
     /**
-     * @notice Get price from Uniswap pair
-     * @return price Price from Uniswap (8 decimals)
+     * @notice Get price from Uniswap V2 pool using reserves
      */
-    function _getUniswapPrice() internal view returns (uint256 price) {
-        address pair = uniswapPair;
-        if (pair == address(0) || pair.code.length == 0) return hardcodedPrice;
+    function _getUniswapV2Price() internal view returns (uint256 price, bool success) {
+        try IUniswapV2Pair(dustPair).getReserves() returns (uint112 reserve0, uint112 reserve1, uint32) {
+            if (reserve0 == 0 || reserve1 == 0) return (0, false);
 
-        // Try Uniswap V3 pool (slot0)
-        try IUniswapV3Pool(pair).slot0() returns (
-            uint160 sqrtPriceX96, int24, /*tick*/ uint16, uint16, uint16, uint8, bool
-        ) {
-            address t0 = IUniswapV3Pool(pair).token0();
-            address t1 = IUniswapV3Pool(pair).token1();
-            uint8 d0 = IERC20Metadata(t0).decimals();
-            uint8 d1 = IERC20Metadata(t1).decimals();
+            // Get token addresses to determine ordering
+            address token0 = IUniswapV2Pair(dustPair).token0();
+            address token1 = IUniswapV2Pair(dustPair).token1();
+            address dustAddr = address(dustToken);
 
-            uint256 priceX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96); // Q192
-
-            if (address(dustToken) == t0) {
-                // DUST is token0, USD per DUST = (priceX192 / Q192) * 10^(dec0 - dec1)
-                // Implemented as: (priceX192 * 10^dec0 * USD_SCALE) / (Q192 * 10^dec1)
-                return Math.mulDiv(priceX192, (10 ** uint256(d0)) * USD_SCALE, Q192 * (10 ** uint256(d1)));
-            } else if (address(dustToken) == t1) {
-                // DUST is token1, USD per DUST = (Q192 / priceX192) * 10^(dec1 - dec0)
-                // Implemented as: (Q192 * 10^dec1 * USD_SCALE) / (priceX192 * 10^dec0)
-                return Math.mulDiv(Q192, (10 ** uint256(d1)) * USD_SCALE, priceX192 * (10 ** uint256(d0)));
+            // Calculate price based on reserves
+            if (token0 == dustAddr) {
+                // Pool is DUST/<PAIR>: price = reserve1 / reserve0 (<PAIR> per DUST)
+                // We want DUST per <PAIR>, so invert
+                price = (uint256(reserve0) * 1e18) / uint256(reserve1);
+            } else if (token1 == dustAddr) {
+                // Pool is <PAIR>/DUST: price = reserve0 / reserve1 (DUST per <PAIR>)
+                price = (uint256(reserve1) * 1e18) / uint256(reserve0);
             } else {
-                return hardcodedPrice;
+                // DUST not in pool
+                return (0, false);
             }
+
+            return (price, true);
         } catch {
-            // Try Uniswap V2 pair reserves
-            try IUniswapV2Pair(pair).getReserves() returns (uint112 r0, uint112 r1, uint32) {
-                address t0 = IUniswapV2Pair(pair).token0();
-                address t1 = IUniswapV2Pair(pair).token1();
-                uint8 d0 = IERC20Metadata(t0).decimals();
-                uint8 d1 = IERC20Metadata(t1).decimals();
-                if (address(dustToken) == t0 && r0 > 0) {
-                    return Math.mulDiv(uint256(r1), (10 ** uint256(d0)) * USD_SCALE, uint256(r0) * (10 ** uint256(d1)));
-                } else if (address(dustToken) == t1 && r1 > 0) {
-                    return Math.mulDiv(uint256(r0), (10 ** uint256(d1)) * USD_SCALE, uint256(r1) * (10 ** uint256(d0)));
-                } else {
-                    return hardcodedPrice;
+            return (0, false);
+        }
+    }
+
+    /**
+     * @notice Get price from Chainlink-compatible oracle (may include token ordering)
+     * @dev Supports both standard Chainlink oracles and custom oracles with token0/token1
+     */
+    function _getChainlinkPrice() internal view returns (uint256 price, bool success) {
+        try IChainlinkAggregator(dustPair).latestRoundData() returns (uint80, int256 answer, uint256, uint256, uint80) {
+            if (answer <= 0) return (0, false);
+
+            uint256 rawPrice = uint256(answer);
+            uint8 decimalsOracle = IChainlinkAggregator(dustPair).decimals();
+
+            // Normalize to 18 decimals
+            uint256 price18;
+            if (decimalsOracle == 18) {
+                price18 = rawPrice;
+            } else if (decimalsOracle < 18) {
+                price18 = rawPrice * (10 ** (18 - decimalsOracle));
+            } else {
+                price18 = rawPrice / (10 ** (decimalsOracle - 18));
+            }
+
+            // Try to detect token ordering if oracle exposes token0/token1 (UniV3 oracle)
+            try IChainlinkAggregator(dustPair).token0() returns (address token0) {
+                try IChainlinkAggregator(dustPair).token1() returns (address token1) {
+                    address dustAddr = address(dustToken);
+
+                    // Handle token ordering
+                    // Oracle returns price as token0/token1
+                    if (token1 == dustAddr) {
+                        // token0=<PAIR>, token1=DUST: oracle returns <PAIR>/DUST
+                        // We want DUST/<PAIR>, so invert
+                        if (price18 == 0) return (0, false);
+                        price = (1e18 * 1e18) / price18;
+                    } else if (token0 == dustAddr) {
+                        // token0=DUST, token1=<PAIR>: oracle returns DUST/<PAIR>
+                        // Already correct
+                        price = price18;
+                    } else {
+                        // DUST not in oracle pair, assume oracle returns DUST/<PAIR>
+                        price = price18;
+                    }
+                    return (price, true);
+                } catch {
+                    // token1() failed, assume oracle returns DUST/<PAIR>
+                    price = price18;
+                    return (price, true);
                 }
             } catch {
-                return hardcodedPrice;
+                // token0() not available (standard Chainlink oracle)
+                // Assume oracle returns DUST/<PAIR>
+                price = price18;
+                return (price, true);
             }
+        } catch {
+            return (0, false);
+        }
+    }
+
+    /**
+     * @notice Get <PAIR>/USD price from Chainlink oracle
+     * @return price Price in 18 decimals (USD per PAIR token)
+     * @return success Whether price was successfully retrieved
+     */
+    function _getPairUsdPrice() internal view returns (uint256 price, bool success) {
+        try IChainlinkAggregator(pairOracle).latestRoundData() returns (
+            uint80, int256 answer, uint256, uint256, uint80
+        ) {
+            if (answer <= 0) return (0, false);
+
+            uint256 rawPrice = uint256(answer);
+            uint8 pairOracleDecimals = IChainlinkAggregator(pairOracle).decimals();
+
+            // Normalize to 18 decimals
+            if (pairOracleDecimals == 18) {
+                price = rawPrice;
+            } else if (pairOracleDecimals < 18) {
+                price = rawPrice * (10 ** (18 - pairOracleDecimals));
+            } else {
+                price = rawPrice / (10 ** (pairOracleDecimals - 18));
+            }
+
+            return (price, true);
+        } catch {
+            return (0, false);
         }
     }
 
@@ -442,7 +686,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     function getMarketData() external view override returns (INeverlandDustHelper.MarketData memory data) {
         uint256 totalSupply = getTotalSupply();
         uint256 circulatingSupply = getCirculatingSupply();
-        (uint256 usdPrice, bool fromUniswap) = getPrice();
+        (uint256 usdPrice, bool fromOracle) = getPrice();
 
         // Calculate market caps (convert to 8 decimals for consistency)
         // circulatingSupply is 18 decimals, price is 8 decimals
@@ -457,7 +701,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
             marketCap: marketCap,
             fullyDilutedMarketCap: fullyDilutedMarketCap,
             timestamp: block.timestamp,
-            isPriceFromUniswap: fromUniswap
+            isPriceFromOracle: fromOracle
         });
     }
 
@@ -501,9 +745,9 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         external
         view
         override
-        returns (uint256 price, bool isFromUniswap, uint256 lastUpdate, bool isStale)
+        returns (uint256 price, bool isFromOracle, uint256 lastUpdate, bool isStale)
     {
-        (price, isFromUniswap) = getPrice();
+        (price, isFromOracle) = getPrice();
         lastUpdate = cacheTimestamp;
         isStale = cacheTimestamp < 1 || block.timestamp > cacheTimestamp + priceUpdateInterval;
     }
@@ -519,14 +763,17 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        (uint256 price,) = getPrice();
-        return (
-            uint80(currentRoundId),
-            int256(price),
-            cacheTimestamp > 0 ? cacheTimestamp : block.timestamp,
-            cacheTimestamp > 0 ? cacheTimestamp : block.timestamp,
-            uint80(currentRoundId)
-        );
+        if (currentRoundId == 0 || rounds[currentRoundId].timestamp == 0) revert NoRoundsRecorded();
+
+        RoundData memory round = rounds[currentRoundId];
+        return
+            (
+                uint80(currentRoundId),
+                int256(round.answer),
+                round.startedAt,
+                round.timestamp,
+                uint80(round.answeredInRound)
+            );
     }
 
     /// @inheritdoc INeverlandDustHelper
@@ -536,44 +783,44 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        if (requestRoundId > currentRoundId || requestRoundId == 0) {
-            revert InvalidRoundId(requestRoundId);
-        }
+        RoundData memory round = rounds[uint256(requestRoundId)];
+        if (round.timestamp == 0) revert NoDataPresent();
 
-        RoundData memory round = rounds[requestRoundId];
-        return (requestRoundId, int256(round.answer), round.startedAt, round.timestamp, requestRoundId);
+        return (requestRoundId, int256(round.answer), round.startedAt, round.timestamp, uint80(round.answeredInRound));
     }
 
     /// @inheritdoc INeverlandDustHelper
     function latestAnswer() external view override returns (int256 price) {
-        (uint256 p,) = getPrice();
-        return int256(p);
+        if (currentRoundId == 0 || rounds[currentRoundId].timestamp == 0) revert NoRoundsRecorded();
+        return int256(rounds[currentRoundId].answer);
     }
 
     /// @inheritdoc INeverlandDustHelper
     function latestTimestamp() external view override returns (uint256 timestamp) {
-        return cacheTimestamp > 0 ? cacheTimestamp : block.timestamp;
+        if (currentRoundId == 0 || rounds[currentRoundId].timestamp == 0) revert NoRoundsRecorded();
+        return rounds[currentRoundId].timestamp;
     }
 
     /// @inheritdoc INeverlandDustHelper
     function latestRound() external view override returns (uint256 roundId) {
+        if (currentRoundId == 0 || rounds[currentRoundId].timestamp == 0) revert NoRoundsRecorded();
         return currentRoundId;
     }
 
     /// @inheritdoc INeverlandDustHelper
     function getAnswer(uint256 roundId) external view override returns (int256 answer) {
-        if (roundId > currentRoundId || roundId == 0) {
-            revert InvalidRoundId(roundId);
-        }
-        return int256(rounds[roundId].answer);
+        RoundData memory round = rounds[roundId];
+        if (round.timestamp == 0) revert NoDataPresent();
+
+        return int256(round.answer);
     }
 
     /// @inheritdoc INeverlandDustHelper
     function getTimestamp(uint256 roundId) external view override returns (uint256 timestamp) {
-        if (roundId > currentRoundId || roundId == 0) {
-            revert InvalidRoundId(roundId);
-        }
-        return rounds[roundId].timestamp;
+        RoundData memory round = rounds[roundId];
+        if (round.timestamp == 0) revert NoDataPresent();
+
+        return round.timestamp;
     }
 
     /// @inheritdoc INeverlandDustHelper
@@ -583,11 +830,16 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /// @inheritdoc INeverlandDustHelper
     function description() external pure override returns (string memory) {
-        return "DUST / USD";
+        return "DUST / MON";
     }
 
     /// @inheritdoc INeverlandDustHelper
     function version() external pure override returns (uint256) {
         return 1;
+    }
+
+    /// @notice Disabled to prevent accidental renouncement of ownership
+    function renounceOwnership() public view override onlyOwner {
+        revert();
     }
 }
