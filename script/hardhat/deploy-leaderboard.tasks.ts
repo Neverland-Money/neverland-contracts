@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { task } from "hardhat/config";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
+import { exportDeployments } from "./helpers/export";
 
 /*//////////////////////////////////////////////////////////////
                         CONFIGURATION
@@ -416,13 +417,58 @@ const deployLeaderboardConfig = async (
     },
   };
 
-  const outputPath = path.resolve(
-    __dirname,
-    `../../deployments/leaderboard-${hre.network.name}-${Date.now()}.json`
-  );
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(deploymentInfo, null, 2));
-  console.log(`\n💾 Deployment info saved to ${outputPath}`);
+  // Export to standard deployments folder
+  const deploymentsToExport: Record<string, any> = {
+    EpochManager: {
+      address: epochManagerAddress,
+      constructorArgs: [epochOwner],
+      metadata: {
+        deployer: deployerAddress,
+        timestamp: Date.now(),
+        chainId: hre.network.config.chainId,
+      },
+    },
+    LeaderboardConfig: {
+      address: leaderboardAddress,
+      constructorArgs: [
+        leaderboardOwner,
+        depositRateBps,
+        borrowRateBps,
+        vpRateBps,
+        supplyDailyBonus,
+        borrowDailyBonus,
+        repayDailyBonus,
+        withdrawDailyBonus,
+        cooldownSeconds,
+        minDailyBonusUsd,
+      ],
+      metadata: {
+        deployer: deployerAddress,
+        timestamp: Date.now(),
+        chainId: hre.network.config.chainId,
+      },
+    },
+    NFTPartnershipRegistry: {
+      address: nftRegistryAddress,
+      constructorArgs: [nftOwner, firstBonus, decayRatio],
+      metadata: {
+        deployer: deployerAddress,
+        timestamp: Date.now(),
+        chainId: hre.network.config.chainId,
+      },
+    },
+    VotingPowerMultiplier: {
+      address: votingPowerMultiplierAddress,
+      constructorArgs: [vpOwner, dustLockAddress],
+      metadata: {
+        deployer: deployerAddress,
+        timestamp: Date.now(),
+        chainId: hre.network.config.chainId,
+      },
+    },
+  };
+
+  await exportDeployments(hre, deploymentsToExport);
 
   console.log("\n================ Post-Deployment Notes ==================");
   console.log("\n📌 EpochManager - Start the leaderboard:");

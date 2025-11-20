@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { task } from "hardhat/config";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
+import { exportDeployment } from "./helpers/export";
 
 /*//////////////////////////////////////////////////////////////
                         CONFIGURATION
@@ -205,13 +206,23 @@ const deployLeaderboardKeeper = async (
     },
   };
 
-  const outputPath = path.resolve(
-    __dirname,
-    `../../deployments/leaderboard-keeper-${hre.network.name}-${Date.now()}.json`
-  );
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(deploymentInfo, null, 2));
-  console.log(`\n💾 Deployment info saved to ${outputPath}`);
+  // Export to standard deployments folder
+  await exportDeployment(hre, "LeaderboardKeeper", {
+    address: keeperContractAddress,
+    constructorArgs: [
+      initialOwner,
+      keeperAddress,
+      minSettlementInterval,
+      dustLock,
+      nftRegistry,
+    ],
+    metadata: {
+      deployer: deployerAddress,
+      timestamp: Date.now(),
+      chainId: hre.network.config.chainId,
+      gasUsed: depTx ? (await depTx.wait())?.gasUsed.toString() : undefined,
+    },
+  });
 
   console.log("\n================ Post-Deployment Notes ==================");
   console.log("\n📌 LeaderboardKeeper - Available Functions:");

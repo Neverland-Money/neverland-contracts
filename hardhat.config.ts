@@ -69,7 +69,7 @@ export default {
   sourcify: {
     enabled: true,
     apiUrl: "https://sourcify-api-monad.blockvision.org",
-    browserUrl: "https://mainnet-beta.monvision.io/",
+    browserUrl: "https://monadvision.com",
   },
   etherscan: {
     enabled: true,
@@ -88,7 +88,7 @@ export default {
         chainId: 143,
         urls: {
           apiURL: "https://api.etherscan.io/v2/api?chainid=143",
-          browserURL: "https://monadscan.com/",
+          browserURL: "https://monadvision.com",
         },
       },
     ],

@@ -109,3 +109,31 @@ export interface ContractAddresses {
   userVaultFactory: string;
   proxyAdmin: string;
 }
+
+// Interactive deployment types
+export interface ContractParam {
+  name: string;
+  type: string;
+  description: string;
+  configKey?: string; // Key to lookup in deployment config
+}
+
+export interface ContractConfig {
+  name: string;
+  displayName: string;
+  description: string;
+  constructorParams: ContractParam[];
+  dependencies?: string[]; // Other contracts that must be deployed first
+}
+
+export interface NetworkConfig {
+  networkName?: string;
+  chainId?: number;
+  addresses?: Record<string, string>;
+}
+
+export interface DeploymentResult {
+  name: string;
+  address: string;
+  params: string[];
+}

@@ -1,5 +1,6 @@
 import { task } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import { exportDeployment } from "./helpers/export";
 
 task("deploy:ui-provider", "Deploy NeverlandUiProvider contract")
   .addFlag("verify", "Verify contract after deployment")
@@ -50,6 +51,18 @@ task("deploy:ui-provider", "Deploy NeverlandUiProvider contract")
     const address = await uiProvider.getAddress();
     console.log("✅ NeverlandUiProvider deployed at:", address);
     console.log("");
+
+    // Export deployment info
+    const [deployer] = await hre.ethers.getSigners();
+    await exportDeployment(hre, "NeverlandUiProvider", {
+      address: address,
+      constructorArgs: constructorArgs,
+      metadata: {
+        deployer: deployer.address,
+        timestamp: Date.now(),
+        chainId: hre.network.config.chainId,
+      },
+    });
 
     // Verify if flag is set
     if (taskArgs.verify) {
