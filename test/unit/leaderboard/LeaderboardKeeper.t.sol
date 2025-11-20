@@ -14,7 +14,7 @@ contract LeaderboardKeeperTest is LeaderboardBase {
         super.setUp();
 
         // Deploy LeaderboardKeeper
-        keeper = new LeaderboardKeeper(admin, keeperBot, 3600); // 1 hour interval
+        keeper = new LeaderboardKeeper(admin, keeperBot, 3600, makeAddr("random1"), makeAddr("random2")); // 1 hour interval
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -31,12 +31,12 @@ contract LeaderboardKeeperTest is LeaderboardBase {
 
     function testConstructorZeroAddressOwner() public {
         vm.expectRevert();
-        new LeaderboardKeeper(address(0), keeperBot, 3600);
+        new LeaderboardKeeper(ZERO_ADDRESS, keeperBot, 3600, ZERO_ADDRESS, ZERO_ADDRESS);
     }
 
     function testConstructorZeroAddressKeeper() public {
         vm.expectRevert();
-        new LeaderboardKeeper(admin, address(0), 3600);
+        new LeaderboardKeeper(admin, ZERO_ADDRESS, 3600, ZERO_ADDRESS, ZERO_ADDRESS);
     }
 
     /*//////////////////////////////////////////////////////////////
