@@ -1,11 +1,29 @@
 # Neverland Protocol
 
-Neverland Protocol is a next-generation decentralized lending platform that combines Aave V3's battle-tested lending infrastructure with an innovative vote-escrow (veNFT) system. Users can lock `DUST` tokens to receive `veDUST` that provide:
+> **License**: Mixed. Neverland-authored code is under Business Source License 1.1 (changes to MIT on 2028-07-20); some components are AGPL/GPL per SPDX. See [License](#license) section below.
+
+Neverland Protocol is a next-generation decentralized lending platform that combines Aave V3's battle-tested lending infrastructure with an innovative vote-escrow (veNFT) system. Users can lock `DUST` tokens to receive `veDUST` NFTs that provide:
 
 - **Time-weighted governance power** for protocol decisions
 - **Revenue sharing** from protocol fees and activities  
-- **Enhanced yield** through boosted lending/borrowing rewards
 - **Transferable positions** via ERC-721 veNFTs with flexible management
+- **Self-repaying loans** via RevenueReward contract
+
+## Table of Contents
+
+- [Key Features](#key-features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Development Workflow](#development-workflow)
+- [Deployment](#deployment)
+- [Protocol Architecture](#protocol-architecture)
+- [Dependencies & Compatibility](#dependencies--compatibility)
+- [Smart Contracts](#smart-contracts)
+- [Testing Framework](#testing-framework)
+- [License](#license)
+- [Security](#security)
+- [Contributing](#contributing)
+- [Contact](#contact)
 
 ## Key Features
 
@@ -13,12 +31,13 @@ Neverland Protocol is a next-generation decentralized lending platform that comb
 - **Vote-Escrow Governance**: Lock DUST for 28 days to 1 year, receive voting power that decays linearly
 - **Revenue Distribution**: Automatic protocol revenue sharing to veNFT holders via RevenueReward contract
 - **Flexible Incentives**: Configurable emissions via DustRewardsController with auto-locking to veNFTs
+- **Leaderboard & Engagement**: Points-based rewards system with voting power multipliers and NFT partnership boosts
 - **High Precision Math**: PRB Math UD60x18 ensures accurate calculations for all financial operations
 - **Advanced Operations**: Batch operations, permanent locks, self-repaying loans, and comprehensive veNFT management
 
 ## Prerequisites
 
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Foundry](https://book.getfoundry.sh/getting-started/installation) (1.4.4-stable)
 - [Node.js](https://nodejs.org/) (v16 or later)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 
@@ -94,11 +113,20 @@ Default typechain is `ethers-v6`, to choose `ethers-v5` specify `ETHERS_V5=true`
 
 ## Deployment
 
-TBD
+Deployment scripts and configurations are located in the `docs/` directory. For Aave V3 core deployment, see the [aave-v3-deploy repository](https://github.com/Neverland-Money/aave-v3-deploy).
+
+### Pre-deployment Checklist
+
+- Verify all contracts compile: `forge build`
+- Run full test suite: `forge test`
+- Review deployment parameters in scripts
+- Ensure deployer wallet has sufficient gas
+
+> **Note**: Production deployments should be reviewed by the Neverland Foundation team.
 
 ## Protocol Architecture
 
-Neverland Protocol is built on four interconnected layers:
+Neverland Protocol is built on five interconnected layers:
 
 ### 1. Lending Market Layer
 - **Foundation**: Unmodified Aave V3 core contracts
@@ -124,6 +152,14 @@ Neverland Protocol is built on four interconnected layers:
 - **Epoch-Based**: Weekly distribution cycles with proportional allocation
 - **Self-Repaying Loans**: Optional revenue redirection for automated loan repayment
 
+### 5. Leaderboard System
+- **Points-Based Rewards**: Track user activities and protocol engagement through epochs
+- **Voting Power Multipliers**: VotingPowerMultiplier provides tiered bonuses (1.0x to 5.0x) based on veDUST holdings
+- **NFT Partnership Boosts**: NFTPartnershipRegistry enables partner NFT collections to grant additional multipliers
+- **Dynamic Configuration**: LeaderboardConfig allows real-time adjustment of point accrual rates
+- **Keeper Automation**: LeaderboardKeeper handles automated state verification and settlement
+- **Subgraph Integration**: All events emitted for off-chain tracking and leaderboard calculation
+
 ### Technical Features
 
 - **High-Precision Mathematics**: Implements PRB Math UD60x18 for 18-decimal fixed-point arithmetic
@@ -134,7 +170,7 @@ Neverland Protocol is built on four interconnected layers:
 
 ## Dependencies & Compatibility
 
-### External Libraries
+### External Libraries (MIT Licensed)
 
 | Library | Version | Commit Hash | Purpose |
 |---------|---------|-------------|---------|
@@ -143,13 +179,13 @@ Neverland Protocol is built on four interconnected layers:
 | [OpenZeppelin Upgradeable](https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable) | v4.9.6 | 2d081f2 | Upgradeable contract implementations |
 | [PRB Math](https://github.com/PaulRBerg/prb-math) | v4.1.0 | 280fc5f | High-precision 18-decimal arithmetic |
 
-### Forked Repositories
+### Forked Repositories (Various Licenses)
 
-| Repository          | Release | Commit Hash | Purpose |
-|---------------------|---------|-------------|---------|
-| [aave-v3-core](https://github.com/aave/aave-v3-core) | v1.19.4-1 | 782f519 | Core lending protocol contracts |
-| [aave-v3-periphery](https://github.com/aave/aave-v3-periphery) | v2.1.0-17 | 9afa826 | Rewards and helper contracts |
-| [velodrome-contracts](https://github.com/velodrome-finance/contracts) | — | 9e5a574 | Vote-escrow mechanics reference |
+| Repository          | Release | Commit Hash | License | Purpose |
+|---------------------|---------|-------------|---------|---------|
+| [aave-v3-core](https://github.com/aave/aave-v3-core) | v1.19.4-1 | 782f519 | BUSL-1.1→MIT | Core lending protocol contracts |
+| [aave-v3-periphery](https://github.com/aave/aave-v3-periphery) | v2.1.0-17 | 9afa826 | BUSL-1.1→MIT | Rewards and helper contracts |
+| [velodrome-contracts](https://github.com/velodrome-finance/contracts) | — | 9e5a574 | MIT | Vote-escrow mechanics reference |
 
 > **Note**: Aave V3 contracts are managed and deployed in [this repository](https://github.com/Neverland-Money/aave-v3-deploy).
 
@@ -167,6 +203,16 @@ Neverland Protocol is built on four interconnected layers:
 | **BalanceLogicLibrary**      | Library for veDUST balance accounting                                                               | [velodrome-contracts](https://github.com/velodrome-finance/contracts):<br/>BalanceLogicLibrary      | - Renamed IVotingEscrow interface to IDustLock <br/> - Updated references to match Neverland's veNFT implementation                                                                                                                                                                                                                                                     |
 | **SafeCastLibrary**          | Utilities for safe casting between integer types                                                    | [velodrome-contracts](https://github.com/velodrome-finance/contracts):<br/>SafeCastLibrary          | - No modifications, used as-is from upstream                                                                                                                                                                                                                                                                                   |
 
+### Leaderboard System
+
+| Contract                     | Description                                                                                         |
+|------------------------------|-----------------------------------------------------------------------------------------------------|
+| **EpochManager**             | Manages leaderboard epochs for the points system. Emits events for subgraph tracking of epoch transitions |
+| **LeaderboardConfig**        | Dynamic configuration for point accrual rates across different protocol activities. Subgraph listens to rate changes |
+| **LeaderboardKeeper**        | Handles automated user state verification and settlement. Keeper bot submits verified on-chain state to trigger subgraph updates |
+| **VotingPowerMultiplier**    | Manages veNFT voting power-based point multipliers using a tiered system (higher voting power = higher multiplier, 1.0x to 5.0x) |
+| **NFTPartnershipRegistry**   | Registry for partner NFT collections that provide additional point multipliers with configurable decay ratios |
+
 ## Testing Framework
 
 Our comprehensive test suite ensures protocol security and mathematical precision across all operations.
@@ -179,14 +225,14 @@ Our comprehensive test suite ensures protocol security and mathematical precisio
 | `RevenueReward.t.sol` | Revenue distribution | Multi-token rewards, batch claims, self-repaying loans, precision |
 | `DustRewardsController.t.sol` | Incentive distribution | Emission configuration, reward claiming, transfer strategies |
 | `DustLockTransferStrategy.t.sol` | Reward auto-locking | DUST reward conversion to veNFTs, penalty calculations |
+| `leaderboard/*.t.sol` | Leaderboard system | Epoch management, point multipliers, NFT partnerships, keeper operations |
 
-### End-to-End Tests (`/test/e2e/`)
+### Flow Tests (`/test/flow/`)
 
 Integration tests validating full protocol workflows:
 
 | Test Suite | Purpose | Validation Points |
 |------------|---------|-------------------|
-| `DustEmissionsFlow.t.sol` | Complete emission cycles | Asset configuration, reward accrual, claiming workflows |
 | `DustLockFlow.t.sol` | Complete veNFT lifecycles | Lock creation, deposits, transfers, withdrawals |
 | `RevenueRewardFlow.t.sol` | Complete revenue distribution | Multi-epoch rewards, batch operations, precision validation |
 
@@ -204,7 +250,7 @@ forge test -vvv
 
 # Test specific functionality
 forge test --match-contract DustLock -vv
-forge test --match-path "test/e2e/*" -vv
+forge test --match-path "test/flow/*" -vv
 forge test --match-test "testRewardPrecision" -vvv
 
 # Run tests with gas reporting
@@ -224,3 +270,83 @@ The protocol maintains comprehensive test coverage across all critical paths:
 > **Note**: Coverage analysis may cause some time-sensitive and gas-dependent tests to fail due to compilation differences.
 > All tests pass with standard `forge test` execution.
 > This is expected behavior when using `--ir-minimum` for coverage reporting.
+
+## License
+
+This repository contains code under multiple licenses. See [LICENSE](./LICENSE) for full details.
+
+### Primary License
+
+Unless noted below, Neverland-authored code is licensed under the **Business Source License 1.1** (BUSL-1.1):
+- **Licensor**: Neverland Foundation
+- **Change Date**: 2028-07-20
+- **Change License**: MIT
+- **Restrictions**: No commercial use or production deployment outside Neverland Foundation without explicit permission
+
+### Exceptions
+
+Due to dependencies on copyleft-licensed code, certain files use different licenses:
+
+- **GNU AGPL-3.0**: Aave-derived reward distribution stack
+  - `src/emissions/DustTransferStrategyBase.sol`
+  - `src/emissions/DustRewardsController.sol`
+  - `src/emissions/DustLockTransferStrategy.sol`
+  - Related interfaces in `src/interfaces/IDustTransferStrategy.sol`, `src/interfaces/IDustRewardsController.sol`, `src/interfaces/IDustLockTransferStrategy.sol`
+
+- **GNU GPL-3.0-or-later**: Uniswap-dependent oracle contracts
+  - `src/utils/NeverlandDustHelper.sol`
+
+- **MIT**: Selected interfaces and test utilities
+  - `src/interfaces/IUserVaultRegistry.sol`
+  - Test harnesses in `test/`
+
+### Vendored Dependencies
+
+Third-party libraries in `lib/` retain their original licenses:
+- **OpenZeppelin**: MIT
+- **Aave V3**: BUSL-1.1 (now MIT after Change Date)
+- **Uniswap V2**: GPL-3.0
+- **Uniswap V3**: GPL-2.0-or-later (after Change Date)
+- **PRB Math**: MIT
+- **forge-std**: MIT/Apache-2.0
+
+**SPDX identifiers in each file are authoritative.** See [LICENSE](./LICENSE) for complete terms.
+
+## Security
+
+### Audits
+
+All security audits are publicly available. View our completed audits in the [`audits`](./audits) folder.
+
+### Bug Bounty
+
+Security researchers: please responsibly disclose any vulnerabilities to security@neverland.money.
+
+### Best Practices
+
+- All core contracts are thoroughly tested with Foundry
+- High-precision arithmetic using PRB Math prevents common overflow/underflow issues
+- Access controls follow OpenZeppelin standards
+- Follows Solidity best practices and CEI (Checks-Effects-Interactions) pattern
+
+## Contributing
+
+Contributions are welcome! Please note the licensing structure before contributing:
+
+1. **Fork the repository** and create your branch from `main`
+2. **Make your changes** ensuring all tests pass: `forge test`
+3. **Add tests** for any new functionality
+4. **Follow code style** consistent with existing contracts
+5. **Submit a pull request** with a clear description
+
+By contributing, you agree that your contributions will be licensed under the same license as the file you're modifying (BUSL-1.1, AGPL-3.0, GPL-3.0, or MIT as indicated by SPDX headers).
+
+## Contact
+
+- **Website**: [neverland.money](https://neverland.money)
+- **Email**: legal@neverland.money
+- **Security**: security@neverland.money
+
+---
+
+**Built with ❤️ by Neverland Foundation**
