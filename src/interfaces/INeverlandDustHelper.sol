@@ -96,6 +96,19 @@ interface INeverlandDustHelper {
      */
     event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);
 
+    /**
+     * @notice Emitted when Uniswap V4 pool configuration is updated
+     * @param poolManager PoolManager address
+     * @param poolId Pool ID
+     * @param isDustToken0 True if DUST is currency0, false if currency1
+     */
+    event V4PoolUpdated(address poolManager, bytes32 poolId, bool isDustToken0);
+
+    /**
+     * @notice Emitted when Uniswap V4 pool configuration is removed
+     */
+    event V4PoolRemoved();
+
     /*//////////////////////////////////////////////////////////////
                                ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -145,6 +158,9 @@ interface INeverlandDustHelper {
 
     /// @notice No rounds have been recorded yet
     error NoRoundsRecorded();
+
+    /// @notice Invalid V4 pool configuration (currency0 must be < currency1)
+    error InvalidV4PoolConfig();
 
     /*//////////////////////////////////////////////////////////////
                            TEAM MANAGEMENT

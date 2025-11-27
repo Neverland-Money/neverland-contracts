@@ -6,6 +6,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IUniswapV2Pair} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {PoolId} from "@uniswap/v4-core/src/types/PoolId.sol";
+import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
 import {CommonChecksLibrary} from "../libraries/CommonChecksLibrary.sol";
 import {INeverlandDustHelper} from "../interfaces/INeverlandDustHelper.sol";
@@ -84,6 +87,15 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /// @notice Round data for Chainlink compatibility
     mapping(uint256 => RoundData) private rounds;
+
+    /// @notice Uniswap V4 PoolManager address
+    address public v4PoolManager;
+
+    /// @notice Uniswap V4 Pool ID
+    PoolId public v4PoolId;
+
+    /// @notice True if DUST is currency0 in the V4 pool, false if currency1
+    bool public v4IsDustToken0;
 
     /*//////////////////////////////////////////////////////////////
                                STRUCTS
@@ -277,6 +289,38 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         emit PairOracleUpdated(oldPairOracle, pairOracleAddress);
     }
 
+    /**
+     * @notice Set Uniswap V4 pool configuration
+     * @param poolManager Address of the V4 PoolManager singleton
+     * @param poolId The pool ID (bytes32)
+     * @param isDustToken0 True if DUST is currency0, false if currency1
+     */
+    function setV4Pool(address poolManager, bytes32 poolId, bool isDustToken0) external onlyOwner {
+        CommonChecksLibrary.revertIfZeroAddress(poolManager);
+        if (poolId == bytes32(0)) revert InvalidV4PoolConfig();
+
+        v4PoolManager = poolManager;
+        v4PoolId = PoolId.wrap(poolId);
+        v4IsDustToken0 = isDustToken0;
+
+        // Clear cache when switching pools
+        cacheTimestamp = 0;
+
+        emit V4PoolUpdated(poolManager, poolId, isDustToken0);
+    }
+
+    /**
+     * @notice Remove Uniswap V4 pool configuration
+     */
+    function removeV4Pool() external onlyOwner {
+        v4PoolManager = address(0);
+        v4PoolId = PoolId.wrap(bytes32(0));
+        v4IsDustToken0 = false;
+        cacheTimestamp = 0;
+
+        emit V4PoolRemoved();
+    }
+
     /*//////////////////////////////////////////////////////////////
                                PRICE MANAGEMENT
         //////////////////////////////////////////////////////////////*/
@@ -361,7 +405,8 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
             return (cachedPrice, cachedPriceFromOracle);
         }
 
-        if (dustPair != address(0)) {
+        // Check if we have any price source configured (V4, V3/V2, or Chainlink)
+        if (dustPair != address(0) || v4PoolManager != address(0)) {
             (uint256 oraclePrice, bool oracleSuccess) = _getOraclePrice();
             return (oraclePrice, oracleSuccess);
         }
@@ -428,7 +473,8 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
      * @return fromOracle Whether price is from oracle
      */
     function _getPriceWithoutCache() internal view returns (uint256 price, bool fromOracle) {
-        if (dustPair != address(0)) {
+        // Check if we have any price source configured (V4, V3/V2, or Chainlink)
+        if (dustPair != address(0) || v4PoolManager != address(0)) {
             (uint256 oraclePrice, bool oracleSuccess) = _getOraclePrice();
             return (oraclePrice, oracleSuccess);
         }
@@ -441,8 +487,8 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
      * @return success True if price came from successful oracle read, false if fallback
      */
     function _getOraclePrice() internal view returns (uint256 price, bool success) {
-        // Need at least dustPair to get oracle price
-        if (dustPair == address(0)) {
+        // Need at least one price source configured: V4, V3/V2 (dustPair), or Chainlink
+        if (dustPair == address(0) && v4PoolManager == address(0)) {
             return (hardcodedPrice, false);
         }
 
@@ -481,12 +527,19 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /**
      * @notice Get DUST/<PAIR> price from Uniswap pool or oracle
-     * @dev Tries Uniswap V3 pool first, falls back to V2, then Chainlink oracle
+     * @dev Tries Uniswap V4 pool first, falls back to V3, V2, then Chainlink oracle
      * @return price Price in 18 decimals (DUST per PAIR token)
      * @return success Whether price was successfully retrieved
      */
     function _getDustPairPrice() internal view returns (uint256 price, bool success) {
-        // Try Uniswap V3 pool first
+        // Try Uniswap V4 pool first
+        if (v4PoolManager != address(0)) {
+            try this.getV4PriceExternal() returns (uint256 v4Price, bool v4Success) {
+                if (v4Success) return (v4Price, true);
+            } catch {}
+        }
+
+        // Try Uniswap V3 pool
         (uint256 v3Price, bool v3Success) = _getUniswapV3Price();
         if (v3Success) return (v3Price, true);
 
@@ -499,6 +552,61 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         if (oracleSuccess) return (oraclePrice, true);
 
         return (0, false);
+    }
+
+    /**
+     * @notice Get price from Uniswap V4 pool using StateLibrary
+     * @return price Price in 18 decimals (DUST per PAIR token)
+     * @return success Whether price was successfully retrieved
+     */
+    function _getUniswapV4Price() internal view returns (uint256 price, bool success) {
+        if (v4PoolManager == address(0)) return (0, false);
+
+        bytes memory callData = abi.encodeWithSelector(this.getV4Slot0.selector, v4PoolManager, v4PoolId);
+
+        (bool callSuccess, bytes memory returnData) = address(this).staticcall(callData);
+
+        if (!callSuccess || returnData.length == 0) return (0, false);
+
+        uint160 sqrtPriceX96;
+        (sqrtPriceX96,,,) = abi.decode(returnData, (uint160, int24, uint24, uint24));
+
+        if (sqrtPriceX96 == 0) return (0, false);
+
+        // Calculate price: (sqrtPriceX96^2 * 1e18) / 2^192
+        uint256 numerator = uint256(sqrtPriceX96) * uint256(sqrtPriceX96) * 1e18;
+        uint256 price18 = numerator >> 192;
+
+        // Invert if DUST is token1 to get PAIR per DUST
+        if (v4IsDustToken0) {
+            price = price18;
+        } else {
+            if (price18 == 0) return (0, false);
+            price = (1e18 * 1e18) / price18;
+        }
+
+        if (price == 0) return (0, false);
+
+        return (price, true);
+    }
+
+    /**
+     * @notice External helper to call StateLibrary.getSlot0
+     * @dev Must be external to allow staticcall from internal functions
+     */
+    function getV4Slot0(address poolManager, PoolId poolId)
+        external
+        view
+        returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee)
+    {
+        return StateLibrary.getSlot0(IPoolManager(poolManager), poolId);
+    }
+
+    /**
+     * @notice External wrapper for _getUniswapV4Price
+     */
+    function getV4PriceExternal() external view returns (uint256 price, bool success) {
+        return _getUniswapV4Price();
     }
 
     /**
@@ -835,7 +943,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /// @inheritdoc INeverlandDustHelper
     function version() external pure override returns (uint256) {
-        return 1;
+        return 2;
     }
 
     /// @notice Disabled to prevent accidental renouncement of ownership

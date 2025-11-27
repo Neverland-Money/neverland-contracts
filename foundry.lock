@@ -25,5 +25,11 @@
   },
   "lib/v3-core": {
     "rev": "e3589b192d0be27e100cd0daaf6c97204fdb1899"
+  },
+  "lib/v4-core": {
+    "tag": {
+      "name": "v4.0.0",
+      "rev": "e50237c43811bd9b526eff40f26772152a42daba"
+    }
   }
 }
