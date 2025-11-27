@@ -410,9 +410,13 @@ function displaySetupSummary(config: SetupConfig) {
 
   if (config.v4Pool) {
     console.log(chalk.gray(`\nV4 Pool Configuration:`));
-    console.log(chalk.gray(`  poolManager:       ${config.v4Pool.poolManager}`));
+    console.log(
+      chalk.gray(`  poolManager:       ${config.v4Pool.poolManager}`)
+    );
     console.log(chalk.gray(`  poolId:            ${config.v4Pool.poolId}`));
-    console.log(chalk.gray(`  isDustToken0:      ${config.v4Pool.isDustToken0}`));
+    console.log(
+      chalk.gray(`  isDustToken0:      ${config.v4Pool.isDustToken0}`)
+    );
   }
 
   console.log();
