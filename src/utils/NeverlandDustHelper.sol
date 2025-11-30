@@ -492,31 +492,31 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
             return (hardcodedPrice, false);
         }
 
-        uint256 dustPerUsdPrice18; // Price in 18 decimals
+        uint256 usdPerDustPrice18; // USD per DUST in 18 decimals
 
         // Case 1: Direct DUST/USD oracle (no pairOracle needed)
         if (pairOracle == address(0)) {
-            // dustPair is assumed to return DUST/USD directly
+            // dustPair is assumed to return USD/DUST directly
             bool dustUsdSuccess;
-            (dustPerUsdPrice18, dustUsdSuccess) = _getDustPairPrice();
+            (usdPerDustPrice18, dustUsdSuccess) = _getDustPairPrice();
             if (!dustUsdSuccess) return (hardcodedPrice, false);
         } else {
-            // Case 2: Two-step conversion via DUST/<PAIR> and <PAIR>/USD
-            // Get DUST/<PAIR> price from pool or oracle
-            (uint256 dustPerPairPrice, bool dustPairSuccess) = _getDustPairPrice();
+            // Case 2: Two-step conversion via <PAIR>/DUST and <PAIR>/USD
+            // Get <PAIR> per DUST price from pool or oracle
+            (uint256 pairPerDustPrice, bool dustPairSuccess) = _getDustPairPrice();
             if (!dustPairSuccess) return (hardcodedPrice, false);
 
-            // Get <PAIR>/USD price from oracle
-            (uint256 pairPerUsdPrice, bool pairUsdSuccess) = _getPairUsdPrice();
+            // Get USD per <PAIR> price from oracle
+            (uint256 usdPerPairPrice, bool pairUsdSuccess) = _getPairUsdPrice();
             if (!pairUsdSuccess) return (hardcodedPrice, false);
 
-            // Calculate DUST/USD = DUST/<PAIR> * <PAIR>/USD
+            // Calculate USD/DUST = (<PAIR>/DUST) * (USD/<PAIR>)
             // Both prices are in 18 decimals, result is 36 decimals, divide by 1e18
-            dustPerUsdPrice18 = (dustPerPairPrice * pairPerUsdPrice) / 1e18;
+            usdPerDustPrice18 = (pairPerDustPrice * usdPerPairPrice) / 1e18;
         }
 
         // Convert to 8 decimals
-        uint256 finalPrice = dustPerUsdPrice18 / 1e10;
+        uint256 finalPrice = usdPerDustPrice18 / 1e10;
 
         // Final bounds check
         if (finalPrice >= minReasonablePrice && finalPrice <= maxReasonablePrice) {
@@ -526,9 +526,9 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     }
 
     /**
-     * @notice Get DUST/<PAIR> price from Uniswap pool or oracle
+     * @notice Get <PAIR> per DUST price from Uniswap pool or oracle
      * @dev Tries Uniswap V4 pool first, falls back to V3, V2, then Chainlink oracle
-     * @return price Price in 18 decimals (DUST per PAIR token)
+     * @return price Price in 18 decimals (PAIR tokens per 1 DUST)
      * @return success Whether price was successfully retrieved
      */
     function _getDustPairPrice() internal view returns (uint256 price, bool success) {
@@ -556,7 +556,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /**
      * @notice Get price from Uniswap V4 pool using StateLibrary
-     * @return price Price in 18 decimals (DUST per PAIR token)
+     * @return price Price in 18 decimals (PAIR tokens per 1 DUST)
      * @return success Whether price was successfully retrieved
      */
     function _getUniswapV4Price() internal view returns (uint256 price, bool success) {
@@ -648,15 +648,15 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
                 price18 = (shifted * 1e18) / (10 ** (decimals1 - decimals0));
             }
 
-            // Handle token ordering
+            // Handle token ordering - always return PAIR per DUST
             if (token0 == dustAddr) {
-                // Pool is DUST/<PAIR>, price18 = <PAIR> per DUST in 18 decimals
-                // We want DUST per <PAIR>, so invert
+                // Pool is DUST/<PAIR>, price18 = <PAIR> per DUST
+                price = price18;
+            } else if (token1 == dustAddr) {
+                // Pool is <PAIR>/DUST, price18 = DUST per <PAIR>
+                // Invert to get <PAIR> per DUST
                 if (price18 == 0) return (0, false);
                 price = (1e18 * 1e18) / price18;
-            } else if (token1 == dustAddr) {
-                // Pool is <PAIR>/DUST, price18 = DUST per <PAIR> in 18 decimals
-                price = price18;
             } else {
                 // DUST not in pool
                 return (0, false);
@@ -680,14 +680,13 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
             address token1 = IUniswapV2Pair(dustPair).token1();
             address dustAddr = address(dustToken);
 
-            // Calculate price based on reserves
+            // Calculate price based on reserves - always return PAIR per DUST
             if (token0 == dustAddr) {
-                // Pool is DUST/<PAIR>: price = reserve1 / reserve0 (<PAIR> per DUST)
-                // We want DUST per <PAIR>, so invert
-                price = (uint256(reserve0) * 1e18) / uint256(reserve1);
-            } else if (token1 == dustAddr) {
-                // Pool is <PAIR>/DUST: price = reserve0 / reserve1 (DUST per <PAIR>)
+                // Pool is DUST/<PAIR>: return reserve1 / reserve0 = <PAIR> per DUST
                 price = (uint256(reserve1) * 1e18) / uint256(reserve0);
+            } else if (token1 == dustAddr) {
+                // Pool is <PAIR>/DUST: return reserve0 / reserve1 = <PAIR> per DUST
+                price = (uint256(reserve0) * 1e18) / uint256(reserve1);
             } else {
                 // DUST not in pool
                 return (0, false);
@@ -938,12 +937,12 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /// @inheritdoc INeverlandDustHelper
     function description() external pure override returns (string memory) {
-        return "DUST / MON";
+        return "DUST / USD";
     }
 
     /// @inheritdoc INeverlandDustHelper
     function version() external pure override returns (uint256) {
-        return 2;
+        return 10;
     }
 
     /// @notice Disabled to prevent accidental renouncement of ownership

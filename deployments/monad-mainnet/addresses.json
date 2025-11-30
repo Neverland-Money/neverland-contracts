@@ -22,6 +22,6 @@
     "RevenueReward": "0x1df0F25344D29F541a53502a96DfeD3066D40b0A"
   },
   "proxyAdmin": "0x6400650cED1eD7179143D40b4431c3cC8c068D90",
-  "NeverlandDustHelper": "0x7A634b66d43ad04E2D6780FFD031F8BB7327b258",
-  "NeverlandUiProvider": "0x2FfB9B6ba7FE23793c3a2Fdd18EcE88f73cE20a0"
+  "NeverlandDustHelper": "0x5c6559e7484e45efB16F477743996be2d488d7db",
+  "NeverlandUiProvider": "0x16F00522230f5CA84a7E3F6127a10eFC117af4e2"
 }

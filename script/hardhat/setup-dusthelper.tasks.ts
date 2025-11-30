@@ -16,6 +16,7 @@ interface SetupConfig {
     poolId: string;
     isDustToken0: boolean;
   };
+  removeV4?: boolean;
 }
 
 /**
@@ -139,6 +140,11 @@ async function promptSetupConfig(
         name: "v4-pool",
         message: "Uniswap V4 pool (direct DUST/<PAIR> price from V4)",
         value: "v4-pool",
+      },
+      {
+        name: "remove-v4",
+        message: "🗑️  Remove V4 pool configuration",
+        value: "remove-v4",
       },
       {
         name: "custom",
@@ -340,6 +346,14 @@ async function promptSetupConfig(
       },
     });
     config.pairOracle = pairOracle.pairOracle;
+  } else if (setupType.setupType === "remove-v4") {
+    console.log(chalk.cyan("\n🗑️  Remove V4 pool configuration"));
+    console.log(
+      chalk.gray(
+        "   This will clear V4 pool settings and fall back to V3/V2/Chainlink/hardcoded price\n"
+      )
+    );
+    config.removeV4 = true;
   } else {
     // custom
     console.log(chalk.cyan("\n💡 Custom setup"));
@@ -408,7 +422,9 @@ function displaySetupSummary(config: SetupConfig) {
     console.log(chalk.gray(`pairOracle:          [not set]`));
   }
 
-  if (config.v4Pool) {
+  if (config.removeV4) {
+    console.log(chalk.yellow(`\n🗑️  V4 Pool: [will be removed]`));
+  } else if (config.v4Pool) {
     console.log(chalk.gray(`\nV4 Pool Configuration:`));
     console.log(
       chalk.gray(`  poolManager:       ${config.v4Pool.poolManager}`)
@@ -422,7 +438,15 @@ function displaySetupSummary(config: SetupConfig) {
   console.log();
 
   // Explain the configuration
-  if (config.v4Pool) {
+  if (config.removeV4) {
+    console.log(chalk.cyan("📊 Configuration: Remove V4 pool"));
+    console.log(chalk.gray("   → V4 pool configuration will be cleared"));
+    console.log(
+      chalk.gray(
+        "   → Will fall back to V3/V2/Chainlink oracles or hardcoded price"
+      )
+    );
+  } else if (config.v4Pool) {
     console.log(chalk.cyan("📊 Configuration: Uniswap V4 pool"));
     console.log(
       chalk.gray(
@@ -490,6 +514,15 @@ async function executeSetup(
     console.log(chalk.gray(`  Transaction: ${tx2.hash}`));
     await tx2.wait();
     console.log(chalk.green("  ✓ pairOracle set"));
+  }
+
+  // Remove V4 pool if requested
+  if (config.removeV4) {
+    console.log(chalk.cyan(`\nRemoving V4 pool configuration...`));
+    const tx3 = await helper.removeV4Pool();
+    console.log(chalk.gray(`  Transaction: ${tx3.hash}`));
+    await tx3.wait();
+    console.log(chalk.green("  ✓ V4 pool removed"));
   }
 
   // Set V4 pool if provided
