@@ -496,23 +496,23 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
         // Case 1: Direct DUST/USD oracle (no pairOracle needed)
         if (pairOracle == address(0)) {
-            // dustPair is assumed to return USD/DUST directly
+            // dustPair returns USD/DUST directly (no inversion needed)
             bool dustUsdSuccess;
-            (usdPerDustPrice18, dustUsdSuccess) = _getDustPairPrice();
+            (usdPerDustPrice18, dustUsdSuccess) = _getDustUsdPrice();
             if (!dustUsdSuccess) return (hardcodedPrice, false);
         } else {
-            // Case 2: Two-step conversion via <PAIR>/DUST and <PAIR>/USD
-            // Get <PAIR> per DUST price from pool or oracle
-            (uint256 pairPerDustPrice, bool dustPairSuccess) = _getDustPairPrice();
+            // Case 2: Two-step conversion via DUST/<PAIR> and <PAIR>/USD
+            // Get DUST per <PAIR> price from pool or oracle
+            (uint256 dustPerPairPrice, bool dustPairSuccess) = _getDustPairPrice();
             if (!dustPairSuccess) return (hardcodedPrice, false);
 
             // Get USD per <PAIR> price from oracle
             (uint256 usdPerPairPrice, bool pairUsdSuccess) = _getPairUsdPrice();
             if (!pairUsdSuccess) return (hardcodedPrice, false);
 
-            // Calculate USD/DUST = (<PAIR>/DUST) * (USD/<PAIR>)
+            // Calculate USD/DUST = (DUST/<PAIR>) * (USD/<PAIR>)
             // Both prices are in 18 decimals, result is 36 decimals, divide by 1e18
-            usdPerDustPrice18 = (pairPerDustPrice * usdPerPairPrice) / 1e18;
+            usdPerDustPrice18 = (dustPerPairPrice * usdPerPairPrice) / 1e18;
         }
 
         // Convert to 8 decimals
@@ -526,9 +526,9 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
     }
 
     /**
-     * @notice Get <PAIR> per DUST price from Uniswap pool or oracle
+     * @notice Get DUST per <PAIR> price from Uniswap pool or oracle
      * @dev Tries Uniswap V4 pool first, falls back to V3, V2, then Chainlink oracle
-     * @return price Price in 18 decimals (PAIR tokens per 1 DUST)
+     * @return price Price in 18 decimals (DUST tokens per 1 PAIR)
      * @return success Whether price was successfully retrieved
      */
     function _getDustPairPrice() internal view returns (uint256 price, bool success) {
@@ -556,7 +556,7 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
 
     /**
      * @notice Get price from Uniswap V4 pool using StateLibrary
-     * @return price Price in 18 decimals (PAIR tokens per 1 DUST)
+     * @return price Price in 18 decimals (DUST tokens per 1 PAIR)
      * @return success Whether price was successfully retrieved
      */
     function _getUniswapV4Price() internal view returns (uint256 price, bool success) {
@@ -577,12 +577,12 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
         uint256 numerator = uint256(sqrtPriceX96) * uint256(sqrtPriceX96) * 1e18;
         uint256 price18 = numerator >> 192;
 
-        // Invert if DUST is token1 to get PAIR per DUST
+        // Invert if DUST is token0 to get DUST per PAIR
         if (v4IsDustToken0) {
-            price = price18;
-        } else {
             if (price18 == 0) return (0, false);
             price = (1e18 * 1e18) / price18;
+        } else {
+            price = price18;
         }
 
         if (price == 0) return (0, false);
@@ -648,15 +648,15 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
                 price18 = (shifted * 1e18) / (10 ** (decimals1 - decimals0));
             }
 
-            // Handle token ordering - always return PAIR per DUST
+            // Handle token ordering - always return DUST per PAIR
             if (token0 == dustAddr) {
                 // Pool is DUST/<PAIR>, price18 = <PAIR> per DUST
-                price = price18;
-            } else if (token1 == dustAddr) {
-                // Pool is <PAIR>/DUST, price18 = DUST per <PAIR>
-                // Invert to get <PAIR> per DUST
+                // Invert to get DUST per <PAIR>
                 if (price18 == 0) return (0, false);
                 price = (1e18 * 1e18) / price18;
+            } else if (token1 == dustAddr) {
+                // Pool is <PAIR>/DUST, price18 = DUST per <PAIR>
+                price = price18;
             } else {
                 // DUST not in pool
                 return (0, false);
@@ -680,13 +680,13 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
             address token1 = IUniswapV2Pair(dustPair).token1();
             address dustAddr = address(dustToken);
 
-            // Calculate price based on reserves - always return PAIR per DUST
+            // Calculate price based on reserves - always return DUST per PAIR
             if (token0 == dustAddr) {
-                // Pool is DUST/<PAIR>: return reserve1 / reserve0 = <PAIR> per DUST
-                price = (uint256(reserve1) * 1e18) / uint256(reserve0);
-            } else if (token1 == dustAddr) {
-                // Pool is <PAIR>/DUST: return reserve0 / reserve1 = <PAIR> per DUST
+                // Pool is DUST/<PAIR>: return reserve0 / reserve1 = DUST per <PAIR>
                 price = (uint256(reserve0) * 1e18) / uint256(reserve1);
+            } else if (token1 == dustAddr) {
+                // Pool is <PAIR>/DUST: return reserve1 / reserve0 = DUST per <PAIR>
+                price = (uint256(reserve1) * 1e18) / uint256(reserve0);
             } else {
                 // DUST not in pool
                 return (0, false);
@@ -725,16 +725,16 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
                     address dustAddr = address(dustToken);
 
                     // Handle token ordering
-                    // Oracle returns price as token0/token1
-                    if (token1 == dustAddr) {
+                    // Oracle returns price based on token pair
+                    if (token0 == dustAddr) {
+                        // token0=DUST, token1=<PAIR>: oracle returns DUST/<PAIR>
+                        // Already correct
+                        price = price18;
+                    } else if (token1 == dustAddr) {
                         // token0=<PAIR>, token1=DUST: oracle returns <PAIR>/DUST
                         // We want DUST/<PAIR>, so invert
                         if (price18 == 0) return (0, false);
                         price = (1e18 * 1e18) / price18;
-                    } else if (token0 == dustAddr) {
-                        // token0=DUST, token1=<PAIR>: oracle returns DUST/<PAIR>
-                        // Already correct
-                        price = price18;
                     } else {
                         // DUST not in oracle pair, assume oracle returns DUST/<PAIR>
                         price = price18;
@@ -748,6 +748,65 @@ contract NeverlandDustHelper is INeverlandDustHelper, Ownable {
             } catch {
                 // token0() not available (standard Chainlink oracle)
                 // Assume oracle returns DUST/<PAIR>
+                price = price18;
+                return (price, true);
+            }
+        } catch {
+            return (0, false);
+        }
+    }
+
+    /**
+     * @notice Get USD per DUST price from direct DUST/USD oracle
+     * @dev Used when no pairOracle is set (direct DUST/USD feed)
+     * @return price Price in 18 decimals (USD per DUST)
+     * @return success Whether price was successfully retrieved
+     */
+    function _getDustUsdPrice() internal view returns (uint256 price, bool success) {
+        try IChainlinkAggregator(dustPair).latestRoundData() returns (uint80, int256 answer, uint256, uint256, uint80) {
+            if (answer <= 0) return (0, false);
+
+            uint256 rawPrice = uint256(answer);
+            uint8 decimalsOracle = IChainlinkAggregator(dustPair).decimals();
+
+            // Normalize to 18 decimals
+            uint256 price18;
+            if (decimalsOracle == 18) {
+                price18 = rawPrice;
+            } else if (decimalsOracle < 18) {
+                price18 = rawPrice * (10 ** (18 - decimalsOracle));
+            } else {
+                price18 = rawPrice / (10 ** (decimalsOracle - 18));
+            }
+
+            // Try to detect token ordering if oracle exposes token0/token1
+            try IChainlinkAggregator(dustPair).token0() returns (address token0) {
+                try IChainlinkAggregator(dustPair).token1() returns (address token1) {
+                    address dustAddr = address(dustToken);
+
+                    // For direct DUST/USD, interpret as USD per DUST
+                    if (token0 == dustAddr) {
+                        // token0=DUST, token1=USD: oracle returns USD/DUST
+                        // Already correct
+                        price = price18;
+                    } else if (token1 == dustAddr) {
+                        // token0=USD, token1=DUST: oracle returns DUST/USD
+                        // We want USD/DUST, so invert
+                        if (price18 == 0) return (0, false);
+                        price = (1e18 * 1e18) / price18;
+                    } else {
+                        // DUST not in oracle pair, assume oracle returns USD/DUST
+                        price = price18;
+                    }
+                    return (price, true);
+                } catch {
+                    // token1() failed, assume oracle returns USD/DUST
+                    price = price18;
+                    return (price, true);
+                }
+            } catch {
+                // token0() not available (standard Chainlink oracle)
+                // Assume oracle returns USD/DUST
                 price = price18;
                 return (price, true);
             }
