@@ -37,7 +37,7 @@ Neverland Protocol is a next-generation decentralized lending platform that comb
 
 ## Prerequisites
 
-- [Foundry](https://book.getfoundry.sh/getting-started/installation) (1.4.4-stable)
+- [Foundry](https://book.getfoundry.sh/getting-started/installation) (1.5.0-stable)
 - [Node.js](https://nodejs.org/) (v16 or later)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 
