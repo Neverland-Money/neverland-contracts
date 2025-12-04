@@ -1,0 +1,13 @@
+{
+  "address": "0xd936A70bD854A88c4b0D7fb21091EBc6209b13e2",
+  "constructorArgs": [
+    "0x0000B06460777398083CB501793a4d6393900000",
+    "1000",
+    "9000"
+  ],
+  "metadata": {
+    "deployer": "0x0000B06460777398083CB501793a4d6393900000",
+    "timestamp": 1764786983666,
+    "chainId": 143
+  }
+}
