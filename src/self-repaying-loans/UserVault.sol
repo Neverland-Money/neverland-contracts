@@ -78,8 +78,6 @@ contract UserVault is IUserVault, Initializable {
         );
 
         repayDebt(params.poolAddressesProvider, params.debtToken, debtTokenSwapAmount);
-
-        emit LoanSelfRepaid(user, address(this), params.poolAddressesProvider, params.debtToken, debtTokenSwapAmount);
     }
 
     /// @inheritdoc IUserVault
@@ -152,6 +150,8 @@ contract UserVault is IUserVault, Initializable {
         IERC20(debtToken).safeApprove(poolAddress, amount);
         IPool(poolAddress).repay(debtToken, amount, 2, user);
         IERC20(debtToken).safeApprove(poolAddress, 0);
+
+        emit LoanSelfRepaid(user, address(this), poolAddressesProvider, debtToken, amount);
     }
 
     /// @inheritdoc IUserVault
